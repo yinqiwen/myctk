@@ -1,2 +1,0 @@
-# coroxx
-C++ coroutine library
