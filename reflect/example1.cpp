@@ -1,15 +1,8 @@
-# expr_struct
-用于字符串expr表达形式快速访问c++ struct成员变量，支持多层结构嵌套（指针和非指针）
-
-## Example
-
-### Single Struct
-```cpp
 #include "expr_struct.h"
 using namespace expr_struct;
 DEFINE_EXPR_STRUCT(Item1, (double)score, (std::string)id, (int32_t)vv)
 void test1() {
-  Item1::Init();  //全局可只用调一次
+  Item1::Init();  // root class init, 只用调一次, 可以重复调用
   std::vector<std::string> names = {"id"};
   std::vector<expr_struct::FieldAccessor> accessors;
   Item1::GetFieldAccessors(names, accessors);  // get access functions
@@ -21,16 +14,11 @@ void test1() {
     printf("id=%s\n", v.c_str());
   }
 }
-```
 
-### Nested Struct Pointer 
-```cpp
-#include "expr_struct.h"
-using namespace expr_struct;
 DEFINE_EXPR_STRUCT(SubItem2, (double)score, (std::string)id)
 DEFINE_EXPR_STRUCT(Item2, (double)score, (std::string)id, (int32_t)vv, (SubItem2*)sub)
 void test2() {
-  Item2::Init();  //全局可只用调一次
+  Item2::Init();  // root class init, 只用调一次, 可以重复调用
   std::vector<std::string> names = {"sub", "score"};
   std::vector<expr_struct::FieldAccessor> accessors;
   Item2::GetFieldAccessors(names, accessors);  // get access functions
@@ -43,16 +31,11 @@ void test2() {
     printf("sub2.score=%.2f\n", v);
   }
 }
-```
 
-### Nested Struct Object 
-```cpp
-#include "expr_struct.h"
-using namespace expr_struct;
 DEFINE_EXPR_STRUCT(SubItem3, (double)score, (std::string)id)
 DEFINE_EXPR_STRUCT(Item3, (double)score, (std::string)id, (int32_t)vv, (SubItem3)sub)
 void test3() {
-  Item3::Init();  //全局可只用调一次
+  Item3::Init();  // root class init, 只用调一次, 可以重复调用
   std::vector<std::string> names = {"sub", "score"};
   std::vector<expr_struct::FieldAccessor> accessors;
   Item3::GetFieldAccessors(names, accessors);  // get access functions
@@ -64,5 +47,10 @@ void test3() {
     printf("sub3.score=%.2f\n", v);
   }
 }
-```
 
+int main() {
+  test1();
+  test2();
+  test3();
+  return 0;
+}
