@@ -77,7 +77,7 @@ void* FieldValueUnion::Get() {
 }
 typedef FieldValueUnion FieldValue;
 template <typename T, typename R>
-inline T GetVariantValue(R& v) {
+inline T GetValue(R& v) {
   // return std::get<T>(v);
   return v.template Get<T>();
 }
@@ -113,10 +113,18 @@ struct FieldAccessorTable
         using R = typename std::remove_pointer<T>::type;                                           \
         R::Init();                                                                                 \
         expr_struct::FieldAccessorTable value = R::GetFieldAccessorTable();                        \
-        auto field_accessor = [](void* v) -> expr_struct::FieldValue {                             \
-          __CurrentDataType* vv = (__CurrentDataType*)v;                                           \
-          return vv->STRIP(arg);                                                                   \
-        };                                                                                         \
+        expr_struct::FieldAccessor field_accessor;                                                 \
+        if constexpr (std::is_pointer<T>::value) {                                                 \
+          field_accessor = [](void* v) -> expr_struct::FieldValue {                                \
+            __CurrentDataType* vv = (__CurrentDataType*)v;                                         \
+            return vv->STRIP(arg);                                                                 \
+          };                                                                                       \
+        } else {                                                                                   \
+          field_accessor = [](void* v) -> expr_struct::FieldValue {                                \
+            __CurrentDataType* vv = (__CurrentDataType*)v;                                         \
+            return &(vv->STRIP(arg));                                                              \
+          };                                                                                       \
+        }                                                                                          \
         accessors[STRING(STRIP(arg))] =                                                            \
             std::pair<expr_struct::FieldAccessor, expr_struct::FieldAccessorTable>(field_accessor, \
                                                                                    value);         \
@@ -178,7 +186,7 @@ struct FieldAccessorTable
           return val;                                                                           \
         } else {                                                                                \
           try {                                                                                 \
-            void* data = GetVariantValue<void*, expr_struct::FieldValue>(val);                  \
+            void* data = expr_struct::GetValue<void*, expr_struct::FieldValue>(val);            \
             obj = data;                                                                         \
             if (nullptr == obj) {                                                               \
               break;                                                                            \

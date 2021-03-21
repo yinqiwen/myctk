@@ -27,7 +27,8 @@ std::vector<std::string> split_string(const std::string& str) {
 }
 DEFINE_EXPR_STRUCT(SubUser, (int32_t)age, (std::string)id)
 DEFINE_EXPR_STRUCT(User, (double)score, (std::string)id, (SubUser*)sub)
-DEFINE_EXPR_STRUCT(Item, (double)score, (std::string)id)
+DEFINE_EXPR_STRUCT(SubItem, (int64_t)uv, (std::string)id)
+DEFINE_EXPR_STRUCT(Item, (double)score, (std::string)id, (SubItem)sub)
 DEFINE_EXPR_STRUCT(Combine, (User*)user, (Item*)item, (double)score, (std::string)name)
 
 int64_t loop_count = 1000000;
@@ -41,7 +42,7 @@ double benchReflect(Combine& c) {
   for (int i = 0; i < loop_count; i++) {
     auto val = c.GetFieldValue(accessors);  // eval by root object
     try {
-      double v = GetVariantValue<double, FieldValue>(val);
+      double v = GetValue<double, FieldValue>(val);
       ret = v;
     } catch (const std::bad_variant_access& e) {
       printf("###error:%s\n", e.what());
@@ -94,7 +95,8 @@ int main() {
   */
   SubUser su = {101, "random"};
   User user = {1.2, "uid123", &su};
-  Item item = {3.14, "item100"};
+  SubItem si = {123456789, "subitem"};
+  Item item = {3.14, "item100", {123456789, "subitem"}};
   Combine c = {&user, &item, 100.2, "combine"};
 
   /*
@@ -102,7 +104,7 @@ int main() {
   */
   auto val = c.GetFieldValue(accessors);
   try {
-    double v = GetVariantValue<double, FieldValue>(val);
+    double v = GetValue<double, FieldValue>(val);
     printf("user.score = %.2f\n", v);
   } catch (const std::bad_variant_access& e) {
     printf("###error:%s\n", e.what());
@@ -113,7 +115,7 @@ int main() {
   Combine::GetFieldAccessors(names, accessors);  // get access functions
   val = c.GetFieldValue(accessors);              // eval by root object
   try {
-    std::string v = GetVariantValue<std::string, FieldValue>(val);
+    std::string v = GetValue<std::string, FieldValue>(val);
     printf("user.id = %s\n", v.c_str());
   } catch (const std::bad_variant_access& e) {
     printf("###error:%s\n", e.what());
@@ -124,7 +126,7 @@ int main() {
   Combine::GetFieldAccessors(names, accessors);  // get access functions
   val = c.GetFieldValue(accessors);              // eval by root object
   try {
-    double v = GetVariantValue<double, FieldValue>(val);
+    double v = GetValue<double, FieldValue>(val);
     printf("item.score = %.2f\n", v);
   } catch (const std::bad_variant_access& e) {
     printf("###error:%s\n", e.what());
@@ -135,7 +137,7 @@ int main() {
   Combine::GetFieldAccessors(names, accessors);  // get access functions
   val = c.GetFieldValue(accessors);              // eval by root object
   try {
-    std::string v = GetVariantValue<std::string, FieldValue>(val);
+    std::string v = GetValue<std::string, FieldValue>(val);
     printf("item.id = %s\n", v.c_str());
   } catch (const std::bad_variant_access& e) {
     printf("###error:%s\n", e.what());
@@ -146,7 +148,7 @@ int main() {
   Combine::GetFieldAccessors(names, accessors);  // get access functions
   val = c.GetFieldValue(accessors);              // eval by root object
   try {
-    double v = GetVariantValue<double, FieldValue>(val);
+    double v = GetValue<double, FieldValue>(val);
     printf("score = %.2f\n", v);
   } catch (const std::bad_variant_access& e) {
     printf("###error:%s\n", e.what());
@@ -157,7 +159,7 @@ int main() {
   Combine::GetFieldAccessors(names, accessors);  // get access functions
   val = c.GetFieldValue(accessors);              // eval by root object
   try {
-    std::string v = GetVariantValue<std::string, FieldValue>(val);
+    std::string v = GetValue<std::string, FieldValue>(val);
     printf("name = %s\n", v.c_str());
   } catch (const std::bad_variant_access& e) {
     printf("###error:%s\n", e.what());
@@ -168,8 +170,19 @@ int main() {
   Combine::GetFieldAccessors(names, accessors);  // get access functions
   val = c.GetFieldValue(accessors);              // eval by root object
   try {
-    int32_t v = GetVariantValue<int32_t, FieldValue>(val);
+    int32_t v = GetValue<int32_t, FieldValue>(val);
     printf("user.sub.age = %d\n", v);
+  } catch (const std::bad_variant_access& e) {
+    printf("###error:%s\n", e.what());
+    return -1;
+  }
+
+  names = split_string("item.sub.uv");
+  Combine::GetFieldAccessors(names, accessors);  // get access functions
+  val = c.GetFieldValue(accessors);              // eval by root object
+  try {
+    int64_t v = GetValue<int64_t, FieldValue>(val);
+    printf("item.sub.uv = %d\n", v);
   } catch (const std::bad_variant_access& e) {
     printf("###error:%s\n", e.what());
     return -1;
