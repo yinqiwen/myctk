@@ -2,8 +2,6 @@
 // Authors: yinqiwen (yinqiwen@gmail.com)
 #pragma once
 
-#pragma once
-
 #include <stdint.h>
 #include <stdio.h>
 #include <functional>
@@ -17,69 +15,75 @@
 
 namespace expr_struct {
 
-typedef std::variant<bool, char, int16_t, int32_t, int64_t, float, double, std::string, void*>
+typedef std::variant<bool, char, uint8_t, int16_t, uint16_t, int32_t, uint32_t, int64_t, uint64_t,
+                     float, double, std::string, void*>
     FieldValueVariant;
 
-union FieldValueUnion {
-  bool bv;
-  char cv;
-  int16_t i16;
-  int32_t i32;
-  int64_t i64;
-  float fv;
-  double dv;
-  const char* sv;
-  void* data;
-  inline FieldValueUnion() : data(nullptr) {}
-  inline FieldValueUnion(bool v) : bv(v) {}
-  inline FieldValueUnion(char v) : cv(v) {}
-  inline FieldValueUnion(int16_t v) : i16(v) {}
-  inline FieldValueUnion(int32_t v) : i32(v) {}
-  inline FieldValueUnion(int64_t v) : i64(v) {}
-  inline FieldValueUnion(float v) : fv(v) {}
-  inline FieldValueUnion(double v) : dv(v) {}
-  inline FieldValueUnion(const std::string& v) : sv(v.c_str()) {}
-  inline FieldValueUnion(void* v) : data(v) {}
+// union FieldValueUnion {
+//   bool bv;
+//   char cv;
+//   int16_t i16;
+//   int32_t i32;
+//   int64_t i64;
+//   float fv;
+//   double dv;
+//   const char* sv;
+//   void* data;
+//   inline FieldValueUnion() : data(nullptr) {}
+//   inline FieldValueUnion(bool v) : bv(v) {}
+//   inline FieldValueUnion(char v) : cv(v) {}
+//   inline FieldValueUnion(int16_t v) : i16(v) {}
+//   inline FieldValueUnion(int32_t v) : i32(v) {}
+//   inline FieldValueUnion(int64_t v) : i64(v) {}
+//   inline FieldValueUnion(float v) : fv(v) {}
+//   inline FieldValueUnion(double v) : dv(v) {}
+//   inline FieldValueUnion(const std::string& v) : sv(v.c_str()) {}
+//   inline FieldValueUnion(void* v) : data(v) {}
 
-  template <typename T>
-  T Get() {
-    return (T)data;
-  }
-};
+//   template <typename T>
+//   T Get() {
+//     return (T)data;
+//   }
+// };
 
-template <>
-double FieldValueUnion::Get() {
-  return dv;
-}
-template <>
-float FieldValueUnion::Get() {
-  return fv;
-}
-template <>
-int16_t FieldValueUnion::Get() {
-  return i16;
-}
-template <>
-int32_t FieldValueUnion::Get() {
-  return i32;
-}
-template <>
-int64_t FieldValueUnion::Get() {
-  return i64;
-}
-template <>
-std::string FieldValueUnion::Get() {
-  return sv;
-}
-template <>
-void* FieldValueUnion::Get() {
-  return data;
-}
-typedef FieldValueUnion FieldValue;
+// template <>
+// double FieldValueUnion::Get() {
+//   return dv;
+// }
+// template <>
+// float FieldValueUnion::Get() {
+//   return fv;
+// }
+// template <>
+// int16_t FieldValueUnion::Get() {
+//   return i16;
+// }
+// template <>
+// int32_t FieldValueUnion::Get() {
+//   return i32;
+// }
+// template <>
+// int64_t FieldValueUnion::Get() {
+//   return i64;
+// }
+// template <>
+// std::string FieldValueUnion::Get() {
+//   return sv;
+// }
+// template <>
+// void* FieldValueUnion::Get() {
+//   return data;
+// }
+// typedef FieldValueUnion FieldValue;
+// template <typename T, typename R>
+// inline T GetValue(R& v) {
+//   return v.template Get<T>();
+// }
+
+typedef FieldValueVariant FieldValue;
 template <typename T, typename R>
 inline T GetValue(R& v) {
-  // return std::get<T>(v);
-  return v.template Get<T>();
+  return std::get<T>(v);
 }
 
 typedef std::function<FieldValue(void*)> FieldAccessor;
@@ -177,7 +181,7 @@ struct FieldAccessorTable
       return 0;                                                                                 \
     }                                                                                           \
     inline expr_struct::FieldValue GetFieldValue(                                               \
-        std::vector<expr_struct::FieldAccessor>& accessors) {                                   \
+        const std::vector<expr_struct::FieldAccessor>& accessors) {                             \
       void* obj = this;                                                                         \
       expr_struct::FieldValue empty;                                                            \
       for (size_t i = 0; i < accessors.size(); i++) {                                           \
