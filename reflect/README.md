@@ -9,7 +9,7 @@
 using namespace expr_struct;
 DEFINE_EXPR_STRUCT(Item1, (double)score, (std::string)id, (int32_t)vv)
 void test1() {
-  Item1::Init();  //全局可只用调一次
+  Item1::InitExpr();  //全局可只用调一次
   std::vector<std::string> names = {"id"};
   std::vector<expr_struct::FieldAccessor> accessors;
   Item1::GetFieldAccessors(names, accessors);  // get access functions
@@ -30,7 +30,7 @@ using namespace expr_struct;
 DEFINE_EXPR_STRUCT(SubItem2, (double)score, (std::string)id)
 DEFINE_EXPR_STRUCT(Item2, (double)score, (std::string)id, (int32_t)vv, (SubItem2*)sub)
 void test2() {
-  Item2::Init();  //全局可只用调一次
+  Item2::InitExpr();  //全局可只用调一次
   std::vector<std::string> names = {"sub", "score"};
   std::vector<expr_struct::FieldAccessor> accessors;
   Item2::GetFieldAccessors(names, accessors);  // get access functions
@@ -52,7 +52,7 @@ using namespace expr_struct;
 DEFINE_EXPR_STRUCT(SubItem3, (double)score, (std::string)id)
 DEFINE_EXPR_STRUCT(Item3, (double)score, (std::string)id, (int32_t)vv, (SubItem3)sub)
 void test3() {
-  Item3::Init();  //全局可只用调一次
+  Item3::InitExpr();  //全局可只用调一次
   std::vector<std::string> names = {"sub", "score"};
   std::vector<expr_struct::FieldAccessor> accessors;
   Item3::GetFieldAccessors(names, accessors);  // get access functions

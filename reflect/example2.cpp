@@ -81,7 +81,7 @@ int main() {
   /*
   **   root class init, need to be invoked before get field accessors
   */
-  Combine::Init();
+  Combine::InitExpr();
   /*
    **  get access functions by given field access expression,
    **  the functions can be reused later repeatedly
@@ -115,8 +115,8 @@ int main() {
   Combine::GetFieldAccessors(names, accessors);  // get access functions
   val = c.GetFieldValue(accessors);              // eval by root object
   try {
-    std::string v = GetValue<std::string, FieldValue>(val);
-    printf("user.id = %s\n", v.c_str());
+    std::string_view v = GetValue<std::string_view, FieldValue>(val);
+    printf("user.id = %s\n", v.data());
   } catch (const std::bad_variant_access& e) {
     printf("###error:%s\n", e.what());
     return -1;
@@ -137,8 +137,8 @@ int main() {
   Combine::GetFieldAccessors(names, accessors);  // get access functions
   val = c.GetFieldValue(accessors);              // eval by root object
   try {
-    std::string v = GetValue<std::string, FieldValue>(val);
-    printf("item.id = %s\n", v.c_str());
+    std::string_view v = GetValue<std::string_view, FieldValue>(val);
+    printf("item.id = %s\n", v.data());
   } catch (const std::bad_variant_access& e) {
     printf("###error:%s\n", e.what());
     return -1;
@@ -159,8 +159,8 @@ int main() {
   Combine::GetFieldAccessors(names, accessors);  // get access functions
   val = c.GetFieldValue(accessors);              // eval by root object
   try {
-    std::string v = GetValue<std::string, FieldValue>(val);
-    printf("name = %s\n", v.c_str());
+    std::string_view v = GetValue<std::string_view, FieldValue>(val);
+    printf("name = %s\n", v.data());
   } catch (const std::bad_variant_access& e) {
     printf("###error:%s\n", e.what());
     return -1;

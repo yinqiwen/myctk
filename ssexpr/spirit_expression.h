@@ -28,7 +28,7 @@ struct Error {
   std::string reason;
   Error(int c = -1, const std::string& r = "unknown error") : code(c), reason(r) {}
 };
-typedef std::variant<Error, bool, int64_t, double, std::string> Value;
+typedef std::variant<Error, bool, int64_t, double, std::string_view> Value;
 typedef std::function<Value(const std::vector<Value>&)> ExprFunction;
 typedef std::function<std::vector<expr_struct::FieldAccessor>(const std::vector<std::string>&)>
     GetStructMemberAccessFunction;
@@ -41,7 +41,7 @@ struct ExprOptions {
 
   template <typename T>
   void Init() {
-    T::Init();
+    T::InitExpr();
     get_member_access = [](const std::vector<std::string>& names) {
       std::vector<expr_struct::FieldAccessor> accessors;
       T::GetFieldAccessors(names, accessors);
@@ -112,7 +112,7 @@ class SpiritExpression {
           break;
         }
         case 11: {
-          v = std::get<std::string>(field_val);
+          v = std::get<std::string_view>(field_val);
           break;
         }
         default: {

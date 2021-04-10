@@ -273,9 +273,7 @@ struct CalcVisitor {
                         std::is_same<decltype(right), const double&>::value)) ||
                       (std::is_same<decltype(left), const double&>::value &&
                        (std::is_same<decltype(right), const double&>::value ||
-                        std::is_same<decltype(right), const int64_t&>::value)) ||
-                      (std::is_same<decltype(left), const std::string&>::value &&
-                       std::is_same<decltype(right), const std::string&>::value)) {
+                        std::is_same<decltype(right), const int64_t&>::value))) {
           result = (left + right);
           break;
         }
@@ -321,8 +319,8 @@ struct CalcVisitor {
                       (std::is_same<decltype(left), const double&>::value &&
                        (std::is_same<decltype(right), const double&>::value ||
                         std::is_same<decltype(right), const int64_t&>::value)) ||
-                      (std::is_same<decltype(left), const std::string&>::value &&
-                       std::is_same<decltype(right), const std::string&>::value)) {
+                      (std::is_same<decltype(left), const std::string_view&>::value &&
+                       std::is_same<decltype(right), const std::string_view&>::value)) {
           result = (left == right);
           break;
         }
@@ -334,8 +332,8 @@ struct CalcVisitor {
                       (std::is_same<decltype(left), const double&>::value &&
                        (std::is_same<decltype(right), const double&>::value ||
                         std::is_same<decltype(right), const int64_t&>::value)) ||
-                      (std::is_same<decltype(left), const std::string&>::value &&
-                       std::is_same<decltype(right), const std::string&>::value)) {
+                      (std::is_same<decltype(left), const std::string_view&>::value &&
+                       std::is_same<decltype(right), const std::string_view&>::value)) {
           result = (left != right);
           break;
         }
@@ -347,8 +345,8 @@ struct CalcVisitor {
                       (std::is_same<decltype(left), const double&>::value &&
                        (std::is_same<decltype(right), const double&>::value ||
                         std::is_same<decltype(right), const int64_t&>::value)) ||
-                      (std::is_same<decltype(left), const std::string&>::value &&
-                       std::is_same<decltype(right), const std::string&>::value)) {
+                      (std::is_same<decltype(left), const std::string_view&>::value &&
+                       std::is_same<decltype(right), const std::string_view&>::value)) {
           result = (left < right);
           break;
         }
@@ -360,8 +358,8 @@ struct CalcVisitor {
                       (std::is_same<decltype(left), const double&>::value &&
                        (std::is_same<decltype(right), const double&>::value ||
                         std::is_same<decltype(right), const int64_t&>::value)) ||
-                      (std::is_same<decltype(left), const std::string&>::value &&
-                       std::is_same<decltype(right), const std::string&>::value)) {
+                      (std::is_same<decltype(left), const std::string_view&>::value &&
+                       std::is_same<decltype(right), const std::string_view&>::value)) {
           result = (left <= right);
         }
 
@@ -374,8 +372,8 @@ struct CalcVisitor {
                       (std::is_same<decltype(left), const double&>::value &&
                        (std::is_same<decltype(right), const double&>::value ||
                         std::is_same<decltype(right), const int64_t&>::value)) ||
-                      (std::is_same<decltype(left), const std::string&>::value &&
-                       std::is_same<decltype(right), const std::string&>::value)) {
+                      (std::is_same<decltype(left), const std::string_view&>::value &&
+                       std::is_same<decltype(right), const std::string_view&>::value)) {
           result = (left > right);
           break;
         }
@@ -387,8 +385,8 @@ struct CalcVisitor {
                       (std::is_same<decltype(left), const double&>::value &&
                        (std::is_same<decltype(right), const double&>::value ||
                         std::is_same<decltype(right), const int64_t&>::value)) ||
-                      (std::is_same<decltype(left), const std::string&>::value &&
-                       std::is_same<decltype(right), const std::string&>::value)) {
+                      (std::is_same<decltype(left), const std::string_view&>::value &&
+                       std::is_same<decltype(right), const std::string_view&>::value)) {
           result = (left >= right);
           break;
         }
@@ -634,4 +632,3 @@ Value SpiritExpression::Eval(EvalContext& ctx) {
   return interpreter(*ast);
 }
 }  // namespace ssexpr
-

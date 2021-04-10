@@ -4,9 +4,11 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include <functional>
 #include <map>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <variant>
@@ -16,7 +18,7 @@
 namespace expr_struct {
 
 typedef std::variant<bool, char, uint8_t, int16_t, uint16_t, int32_t, uint32_t, int64_t, uint64_t,
-                     float, double, std::string, void*>
+                     float, double, std::string_view, const void*>
     FieldValueVariant;
 
 // union FieldValueUnion {
@@ -86,12 +88,71 @@ inline T GetValue(R& v) {
   return std::get<T>(v);
 }
 
-typedef std::function<FieldValue(void*)> FieldAccessor;
+typedef std::function<FieldValue(const void*)> FieldAccessor;
 
 struct FieldAccessorTable;
 struct FieldAccessorTable
     : public std::map<std::string,
                       std::variant<FieldAccessor, std::pair<FieldAccessor, FieldAccessorTable>>> {};
+
+inline expr_struct::FieldValue GetFieldValue(
+    const void* root, const std::vector<expr_struct::FieldAccessor>& accessors) {
+  const void* obj = root;
+  expr_struct::FieldValue empty;
+  for (size_t i = 0; i < accessors.size(); i++) {
+    auto val = accessors[i](obj);
+    if (i == accessors.size() - 1) {
+      return val;
+    } else {
+      try {
+        const void* data = expr_struct::GetValue<const void*, expr_struct::FieldValue>(val);
+        obj = data;
+        if (nullptr == obj) {
+          break;
+        }
+      } catch (const std::bad_variant_access&) {
+        break;
+      }
+    }
+  }
+  return empty;
+}
+
+template <typename T>
+int GetFieldAccessors(const std::vector<std::string>& names,
+                      std::vector<expr_struct::FieldAccessor>& accessors) {
+  accessors.clear();
+  expr_struct::FieldAccessorTable* table = &(T::GetFieldAccessorTable());
+  for (size_t i = 0; i < names.size(); i++) {
+    auto found = table->find(names[i]);
+    if (found == table->end()) {
+      return -1;
+    } else {
+      if (i == names.size() - 1) {
+        try {
+          expr_struct::FieldAccessor accessor = std::get<expr_struct::FieldAccessor>(found->second);
+          accessors.emplace_back(accessor);
+        } catch (const std::bad_variant_access&) {
+          return -1;
+        }
+      } else {
+        try {
+          std::pair<expr_struct::FieldAccessor, expr_struct::FieldAccessorTable>* accessor =
+              std::get_if<std::pair<expr_struct::FieldAccessor, expr_struct::FieldAccessorTable>>(
+                  &found->second);
+          if (nullptr == accessor) {
+            return -1;
+          }
+          accessors.emplace_back(accessor->first);
+          table = &(accessor->second);
+        } catch (const std::bad_variant_access&) {
+          return -1;
+        }
+      }
+    }
+  }
+  return 0;
+}
 }  // namespace expr_struct
 
 #define FIELD_EACH(N, i, arg)                                                                      \
@@ -100,33 +161,32 @@ struct FieldAccessorTable
   struct FieldInit<i, fake> {                                                                      \
     FieldInit(expr_struct::FieldAccessorTable& accessors) {                                        \
       __CurrentDataType* vv = nullptr;                                                             \
-      if constexpr (std::is_same<decltype(vv->STRIP(arg)), double>::value ||                       \
-                    std::is_same<decltype(vv->STRIP(arg)), float>::value ||                        \
-                    std::is_same<decltype(vv->STRIP(arg)), char>::value ||                         \
-                    std::is_same<decltype(vv->STRIP(arg)), int32_t>::value ||                      \
-                    std::is_same<decltype(vv->STRIP(arg)), int16_t>::value ||                      \
-                    std::is_same<decltype(vv->STRIP(arg)), int64_t>::value ||                      \
-                    std::is_same<decltype(vv->STRIP(arg)), bool>::value ||                         \
-                    std::is_same<decltype(vv->STRIP(arg)), std::string>::value) {                  \
-        accessors[STRING(STRIP(arg))] = [](void* v) -> expr_struct::FieldValue {                   \
-          __CurrentDataType* vv = (__CurrentDataType*)v;                                           \
-          return vv->STRIP(arg);                                                                   \
+      using DT = decltype(vv->STRIP(arg));                                                         \
+      if constexpr (std::is_same<DT, double>::value || std::is_same<DT, float>::value ||           \
+                    std::is_same<DT, char>::value || std::is_same<DT, uint8_t>::value ||           \
+                    std::is_same<DT, int32_t>::value || std::is_same<DT, uint32_t>::value ||       \
+                    std::is_same<DT, int16_t>::value || std::is_same<DT, uint16_t>::value ||       \
+                    std::is_same<DT, int64_t>::value || std::is_same<DT, uint64_t>::value ||       \
+                    std::is_same<DT, std::string_view>::value || std::is_same<DT, bool>::value ||  \
+                    std::is_same<DT, std::string>::value) {                                        \
+        accessors[STRING(STRIP(arg))] = [](const void* v) -> expr_struct::FieldValue {             \
+          const __CurrentDataType* data = (const __CurrentDataType*)v;                             \
+          return data->STRIP(arg);                                                                 \
         };                                                                                         \
       } else {                                                                                     \
-        using T = decltype(vv->STRIP(arg));                                                        \
-        using R = typename std::remove_pointer<T>::type;                                           \
-        R::Init();                                                                                 \
+        using R = typename std::remove_pointer<DT>::type;                                          \
+        R::InitExpr();                                                                             \
         expr_struct::FieldAccessorTable value = R::GetFieldAccessorTable();                        \
         expr_struct::FieldAccessor field_accessor;                                                 \
-        if constexpr (std::is_pointer<T>::value) {                                                 \
-          field_accessor = [](void* v) -> expr_struct::FieldValue {                                \
-            __CurrentDataType* vv = (__CurrentDataType*)v;                                         \
-            return vv->STRIP(arg);                                                                 \
+        if constexpr (std::is_pointer<DT>::value) {                                                \
+          field_accessor = [](const void* v) -> expr_struct::FieldValue {                          \
+            const __CurrentDataType* data = (const __CurrentDataType*)v;                           \
+            return data->STRIP(arg);                                                               \
           };                                                                                       \
         } else {                                                                                   \
-          field_accessor = [](void* v) -> expr_struct::FieldValue {                                \
-            __CurrentDataType* vv = (__CurrentDataType*)v;                                         \
-            return &(vv->STRIP(arg));                                                              \
+          field_accessor = [](const void* v) -> expr_struct::FieldValue {                          \
+            const __CurrentDataType* data = (const __CurrentDataType*)v;                           \
+            return &(data->STRIP(arg));                                                            \
           };                                                                                       \
         }                                                                                          \
         accessors[STRING(STRIP(arg))] =                                                            \
@@ -138,80 +198,33 @@ struct FieldAccessorTable
 
 #define FIELD_EACH_INIT(N, i, arg) static FieldInit<i, void> __init__##N(GetFieldAccessorTable());
 
-#define DEFINE_EXPR_STRUCT(st, ...)                                                             \
-  struct st {                                                                                   \
-    typedef st __CurrentDataType;                                                               \
-    template <int N, typename fake = void>                                                      \
-    struct FieldInit {};                                                                        \
-    static expr_struct::FieldAccessorTable& GetFieldAccessorTable() {                           \
-      static expr_struct::FieldAccessorTable accessors;                                         \
-      return accessors;                                                                         \
-    }                                                                                           \
-    static int GetFieldAccessors(const std::vector<std::string>& names,                         \
-                                 std::vector<expr_struct::FieldAccessor>& accessors) {          \
-      accessors.clear();                                                                        \
-      expr_struct::FieldAccessorTable table = GetFieldAccessorTable();                          \
-      for (size_t i = 0; i < names.size(); i++) {                                               \
-        auto found = table.find(names[i]);                                                      \
-        if (found == table.end()) {                                                             \
-          return -1;                                                                            \
-        } else {                                                                                \
-          if (i == names.size() - 1) {                                                          \
-            try {                                                                               \
-              expr_struct::FieldAccessor accessor =                                             \
-                  std::get<expr_struct::FieldAccessor>(found->second);                          \
-              accessors.emplace_back(accessor);                                                 \
-            } catch (const std::bad_variant_access&) {                                          \
-              return -1;                                                                        \
-            }                                                                                   \
-          } else {                                                                              \
-            try {                                                                               \
-              std::pair<expr_struct::FieldAccessor, expr_struct::FieldAccessorTable> accessor = \
-                  std::get<                                                                     \
-                      std::pair<expr_struct::FieldAccessor, expr_struct::FieldAccessorTable>>(  \
-                      found->second);                                                           \
-              accessors.emplace_back(accessor.first);                                           \
-              table = accessor.second;                                                          \
-            } catch (const std::bad_variant_access&) {                                          \
-              return -1;                                                                        \
-            }                                                                                   \
-          }                                                                                     \
-        }                                                                                       \
-      }                                                                                         \
-      return 0;                                                                                 \
-    }                                                                                           \
-    inline expr_struct::FieldValue GetFieldValue(                                               \
-        const std::vector<expr_struct::FieldAccessor>& accessors) {                             \
-      void* obj = this;                                                                         \
-      expr_struct::FieldValue empty;                                                            \
-      for (size_t i = 0; i < accessors.size(); i++) {                                           \
-        auto val = accessors[i](obj);                                                           \
-        if (i == accessors.size() - 1) {                                                        \
-          return val;                                                                           \
-        } else {                                                                                \
-          try {                                                                                 \
-            void* data = expr_struct::GetValue<void*, expr_struct::FieldValue>(val);            \
-            obj = data;                                                                         \
-            if (nullptr == obj) {                                                               \
-              break;                                                                            \
-            }                                                                                   \
-          } catch (const std::bad_variant_access&) {                                            \
-            break;                                                                              \
-          }                                                                                     \
-        }                                                                                       \
-      }                                                                                         \
-      return empty;                                                                             \
-    }                                                                                           \
-    static constexpr size_t _field_count_ = GET_ARG_COUNT(__VA_ARGS__);                         \
-    PASTE(REPEAT_, GET_ARG_COUNT(__VA_ARGS__))                                                  \
-    (FIELD_EACH, 0, __VA_ARGS__)                                                                \
-                                                                                                \
-        static void Init() {                                                                    \
-      static bool once = false;                                                                 \
-      if (once) {                                                                               \
-        return;                                                                                 \
-      }                                                                                         \
-      PASTE(REPEAT_, GET_ARG_COUNT(__VA_ARGS__))(FIELD_EACH_INIT, 0, __VA_ARGS__) once = true;  \
-      return;                                                                                   \
-    }                                                                                           \
+#define DEFINE_EXPR_STRUCT(st, ...)                                                            \
+  struct st {                                                                                  \
+    typedef st __CurrentDataType;                                                              \
+    template <int N, typename fake = void>                                                     \
+    struct FieldInit {};                                                                       \
+    static expr_struct::FieldAccessorTable& GetFieldAccessorTable() {                          \
+      static expr_struct::FieldAccessorTable accessors;                                        \
+      return accessors;                                                                        \
+    }                                                                                          \
+    static int GetFieldAccessors(const std::vector<std::string>& names,                        \
+                                 std::vector<expr_struct::FieldAccessor>& accessors) {         \
+      return expr_struct::GetFieldAccessors<st>(names, accessors);                             \
+    }                                                                                          \
+    inline expr_struct::FieldValue GetFieldValue(                                              \
+        const std::vector<expr_struct::FieldAccessor>& accessors) const {                      \
+      return expr_struct::GetFieldValue(this, accessors);                                      \
+    }                                                                                          \
+    static constexpr size_t _field_count_ = GET_ARG_COUNT(__VA_ARGS__);                        \
+    PASTE(REPEAT_, GET_ARG_COUNT(__VA_ARGS__))                                                 \
+    (FIELD_EACH, 0, __VA_ARGS__)                                                               \
+                                                                                               \
+        static void InitExpr() {                                                               \
+      static bool once = false;                                                                \
+      if (once) {                                                                              \
+        return;                                                                                \
+      }                                                                                        \
+      PASTE(REPEAT_, GET_ARG_COUNT(__VA_ARGS__))(FIELD_EACH_INIT, 0, __VA_ARGS__) once = true; \
+      return;                                                                                  \
+    }                                                                                          \
   };
