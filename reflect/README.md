@@ -2,7 +2,7 @@
 用于字符串expr表达形式快速访问c++ struct成员变量
 - 支持POD结构多层结构嵌套（指针和非指针）
 - 支持ProtoBuffers
-- 支持Flatbuffers（修改flatc）
+- 支持Flatbuffers
 
 ## Example
 
@@ -75,13 +75,13 @@ void test3() {
 #include "expr_protobuf.h"
 using namespace expr_struct;
 using namespace test_proto;
-DEFINE_PB_EXPR_HELPER(SubData, feedid, rank, score)
-DEFINE_PB_EXPR_HELPER(Data, id, model_id, unit)
+DEFINE_EXPR_STRUCT_HELPER(SubData, feedid, rank, score)
+DEFINE_EXPR_STRUCT_HELPER(Data, id, model_id, unit)
 void test_pb() {
-  ExprProtoHelper<Data>::InitExpr();
+  ExprStructHelper<Data>::InitExpr();
   std::vector<std::string> names = {"unit", "feedid"};
   std::vector<expr_struct::FieldAccessor> accessors;
-  ExprProtoHelper<Data>::GetFieldAccessors(names, accessors);
+  ExprStructHelper<Data>::GetFieldAccessors(names, accessors);
 
   Data test;
   test.mutable_unit()->set_feedid("name123");
@@ -96,13 +96,16 @@ void test_pb() {
 ### FlatBuffers 
 ```cpp
 #include "data_generated.h"
+#include "expr_struct_helper.h"
 using namespace expr_struct;
 using namespace test;
+DEFINE_EXPR_STRUCT_HELPER(SubData, id, iid, name, score)
+DEFINE_EXPR_STRUCT_HELPER(Data, name, score, unit)
 void test_fbs() {
-  Data::InitExpr();
+  ExprStructHelper<Data>::InitExpr();
   std::vector<std::string> names = {"unit", "id"};
   std::vector<expr_struct::FieldAccessor> accessors;
-  Data::GetFieldAccessors(names, accessors);
+  ExprStructHelper<Data>::GetFieldAccessors(names, accessors);
 
   DataT test;
   test.unit.reset(new SubDataT);
@@ -115,9 +118,15 @@ void test_fbs() {
   builder.Finish(offset);
   const Data* t = GetData(builder.GetBufferPointer());
 
-  auto val = t->GetFieldValue(accessors);
-  uint32_t v = GetValue<uint32_t, FieldValue>(val);
+  auto val = expr_struct::GetFieldValue(t, accessors);
+  uint32_t v = expr_struct::GetValue<uint32_t, FieldValue>(val);
   printf("%d\n", v);
+
+  names = {"unit", "name"};
+  ExprStructHelper<Data>::GetFieldAccessors(names, accessors);
+  val = expr_struct::GetFieldValue(t, accessors);
+  std::string_view sv = expr_struct::GetValue<std::string_view, FieldValue>(val);
+  printf("%s\n", sv.data());
 }
 ```
 
