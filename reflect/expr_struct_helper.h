@@ -59,7 +59,6 @@ struct ExprStructHelper {
       expr_struct::FieldAccessorTable value = ExprStructHelper<RR>::GetFieldAccessorTable();       \
       if constexpr (std::is_pointer<FIELD_TYPE>::value) {                                          \
         expr_struct::FieldAccessor field_accessor = [](const void* v) -> expr_struct::FieldValue { \
-          printf("###1\n");                                                                        \
           const PB_TYPE* data = (const PB_TYPE*)v;                                                 \
           FIELD_TYPE fv = data->arg();                                                             \
           return fv;                                                                               \
