@@ -28,6 +28,7 @@ struct GraphExecuteOptions {
 };
 
 class GraphContext;
+class GraphClusterContext;
 class VertexContext {
  private:
   GraphContext* _graph_ctx = nullptr;
@@ -37,7 +38,7 @@ class VertexContext {
   VertexResult _result;
   VertexErrCode _code;
   Processor* _processor = nullptr;
-  GraphContext* _subgraph = nullptr;
+  GraphClusterContext* _subgraph_cluster = nullptr;
   Params _params;
   std::unordered_map<std::string, Params> _select_params;
   typedef std::pair<DataKey, const GraphData*> FieldData;
@@ -69,47 +70,58 @@ struct Graph;
 struct GraphCluster;
 class GraphContext {
  private:
-  std::shared_ptr<GraphExecuteOptions> _exec_options;
-  std::shared_ptr<GraphCluster> _running_cluster;
+  GraphClusterContext* _cluster;
   Graph* _graph;
-  GraphContext* _parent;
   std::unordered_map<Vertex*, std::shared_ptr<VertexContext>> _vertex_context_table;
   std::atomic<uint32_t> _join_vertex_num;
-  GraphDataContext _data_ctx;
+  std::shared_ptr<GraphDataContext> _data_ctx;
   DoneClosure _done;
-  tbb::concurrent_queue<GraphContext*> _sub_graphs;
   std::vector<uint8_t> _config_setting_result;
   std::set<DataKey> _all_input_ids;
   std::set<DataKey> _all_output_ids;
 
  public:
   GraphContext();
+
   Graph* GetGraph() { return _graph; }
-  void SetRunningGraphCluster(std::shared_ptr<GraphCluster> c) { _running_cluster = c; }
   GraphCluster* GetGraphCluster();
-  void SetExecuteOptions(std::shared_ptr<GraphExecuteOptions> opt) { _exec_options = opt; }
-  std::shared_ptr<GraphExecuteOptions> GetExecuteOptions() { return _exec_options; }
-  std::vector<uint8_t>& GetConfigSettingResults() { return _config_setting_result; }
-  std::shared_ptr<GraphCluster> GetRunningGraphCluster() { return _running_cluster; }
-  void AddSubGraphContext(GraphContext* g);
+  GraphClusterContext* GetGraphClusterContext() { return _cluster; }
+
   VertexContext* FindVertexContext(Vertex* v);
   void OnVertexDone(VertexContext* vertex);
 
-  int Setup(Graph* g);
+  int Setup(GraphClusterContext* c, Graph* g);
   void Reset();
   void ExecuteReadyVertexs(std::vector<VertexContext*>& ready_vertexs);
-  int Execute(GraphContext* parent, DoneClosure&& done);
-  GraphDataContext& GetGraphDataContext();
+  int Execute(DoneClosure&& done);
+  std::shared_ptr<GraphDataContext> GetGraphDataContext();
+  GraphDataContext& GetGraphDataContextRef() { return *(GetGraphDataContext()); }
   void SetGraphDataContext(std::shared_ptr<GraphDataContext> p);
 };
 
 class GraphClusterContext {
  private:
+  std::shared_ptr<GraphExecuteOptions> _exec_options;
+  std::shared_ptr<GraphCluster> _running_cluster;
+  GraphContext* _running_graph = nullptr;
   GraphCluster* _cluster = nullptr;
   std::vector<Processor*> _config_setting_processors;
+  std::vector<uint8_t> _config_setting_result;
+  tbb::concurrent_queue<GraphClusterContext*> _sub_graphs;
+  std::unordered_map<std::string, std::shared_ptr<GraphContext>> _graph_context_table;
+  DoneClosure _done;
+  std::shared_ptr<GraphDataContext> _extern_data_ctx;
 
  public:
+  void SetGraphDataContext(std::shared_ptr<GraphDataContext> p) { _extern_data_ctx = p; }
+  void SetExecuteOptions(std::shared_ptr<GraphExecuteOptions> opt) { _exec_options = opt; }
+  std::shared_ptr<GraphExecuteOptions> GetExecuteOptions() { return _exec_options; }
+  GraphCluster* GetCluster() { return _cluster; }
+  GraphContext* GetRunGraph(const std::string& name);
+  void SetRunningCluster(std::shared_ptr<GraphCluster> c) { _running_cluster = c; }
   int Setup(GraphCluster* c);
+  void Reset();
+  int Execute(const std::string& graph, DoneClosure&& done);
   void Execute(GraphDataContext& session_ctx, std::vector<uint8_t>& eval_results);
 };
 

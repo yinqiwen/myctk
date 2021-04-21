@@ -17,13 +17,14 @@ struct GraphData {
   std::string id;
   std::string cond;
   std::string field;
+  std::vector<std::string> merge;
   bool required = false;
   bool move = false;
   bool is_extern = false;
 
   std::string _cond_vertex_id;
   WRDK_TOML_DEFINE_FIELD_MAPPING(({"is_extern", "extern"}))
-  WRDK_TOML_DEFINE_FIELDS(id, cond, field, required, move, is_extern)
+  WRDK_TOML_DEFINE_FIELDS(id, cond, field, required, move, is_extern, merge)
 };
 
 struct ConfigSetting {

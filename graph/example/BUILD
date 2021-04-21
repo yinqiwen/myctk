@@ -11,7 +11,7 @@ cc_binary(
 
 cc_library(
     name = "processor_lib",
-    srcs = ["processor_0.cpp","processor_1.cpp","processor_2.cpp","processor_3.cpp"],
+    srcs = ["processor_0.cpp","processor_1.cpp","processor_2.cpp","processor_3.cpp","processor_4.cpp"],
     deps = [
         "//graph:wrdk_graph",
     ],

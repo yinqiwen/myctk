@@ -25,7 +25,7 @@ static std::string get_basename(const std::string& filename) {
     return filename;
 }
 int main(int argc, char** argv) {
-  GraphManager grpahs;
+  GraphManager graphs;
   std::string config = "./graph.toml";
   std::string graph = "sub_graph0";
   if (argc > 1) {
@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
     graph = argv[2];
   }
   std::string png_file = config + ".png";
-  auto cluster = grpahs.Load(config);
+  auto cluster = graphs.Load(config);
   if (!cluster) {
     printf("Failed to parse toml\n");
     return -1;
@@ -47,10 +47,14 @@ int main(int argc, char** argv) {
   boost::asio::thread_pool pool(8);
   GraphExecuteOptions exec_opt;
   exec_opt.concurrent_executor = [&pool](AnyClosure&& r) { boost::asio::post(pool, r); };
+  exec_opt.params.reset(new Params);
   std::shared_ptr<GraphDataContext> root(new GraphDataContext);
   std::string cluster_name = get_basename(config);
-  int rc = grpahs.Execute(exec_opt, root, cluster_name, graph,
-                          [](int c) { WRDK_GRAPH_ERROR("Graph done with {}", c); });
+  // set extern data value for dsl
+  int v = 101;
+  root->Set<int>("v0", &v, true);
+  graphs.Execute(exec_opt, root, cluster_name, graph,
+                 [](int c) { WRDK_GRAPH_ERROR("Graph done with {}", c); });
 
   pool.join();
   return 0;

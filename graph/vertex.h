@@ -63,6 +63,7 @@ struct Vertex {
   std::unordered_map<Vertex*, int> _deps_idx;
   Graph* _graph = nullptr;
   Graph* _vertex_graph = nullptr;
+  bool _is_id_generated = false;
 
   WRDK_TOML_DEFINE_FIELD_MAPPING(({"successor_on_ok", "if"}, {"successor_on_err", "else"}))
 
@@ -70,6 +71,7 @@ struct Vertex {
                           successor_on_ok, successor_on_err, deps, deps_on_ok, deps_on_err, input,
                           output)
   Vertex();
+  void SetGeneratedId(const std::string& id);
   bool IsSuccessorsEmpty();
   bool IsDepsEmpty();
   void Depend(Vertex* v, VertexResult expected);

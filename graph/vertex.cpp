@@ -9,6 +9,10 @@ Vertex::Vertex() {
   Params empty(true);
   args = empty;
 }
+void Vertex::SetGeneratedId(const std::string& v) {
+  id = v;
+  _is_id_generated = true;
+}
 bool Vertex::IsSuccessorsEmpty() { return _successor_vertex.empty(); }
 bool Vertex::IsDepsEmpty() { return _deps_idx.empty(); }
 std::string Vertex::GetDotId() const { return _graph->name + "_" + id; }
@@ -17,6 +21,9 @@ std::string Vertex::GetDotLable() const {
     return cond;
   }
   if (!processor.empty()) {
+    if (!_is_id_generated) {
+      return id;
+    }
     if (!select_args.empty()) {
       std::string s = processor;
       s.append("[");
@@ -97,20 +104,36 @@ int Vertex::BuildDeps(const std::set<std::string>& dependency, VertexResult expe
 }
 int Vertex::Build() {
   for (auto& data : input) {
-    Vertex* dep_vertex = _graph->FindVertexByData(data.id);
-    if (nullptr == dep_vertex && !data.is_extern) {
-      WRDK_GRAPH_ERROR("No dep input id:{}", data.id);
-      return -1;
-    }
-    if (data._cond_vertex_id.empty()) {
-      if (nullptr == dep_vertex) {
-        continue;
+    if (data.merge.empty()) {
+      Vertex* dep_vertex = _graph->FindVertexByData(data.id);
+      if (nullptr == dep_vertex && !data.is_extern) {
+        WRDK_GRAPH_ERROR("No dep input id:{}", data.id);
+        return -1;
       }
-      Depend(dep_vertex, data.required ? V_RESULT_OK : V_RESULT_ALL);
+      if (data._cond_vertex_id.empty()) {
+        if (nullptr == dep_vertex) {
+          continue;
+        }
+        Depend(dep_vertex, data.required ? V_RESULT_OK : V_RESULT_ALL);
+      } else {
+        Vertex* cond_vertex = _graph->FindVertexById(data._cond_vertex_id);
+        Depend(cond_vertex, V_RESULT_OK);
+        if (nullptr != dep_vertex) {
+          cond_vertex->Depend(dep_vertex, data.required ? V_RESULT_OK : V_RESULT_ALL);
+        }
+      }
     } else {
-      Vertex* cond_vertex = _graph->FindVertexById(data._cond_vertex_id);
-      Depend(cond_vertex, V_RESULT_OK);
-      cond_vertex->Depend(dep_vertex, data.required ? V_RESULT_OK : V_RESULT_ALL);
+      for (const std::string& merge_id : data.merge) {
+        Vertex* dep_vertex = _graph->FindVertexByData(merge_id);
+        if (nullptr == dep_vertex && !data.is_extern) {
+          WRDK_GRAPH_ERROR("No dep input id:{}", merge_id);
+          return -1;
+        }
+        if (nullptr == dep_vertex) {
+          continue;
+        }
+        Depend(dep_vertex, data.required ? V_RESULT_OK : V_RESULT_ALL);
+      }
     }
   }
   if (0 != BuildDeps(deps, V_RESULT_ALL)) {

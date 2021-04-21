@@ -24,6 +24,7 @@ input = [{ field = "v1" }]
 output = [{ field = "v5" }, { field = "v6" }]
 [[graph.vertex]]
 processor = "phase3"
+id = "phase3_0"
 input = [
     { field = "v1" },
     { field = "v2" },
@@ -32,4 +33,31 @@ input = [
     { field = "v5" },
     { field = "v6" },
 ]
-output = [{ field = "v100" }]
+output = [{ field = "v100", id = "m0" }]
+[[graph.vertex]]
+processor = "phase3"
+id = "phase3_1"
+input = [
+    { field = "v1" },
+    { field = "v2" },
+    { field = "v3" },
+    { field = "v4" },
+    { field = "v5" },
+    { field = "v6" },
+]
+output = [{ field = "v100", id = "m1" }]
+[[graph.vertex]]
+processor = "phase3"
+id = "phase3_2"
+input = [
+    { field = "v1" },
+    { field = "v2" },
+    { field = "v3" },
+    { field = "v4" },
+    { field = "v5" },
+    { field = "v6" },
+]
+output = [{ field = "v100", id = "m2" }]
+[[graph.vertex]]
+processor = "phase4"
+input = [{ field = "v100", merge = ["m0", "m1", "m2"] }]

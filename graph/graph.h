@@ -24,15 +24,12 @@ struct Graph {
   VertexTable _data_mapping_table;
   int64_t _idx = 0;
   GraphCluster* _cluster = nullptr;
-  tbb::concurrent_queue<GraphContext*> _graph_context_pool;
 
   WRDK_TOML_DEFINE_FIELDS(name, vertex)
   std::string generateNodeId();
   Vertex* geneatedCondVertex(const std::string& cond);
   Vertex* FindVertexByData(const std::string& data);
   Vertex* FindVertexById(const std::string& id);
-  GraphContext* GetContext();
-  void ReleaseContext(GraphContext* p);
 
   int Build();
   int DumpDot(std::string& s);
@@ -53,13 +50,16 @@ struct GraphCluster {
   typedef std::map<std::string, Graph*> GraphTable;
   GraphTable _graphs;
   GraphManager* _graph_manager = nullptr;
-  std::shared_ptr<GraphClusterContext> _context;
+
+  tbb::concurrent_queue<GraphClusterContext*> _graph_cluster_context_pool;
   WRDK_TOML_DEFINE_FIELDS(desc, strict_dsl, default_expr_processor, default_context_pool_size,
                           graph, config_setting)
 
   int Build();
   int DumpDot(std::string& s);
   Graph* FindGraphByName(const std::string& name);
+  GraphClusterContext* GetContext();
+  void ReleaseContext(GraphClusterContext* p);
   ~GraphCluster();
 };
 
@@ -72,7 +72,7 @@ class GraphManager {
  public:
   std::shared_ptr<GraphCluster> Load(const std::string& file);
   std::shared_ptr<GraphCluster> FindGraphClusterByName(const std::string& name);
-  GraphContext* GetGraphContext(const std::string& cluster, const std::string& graph);
+  GraphClusterContext* GetGraphClusterContext(const std::string& cluster);
   int Execute(const GraphExecuteOptions& options, std::shared_ptr<GraphDataContext> data_ctx,
               const std::string& cluster, const std::string& graph, DoneClosure&& done);
 };

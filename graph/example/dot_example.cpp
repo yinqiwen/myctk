@@ -23,6 +23,17 @@ int main(int argc, char** argv) {
     printf("Failed to build graph cluster\n");
     return -1;
   }
-
+  std::string dot;
+  cluster->DumpDot(dot);
+  std::string dot_file = config + ".dot";
+  std::ofstream out(dot_file);
+  out << dot;
+  out.close();
+  std::string cmd = "dot -Tpng ";
+  cmd.append(dot_file).append(" -o ").append(png_file);
+  printf("Exec %s\n", cmd.c_str());
+  if (0 == system(cmd.c_str())) {
+    printf("Generate png:%s\n", png_file.c_str());
+  }
   return 0;
 }

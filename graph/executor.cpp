@@ -67,10 +67,10 @@ void VertexContext::Reset() {
   if (nullptr != _processor) {
     _processor->Reset();
   }
-  if (nullptr != _subgraph) {
-    _subgraph->Reset();
-    _subgraph->GetGraph()->ReleaseContext(_subgraph);
-    _subgraph = nullptr;
+  if (nullptr != _subgraph_cluster) {
+    _subgraph_cluster->Reset();
+    _subgraph_cluster->GetCluster()->ReleaseContext(_subgraph_cluster);
+    _subgraph_cluster = nullptr;
   }
   for (auto& pair : _select_params) {
     pair.second.SetParent(nullptr);
@@ -99,7 +99,7 @@ void VertexContext::FinishVertexProcess(int code) {
   for (const auto& pair : _output_ids) {
     const std::string& field = pair.first;
     const DataKey& data = pair.second.first;
-    int rc = _processor->EmitOutputField(_graph_ctx->GetGraphDataContext(), field, data.name);
+    int rc = _processor->EmitOutputField(_graph_ctx->GetGraphDataContextRef(), field, data.name);
     if (0 != rc) {
       // log
     }
@@ -111,7 +111,7 @@ int VertexContext::ExecuteProcessor() {
   Params* exec_params = nullptr;
   if (!_params.Valid() && !_select_params.empty()) {
     for (auto& pair : _select_params) {
-      const bool* v = _graph_ctx->GetGraphDataContext().Get<bool>(pair.first);
+      const bool* v = _graph_ctx->GetGraphDataContextRef().Get<bool>(pair.first);
       if (nullptr == v || !(*v)) {
         continue;
       }
@@ -122,8 +122,8 @@ int VertexContext::ExecuteProcessor() {
   if (nullptr == exec_params) {
     exec_params = &_params;
   }
-  if (_graph_ctx->GetExecuteOptions()->params) {
-    exec_params->SetParent(_graph_ctx->GetExecuteOptions()->params.get());
+  if (_graph_ctx->GetGraphClusterContext()->GetExecuteOptions()->params) {
+    exec_params->SetParent(_graph_ctx->GetGraphClusterContext()->GetExecuteOptions()->params.get());
   }
   for (const auto& pair : _input_ids) {
     const std::string& field = pair.first;
@@ -133,7 +133,17 @@ int VertexContext::ExecuteProcessor() {
     if (nullptr != graph_data) {
       required = graph_data->required;
     }
-    int rc = _processor->InjectInputField(_graph_ctx->GetGraphDataContext(), field, data.name);
+    int rc = 0;
+    if (nullptr != graph_data && !graph_data->merge.empty()) {
+      for (const std::string& merge_id : graph_data->merge) {
+        rc = _processor->InjectInputField(_graph_ctx->GetGraphDataContextRef(), field, merge_id);
+        if (0 != rc && required) {
+          break;
+        }
+      }
+    } else {
+      rc = _processor->InjectInputField(_graph_ctx->GetGraphDataContextRef(), field, data.name);
+    }
     if (0 != rc && required) {
       _result = V_RESULT_ERR;
       _code = V_CODE_SKIP;
@@ -150,21 +160,21 @@ int VertexContext::ExecuteProcessor() {
 }
 int VertexContext::ExecuteSubGraph() {
   if (_vertex->_graph->_cluster->_graph_manager) {
-    _subgraph = _vertex->_graph->_cluster->_graph_manager->GetGraphContext(_vertex->cluster,
-                                                                           _vertex->graph);
+    _subgraph_cluster =
+        _vertex->_graph->_cluster->_graph_manager->GetGraphClusterContext(_vertex->cluster);
   }
-  if (nullptr == _subgraph) {
-    WRDK_GRAPH_ERROR("No subgraph found for {}::{}", _vertex->cluster, _vertex->graph);
+  if (!_subgraph_cluster) {
+    WRDK_GRAPH_ERROR("No subgraph cluster found for {}", _vertex->cluster);
     return -1;
   }
-  _graph_ctx->AddSubGraphContext(_subgraph);
-  _subgraph->SetExecuteOptions(_graph_ctx->GetExecuteOptions());
-  _subgraph->Execute(_graph_ctx, [this](int code) { FinishVertexProcess(code); });
+  _subgraph_cluster->SetGraphDataContext(_graph_ctx->GetGraphDataContext());
+  _subgraph_cluster->SetExecuteOptions(_graph_ctx->GetGraphClusterContext()->GetExecuteOptions());
+  _subgraph_cluster->Execute(_vertex->graph, [this](int code) { FinishVertexProcess(code); });
   return 0;
 }
 int VertexContext::Execute() {
   bool match_dep_expected_result = true;
-  if (nullptr == _processor && nullptr == _subgraph) {
+  if (nullptr == _processor && nullptr == _subgraph_cluster) {
     match_dep_expected_result = false;
   } else {
     for (size_t i = 0; i < _deps_results.size(); i++) {
@@ -190,8 +200,13 @@ int VertexContext::Execute() {
   return 0;
 }
 
-GraphContext::GraphContext() : _graph(nullptr), _parent(nullptr) { _join_vertex_num = 0; }
-int GraphContext::Setup(Graph* g) {
+GraphContext::GraphContext() : _cluster(nullptr), _graph(nullptr) {
+  _join_vertex_num = 0;
+  _data_ctx.reset(new GraphDataContext);
+}
+
+int GraphContext::Setup(GraphClusterContext* c, Graph* g) {
+  _cluster = c;
   _graph = g;
   for (auto& pair : g->_nodes) {
     Vertex* v = pair.second;
@@ -221,13 +236,7 @@ int GraphContext::Setup(Graph* g) {
   Reset();
   return 0;
 }
-void GraphContext::AddSubGraphContext(GraphContext* g) {
-  if (nullptr != _parent) {
-    _parent->AddSubGraphContext(g);
-  } else {
-    _sub_graphs.push(g);
-  }
-}
+
 VertexContext* GraphContext::FindVertexContext(Vertex* v) {
   auto found = _vertex_context_table.find(v);
   if (found == _vertex_context_table.end()) {
@@ -241,13 +250,7 @@ void GraphContext::Reset() {
     std::shared_ptr<VertexContext> ctx = pair.second;
     ctx->Reset();
   }
-  _parent = nullptr;
-  _running_cluster.reset();
-  GraphContext* sub_graph = nullptr;
-  while (_sub_graphs.try_pop(sub_graph)) {
-    sub_graph->Reset();
-  }
-  _exec_options.reset();
+  _data_ctx->Reset();
   // session_ctx.Reset();
 }
 void GraphContext::ExecuteReadyVertexs(std::vector<VertexContext*>& ready_vertexs) {
@@ -259,7 +262,7 @@ void GraphContext::ExecuteReadyVertexs(std::vector<VertexContext*>& ready_vertex
     for (VertexContext* ctx : ready_vertexs) {
       VertexContext* next = ctx;
       auto f = [next]() { next->Execute(); };
-      _exec_options->concurrent_executor(f);
+      _cluster->GetExecuteOptions()->concurrent_executor(f);
     }
   }
 }
@@ -288,20 +291,19 @@ void GraphContext::OnVertexDone(VertexContext* vertex) {
   ExecuteReadyVertexs(ready_successors);
 }
 GraphCluster* GraphContext::GetGraphCluster() { return _graph->_cluster; }
-GraphDataContext& GraphContext::GetGraphDataContext() { return _data_ctx; }
+std::shared_ptr<GraphDataContext> GraphContext::GetGraphDataContext() { return _data_ctx; }
 void GraphContext::SetGraphDataContext(std::shared_ptr<GraphDataContext> p) {
-  _data_ctx.SetParent(p);
+  _data_ctx->SetParent(p);
 }
 
-int GraphContext::Execute(GraphContext* parent, DoneClosure&& done) {
+int GraphContext::Execute(DoneClosure&& done) {
   _done = std::move(done);
-  _parent = parent;
   // make all data entry precreated in data ctx
   for (const auto& id : _all_input_ids) {
-    _data_ctx.RegisterData(id);
+    _data_ctx->RegisterData(id);
   }
   for (const auto& id : _all_output_ids) {
-    _data_ctx.RegisterData(id);
+    _data_ctx->RegisterData(id);
   }
   std::vector<VertexContext*> ready_successors;
   for (auto& pair : _vertex_context_table) {
@@ -312,6 +314,33 @@ int GraphContext::Execute(GraphContext* parent, DoneClosure&& done) {
   }
   ExecuteReadyVertexs(ready_successors);
   return 0;
+}
+GraphContext* GraphClusterContext::GetRunGraph(const std::string& name) {
+  if (nullptr != _running_graph) {
+    return _running_graph;
+  }
+  auto found = _graph_context_table.find(name);
+  if (found == _graph_context_table.end()) {
+    WRDK_GRAPH_ERROR("No graph:{} found in cluster:{}", name, _cluster->_name);
+    return nullptr;
+  }
+  _running_graph = found->second.get();
+  _running_graph->SetGraphDataContext(_extern_data_ctx);
+  return _running_graph;
+}
+void GraphClusterContext::Reset() {
+  _running_cluster.reset();
+  if (nullptr != _running_graph) {
+    _running_graph->Reset();
+    _running_graph = nullptr;
+  }
+  _config_setting_result.clear();
+  _extern_data_ctx.reset();
+  _exec_options.reset();
+  GraphClusterContext* sub_graph = nullptr;
+  while (_sub_graphs.try_pop(sub_graph)) {
+    sub_graph->Reset();
+  }
 }
 int GraphClusterContext::Setup(GraphCluster* c) {
   _cluster = c;
@@ -334,21 +363,39 @@ int GraphClusterContext::Setup(GraphCluster* c) {
       _config_setting_processors.push_back(p);
     }
   }
+  for (auto& graph_cfg : _cluster->graph) {
+    std::shared_ptr<GraphContext> g(new GraphContext);
+    if (0 != g->Setup(this, &graph_cfg)) {
+      WRDK_GRAPH_ERROR("Failed to setup graph:{}", graph_cfg.name);
+      return -1;
+    }
+    _graph_context_table[graph_cfg.name] = g;
+  }
   return 0;
 }
-void GraphClusterContext::Execute(GraphDataContext& data_ctx, std::vector<uint8_t>& eval_results) {
-  eval_results.assign(_config_setting_processors.size(), 0);
+int GraphClusterContext::Execute(const std::string& graph, DoneClosure&& done) {
+  GraphContext* g = GetRunGraph(graph);
+  if (nullptr == g) {
+    if (done) {
+      done(-1);
+    }
+    return -1;
+  }
+  GraphDataContext& data_ctx = g->GetGraphDataContextRef();
+  _config_setting_result.assign(_config_setting_processors.size(), 0);
   for (size_t i = 0; i < _config_setting_processors.size(); i++) {
     Processor* p = _config_setting_processors[i];
     Params args;
     if (0 != p->Execute(args)) {
-      eval_results[i] = 0;
+      _config_setting_result[i] = 0;
     } else {
-      eval_results[i] = 1;
+      _config_setting_result[i] = 1;
     }
-    bool* v = (bool*)(&eval_results[i]);
+    bool* v = (bool*)(&_config_setting_result[i]);
     data_ctx.Set<bool>(_cluster->config_setting[i].name, v);
   }
+  return g->Execute(std::move(done));
 }
+
 }  // namespace graph
 }  // namespace wrdk

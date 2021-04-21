@@ -73,12 +73,14 @@ class GraphDataContext {
   }
   GraphDataContext() {}
   void SetParent(std::shared_ptr<GraphDataContext> p) { _parent = p; }
+
   void RegisterData(const DataKey& id) {
     DataValue dv;
     dv.name.reset(new std::string(id.name));
     DataKeyView key = {*dv.name, id.id};
     _data_table[key] = dv;
   }
+
   void Reset() {
     _data_table.clear();
     _parent.reset();
@@ -89,7 +91,10 @@ class GraphDataContext {
     DataKeyView key = {name, id};
     auto found = _data_table.find(key);
     if (found != _data_table.end()) {
-      return (const T*)(found->second.val);
+      const T* val = (const T*)(found->second.val);
+      if (nullptr != val) {
+        return val;
+      }
     }
     if (_parent) {
       return _parent->Get<T>(name);
@@ -100,8 +105,19 @@ class GraphDataContext {
   T* Move(const std::string& name) {
     return nullptr;
   }
+
+  /**
+   * @brief when 'create_entry' = true, not thread safe
+   *
+   * @tparam T any type
+   * @param name
+   * @param v
+   * @param create_entry
+   * @return true
+   * @return false
+   */
   template <typename T>
-  bool Set(const std::string& name, const T* v) {
+  bool Set(const std::string& name, const T* v, bool create_entry = false) {
     uint32_t id = GetTypeId<T>();
     DataKeyView key = {name, id};
     auto found = _data_table.find(key);
@@ -109,7 +125,15 @@ class GraphDataContext {
       found->second.val = (void*)v;
       return true;
     } else {
-      return false;
+      if (!create_entry) {
+        return false;
+      }
+      DataValue dv;
+      dv.val = (void*)v;
+      dv.name.reset(new std::string(name));
+      DataKeyView key = {*(dv.name), id};
+      _data_table[key] = dv;
+      return true;
     }
   }
 };
@@ -207,6 +231,27 @@ using namespace wrdk::graph;
         return (nullptr == NAME) ? -1 : 0;                                                        \
       });                                                                                         \
   size_t __reset_##NAME##_code = AddResetFunc([this]() { NAME = nullptr; });
+
+#define DEF_IN_MAP_FIELD(TYPE, NAME)                                                             \
+  std::map<std::string, const BOOST_PP_REMOVE_PARENS(TYPE)*> NAME;                               \
+  const BOOST_PP_REMOVE_PARENS(TYPE)* __NAME_helper = nullptr;                                   \
+  size_t __input_##NAME##_code = RegisterInput(                                                  \
+      #NAME, __NAME_helper, [this](GraphDataContext& ctx, const std::string& data, bool move) {  \
+        const BOOST_PP_REMOVE_PARENS(TYPE)* tmp = nullptr;                                       \
+        using FIELD_TYPE =                                                                       \
+            typename std::remove_const<typename std::remove_pointer<decltype(tmp)>::type>::type; \
+        if (move) {                                                                              \
+          tmp = ctx.Move<FIELD_TYPE>(data);                                                      \
+        } else {                                                                                 \
+          tmp = ctx.Get<FIELD_TYPE>(data);                                                       \
+        }                                                                                        \
+        if (nullptr == tmp) {                                                                    \
+          return -1;                                                                             \
+        }                                                                                        \
+        NAME[data] = tmp;                                                                        \
+        return 0;                                                                                \
+      });                                                                                        \
+  size_t __reset_##NAME##_code = AddResetFunc([this]() { NAME = {}; });
 
 #define DEF_OUT_FIELD(TYPE, NAME)                                                          \
   BOOST_PP_REMOVE_PARENS(TYPE) NAME = {};                                                  \

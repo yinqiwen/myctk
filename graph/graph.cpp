@@ -13,7 +13,7 @@ std::string Graph::generateNodeId() {
 }
 Vertex* Graph::geneatedCondVertex(const std::string& cond) {
   std::shared_ptr<Vertex> v(new Vertex);
-  v->id = generateNodeId();
+  v->SetGeneratedId(generateNodeId());
   v->processor = _cluster->default_expr_processor;
   v->cond = cond;
   v->_graph = this;
@@ -44,7 +44,7 @@ int Graph::Build() {
     if (n.id.empty()) {
       // generate unique id for node without id
       if (n.processor.empty()) {
-        n.id = generateNodeId();
+        n.SetGeneratedId(generateNodeId());
       } else {
         n.id = n.processor;
       }
@@ -107,17 +107,6 @@ int Graph::Build() {
     }
   }
 
-  std::vector<GraphContext*> tmp_pool;
-  for (int64_t i = 0; i < _cluster->default_context_pool_size; i++) {
-    GraphContext* ctx = new GraphContext;
-    _graph_context_pool.push(ctx);
-    tmp_pool.push_back(ctx);
-  }
-  for (GraphContext* ctx : tmp_pool) {
-    if (0 != ctx->Setup(this)) {
-      return -1;
-    }
-  }
   return 0;
 }
 int Graph::DumpDot(std::string& s) {
@@ -135,25 +124,8 @@ int Graph::DumpDot(std::string& s) {
   s.append("};\n");
   return 0;
 }
-GraphContext* Graph::GetContext() {
-  GraphContext* ctx = nullptr;
-  if (_graph_context_pool.try_pop(ctx)) {
-    return ctx;
-  }
-  ctx = new GraphContext;
-  ctx->Setup(this);
-  return ctx;
-}
-void Graph::ReleaseContext(GraphContext* p) {
-  p->Reset();
-  _graph_context_pool.push(p);
-}
-Graph::~Graph() {
-  GraphContext* ctx = nullptr;
-  while (_graph_context_pool.try_pop(ctx)) {
-    delete ctx;
-  }
-}
+
+Graph::~Graph() {}
 
 int GraphCluster::Build() {
   for (auto& f : graph) {
@@ -173,11 +145,7 @@ int GraphCluster::Build() {
       }
     }
   }
-  _context.reset(new GraphClusterContext);
-  if (0 != _context->Setup(this)) {
-    WRDK_GRAPH_ERROR("Failed to setup graph cluster context:{}", _name);
-    return -1;
-  }
+
   return 0;
 }
 int GraphCluster::DumpDot(std::string& s) {
@@ -197,7 +165,27 @@ Graph* GraphCluster::FindGraphByName(const std::string& name) {
   }
   return nullptr;
 }
-GraphCluster::~GraphCluster() {}
+
+GraphClusterContext* GraphCluster::GetContext() {
+  GraphClusterContext* ctx = nullptr;
+  if (_graph_cluster_context_pool.try_pop(ctx)) {
+    return ctx;
+  }
+  ctx = new GraphClusterContext;
+  ctx->Setup(this);
+  return ctx;
+}
+void GraphCluster::ReleaseContext(GraphClusterContext* p) {
+  p->Reset();
+  _graph_cluster_context_pool.push(p);
+}
+
+GraphCluster::~GraphCluster() {
+  GraphClusterContext* ctx = nullptr;
+  while (_graph_cluster_context_pool.try_pop(ctx)) {
+    delete ctx;
+  }
+}
 
 static std::string get_basename(const std::string& filename) {
 #if defined(_WIN32)
@@ -235,19 +223,16 @@ std::shared_ptr<GraphCluster> GraphManager::FindGraphClusterByName(const std::st
   }
   return ret;
 }
-GraphContext* GraphManager::GetGraphContext(const std::string& cluster, const std::string& graph) {
+GraphClusterContext* GraphManager::GetGraphClusterContext(const std::string& cluster) {
   std::shared_ptr<GraphCluster> c = FindGraphClusterByName(cluster);
   if (!c) {
     return nullptr;
   }
-  Graph* g = c->FindGraphByName(graph);
-  if (!g) {
-    return nullptr;
-  }
-  GraphContext* ctx = g->GetContext();
-  ctx->SetRunningGraphCluster(c);  // make ctx has same lifetime with GraphCluster
+  GraphClusterContext* ctx = c->GetContext();
+  ctx->SetRunningCluster(c);
   return ctx;
 }
+
 int GraphManager::Execute(const GraphExecuteOptions& options,
                           std::shared_ptr<GraphDataContext> data_ctx, const std::string& cluster,
                           const std::string& graph, DoneClosure&& done) {
@@ -259,22 +244,19 @@ int GraphManager::Execute(const GraphExecuteOptions& options,
     WRDK_GRAPH_ERROR("Empty 'GraphDataContext'");
     return -1;
   }
-  GraphContext* ctx = GetGraphContext(cluster, graph);
+  GraphClusterContext* ctx = GetGraphClusterContext(cluster);
   if (!ctx) {
-    WRDK_GRAPH_ERROR("Find graph {}::{} failed.", cluster, graph);
+    WRDK_GRAPH_ERROR("Find graph cluster {} failed.", cluster);
     return -1;
   }
-  WRDK_GRAPH_DEBUG("Find graph {}::{} success.", cluster, graph);
   ctx->SetGraphDataContext(data_ctx);
   std::shared_ptr<GraphExecuteOptions> exec_opt(new GraphExecuteOptions(options));
   auto graph_done = [ctx, done](int code) {
-    ctx->GetGraph()->ReleaseContext(ctx);
+    ctx->GetCluster()->ReleaseContext(ctx);
     done(code);
   };
   ctx->SetExecuteOptions(exec_opt);
-  ctx->GetRunningGraphCluster()->_context->Execute(ctx->GetGraphDataContext(),
-                                                   ctx->GetConfigSettingResults());
-  return ctx->Execute(nullptr, graph_done);
+  return ctx->Execute(graph, graph_done);
 }
 }  // namespace graph
 }  // namespace wrdk

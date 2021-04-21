@@ -2,6 +2,7 @@
 // All rights reserved.
 #include "processor.h"
 #include <stdlib.h>
+#include "log.h"
 #include "processor_api.h"
 
 namespace wrdk {
@@ -37,14 +38,17 @@ size_t Processor::AddResetFunc(ResetFunc&& f) {
 }
 int Processor::InjectInputField(GraphDataContext& ctx, const std::string& field_name,
                                 const std::string& data_name) {
+  WRDK_GRAPH_DEBUG("[{}]InjectInputField field:{}, id:{}", Name(), field_name, data_name);
   auto found = _field_inject_table.find(field_name);
   if (found == _field_inject_table.end()) {
+    WRDK_GRAPH_DEBUG("[{}]InjectInputField field:{} not found", Name());
     return -1;
   }
   return found->second(ctx, data_name, false);
 }
 int Processor::EmitOutputField(GraphDataContext& ctx, const std::string& field_name,
                                const std::string& data_name) {
+  WRDK_GRAPH_DEBUG("[{}]EmitOutputField field:{}, id:{}", Name(), field_name, data_name);
   auto found = _field_emit_table.find(field_name);
   if (found == _field_emit_table.end()) {
     return -1;
