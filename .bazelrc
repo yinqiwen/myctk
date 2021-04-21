@@ -1,0 +1,6 @@
+build --copt=-g
+build --copt=-O0
+build --copt=-std=c++17
+build --action_env=LIBRARY_PATH
+build -c dbg
+

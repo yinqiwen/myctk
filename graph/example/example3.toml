@@ -1,0 +1,35 @@
+name = "Example3"
+strict_dsl = true
+# default_expr_processor = "ttt"
+# [[config_setting]]
+# name = "with_exp_1000"
+# cond = "exp.id==1000"
+# [[config_setting]]
+# name = "with_exp_1001"
+# cond = "exp.id==1001"
+
+[[graph]]
+name = "sub_graph0"
+[[graph.vertex]]
+processor = "phase0"
+input = [{ field = "v0", extern = true }]
+output = [{ field = "v1" }, { field = "v2" }]
+[[graph.vertex]]
+processor = "phase1"
+input = [{ field = "v2" }]
+output = [{ field = "v3" }, { field = "v4" }]
+[[graph.vertex]]
+processor = "phase2"
+input = [{ field = "v1" }]
+output = [{ field = "v5" }, { field = "v6" }]
+[[graph.vertex]]
+processor = "phase3"
+input = [
+    { field = "v1" },
+    { field = "v2" },
+    { field = "v3" },
+    { field = "v4" },
+    { field = "v5" },
+    { field = "v6" },
+]
+output = [{ field = "v100" }]

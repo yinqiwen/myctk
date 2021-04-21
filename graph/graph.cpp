@@ -2,168 +2,279 @@
 // All rights reserved.
 #include "graph.h"
 #include <iostream>
+#include "log.h"
 
 namespace wrdk {
-std::string GraphNode::ToString() const {
-  std::string s;
-  if (!phase.empty()) {
-    return phase;
-  }
-  if (!script.empty()) {
-    return script + "::" + function;
-  }
-  return cond;
+namespace graph {
+std::string Graph::generateNodeId() {
+  std::string id = name + "_" + std::to_string(_idx);
+  _idx++;
+  return id;
 }
-int GraphFunction::Init() {
-  for (auto& n : nodes) {
+Vertex* Graph::geneatedCondVertex(const std::string& cond) {
+  std::shared_ptr<Vertex> v(new Vertex);
+  v->id = generateNodeId();
+  v->processor = _cluster->default_expr_processor;
+  v->cond = cond;
+  v->_graph = this;
+  Vertex* r = v.get();
+  _nodes[v->id] = r;
+  _gen_vertex.push_back(v);
+  return r;
+}
+Vertex* Graph::FindVertexByData(const std::string& data) {
+  auto found = _data_mapping_table.find(data);
+  if (found == _data_mapping_table.end()) {
+    // WRDK_GRAPH_ERROR("No dep input id:{}", data);
+    return nullptr;
+  }
+  return found->second;
+}
+Vertex* Graph::FindVertexById(const std::string& id) {
+  auto found = _nodes.find(id);
+  if (found == _nodes.end()) {
+    // WRDK_GRAPH_ERROR("No dep input id:{}", id);
+    return nullptr;
+  }
+  return found->second;
+}
+int Graph::Build() {
+  VertexTable generated_cond_nodes;
+  for (auto& n : vertex) {
     if (n.id.empty()) {
       // generate unique id for node without id
-      n.id = name + "_" + std::to_string(_idx);
-      _idx++;
+      if (n.processor.empty()) {
+        n.id = generateNodeId();
+      } else {
+        n.id = n.processor;
+      }
     }
     if (_nodes.find(n.id) != _nodes.end()) {
-      printf("Duplicate id:%s\n", n.id.c_str());
+      WRDK_GRAPH_ERROR("Duplicate id:{}", n.id);
       return -1;
     }
+    n._graph = this;
     _nodes[n.id] = &n;
 
-    // construct data_id->node mapping
-    for (const auto& id : n.output) {
-      auto found = data_mapping_table.find(id);
-      if (found != data_mapping_table.end()) {
-        printf("Duplicate data name:%s\n", id.c_str());
+    for (auto& data : n.output) {
+      if (data.id.empty()) {
+        data.id = data.field;
+      }
+      auto found = _data_mapping_table.find(data.id);
+      if (found != _data_mapping_table.end()) {
+        WRDK_GRAPH_ERROR("Duplicate data name:{}", data.id);
         return -1;
       }
-      _data_mapping_table[id] = &n;
-    }
-  }
-  for (auto& n : nodes) {
-    for (const auto& id : n.input) {
-      auto found = _data_mapping_table.find(id);
-      if (found == _data_mapping_table.end()) {
-        printf("No dep input id:%s\n", id.c_str());
-        return -1;
-      }
-      // compute node dependency by input data
-      n.dependents.insert(found->second->id);
+      _data_mapping_table[data.id] = &n;
     }
 
-    for (const auto& dep : n.optional) {
-      auto found = _nodes.find(dep.cond_id);
-      if (found == _nodes.end()) {
-        printf("No dep cond id:%s\n", dep.cond_id.c_str());
-        return -1;
+    for (auto& data : n.input) {
+      if (data.id.empty()) {
+        data.id = data.field;
       }
-      auto cond_node = found->second;
-      cond_node->consequent.insert(n.id);
-      // n.dependents.insert(dep.cond_id);
-      for (const auto& id : dep.data) {
-        auto found = _data_mapping_table.find(id);
-        if (found == _data_mapping_table.end()) {
-          printf("No cond dep input id:%s\n", id.c_str());
-          return -1;
+      if (!data.cond.empty()) {
+        if (generated_cond_nodes.find(data.cond) == generated_cond_nodes.end()) {
+          generated_cond_nodes[data.cond] = geneatedCondVertex(data.cond);
         }
-        found->second->successor.insert(dep.cond_id);
-        // found->second->optional_successor[dep.cond_id].insert(n.id);
+        Vertex* cond_vertex = generated_cond_nodes[data.cond];
+        data._cond_vertex_id = cond_vertex->id;
       }
     }
-    for (const auto& dep : n.dependents) {
-      auto found = _nodes.find(dep);
-      if (found == _nodes.end()) {
-        printf("No dep %s found\n", dep.c_str());
-        return -1;
-      }
-      found->second->successor.insert(n.id);
+  }
+  for (auto& n : vertex) {
+    if (0 != n.Build()) {
+      WRDK_GRAPH_ERROR("Failed to build vertex:{} in graph:{}", n.GetDotLable(), name);
+      return -1;
+    }
+  }
+  for (auto& n : _gen_vertex) {
+    if (0 != n->Build()) {
+      WRDK_GRAPH_ERROR("Failed to build vertex:{} in graph:{}", n->GetDotLable(), name);
+      return -1;
+    }
+  }
+
+  for (auto& n : vertex) {
+    if (n.IsSuccessorsEmpty() && n.IsDepsEmpty()) {
+      WRDK_GRAPH_ERROR("Vertex:{} has no deps and successors", n.id);
+      return -1;
+    }
+  }
+  for (auto& n : _gen_vertex) {
+    if (n->IsSuccessorsEmpty() && n->IsDepsEmpty()) {
+      WRDK_GRAPH_ERROR("Generated Vertex:{} has no deps and successors", n->id);
+      return -1;
+    }
+  }
+
+  std::vector<GraphContext*> tmp_pool;
+  for (int64_t i = 0; i < _cluster->default_context_pool_size; i++) {
+    GraphContext* ctx = new GraphContext;
+    _graph_context_pool.push(ctx);
+    tmp_pool.push_back(ctx);
+  }
+  for (GraphContext* ctx : tmp_pool) {
+    if (0 != ctx->Setup(this)) {
+      return -1;
     }
   }
   return 0;
 }
-std::string GraphFunction::GetNodeId(const std::string& id) { return name + "_" + id; }
-int GraphFunction::DumpDot(std::string& s) {
+int Graph::DumpDot(std::string& s) {
   s.append("  subgraph cluster_").append(name).append("{\n");
   s.append("    style = rounded;\n");
   s.append("    label = \"").append(name).append("\";\n");
-  for (auto& n : nodes) {
-    s.append("    ").append(GetNodeId(n.id)).append(" [label=\"").append(n.ToString()).append("\"");
-    if (!n.cond.empty()) {
-      s.append(" shape=diamond color=black fillcolor=aquamarine style=filled");
-    }
-    s.append("];\n");
+  for (auto& pair : _nodes) {
+    Vertex* v = pair.second;
+    v->DumpDotDefine(s);
   }
-  for (auto& n : nodes) {
-    for (const auto& successor : n.successor) {
-      s.append("    ")
-          .append(GetNodeId(n.id))
-          .append(" -> ")
-          .append(GetNodeId(successor))
-          .append(";\n");
-    }
-    for (const auto& successor : n.consequent) {
-      s.append("    ")
-          .append(GetNodeId(n.id))
-          .append(" -> ")
-          .append(GetNodeId(successor))
-          .append(" [style=dashed label=\"true\"];\n");
-    }
-    for (const auto& successor : n.alternative) {
-      s.append("    ")
-          .append(GetNodeId(n.id))
-          .append(" -> ")
-          .append(GetNodeId(successor))
-          .append(" [style=dashed label=\"false\"];\n");
-    }
+  for (auto& pair : _nodes) {
+    Vertex* v = pair.second;
+    v->DumpDotEdge(s);
   }
   s.append("};\n");
   return 0;
 }
-int GraphScript::Init() {
-  for (auto& f : function) {
-    _funcs[f.name] = &f;
-    if (0 != f.Init()) {
+GraphContext* Graph::GetContext() {
+  GraphContext* ctx = nullptr;
+  if (_graph_context_pool.try_pop(ctx)) {
+    return ctx;
+  }
+  ctx = new GraphContext;
+  ctx->Setup(this);
+  return ctx;
+}
+void Graph::ReleaseContext(GraphContext* p) {
+  p->Reset();
+  _graph_context_pool.push(p);
+}
+Graph::~Graph() {
+  GraphContext* ctx = nullptr;
+  while (_graph_context_pool.try_pop(ctx)) {
+    delete ctx;
+  }
+}
+
+int GraphCluster::Build() {
+  for (auto& f : graph) {
+    f._cluster = this;
+    _graphs[f.name] = &f;
+    if (0 != f.Build()) {
+      WRDK_GRAPH_ERROR("Failed to build graph:{}", f.name);
       return -1;
     }
   }
+  for (ConfigSetting& cfg : config_setting) {
+    if (cfg.processor.empty()) {
+      cfg.processor = default_expr_processor;
+      if (default_expr_processor.empty()) {
+        WRDK_GRAPH_ERROR("Empty 'default_expr_processor'");
+        return -1;
+      }
+    }
+  }
+  _context.reset(new GraphClusterContext);
+  if (0 != _context->Setup(this)) {
+    WRDK_GRAPH_ERROR("Failed to setup graph cluster context:{}", _name);
+    return -1;
+  }
   return 0;
 }
-int GraphScript::DumpDot(std::string& s) {
+int GraphCluster::DumpDot(std::string& s) {
   s.append("digraph G {\n");
   s.append("    rankdir=LR;\n");
-  for (auto& f : function) {
+  for (auto& f : graph) {
     f.DumpDot(s);
   }
   s.append("}\n");
 
   return 0;
 }
-}  // namespace wrdk
+Graph* GraphCluster::FindGraphByName(const std::string& name) {
+  auto found = _graphs.find(name);
+  if (found != _graphs.end()) {
+    return found->second;
+  }
+  return nullptr;
+}
+GraphCluster::~GraphCluster() {}
 
-using namespace wrdk;
+static std::string get_basename(const std::string& filename) {
+#if defined(_WIN32)
+  char dir_sep('\\');
+#else
+  char dir_sep('/');
+#endif
 
-// template <class T, typename std::enable_if<has_field_mapping<T>::value, bool>::type* = nullptr>
-// void do_stuff(T& t) {
-//   std::cout << "do_stuff mapping\n";
-//   // an implementation for integral types (int, char, unsigned, etc.)
-// }
+  std::string::size_type pos = filename.rfind(dir_sep);
+  if (pos != std::string::npos)
+    return filename.substr(pos + 1);
+  else
+    return filename;
+}
 
-// template <class T, typename std::enable_if<!has_field_mapping<T>::value, T>::type* = nullptr>
-// void do_stuff(T& t) {
-//   // an implementation for class types
-//   std::cout << "do_stuff other\n";
-// }
-
-int main() {
-  GraphScript script;
-  bool v = ParseFromTomlFile("graph.toml", script);
+std::shared_ptr<GraphCluster> GraphManager::Load(const std::string& file) {
+  std::shared_ptr<GraphCluster> g(new GraphCluster);
+  bool v = wrdk::ParseFromTomlFile(file, *g);
   if (!v) {
     printf("Failed to parse toml\n");
-    return -1;
+    return nullptr;
   }
-  if (0 != script.Init()) {
-    printf("Failed to init script\n");
-    return -1;
-  }
-  std::string dot;
-  script.DumpDot(dot);
-  printf("%s\n", dot.c_str());
-  return 0;
+  std::string name = get_basename(file);
+  g->_name = name;
+  ClusterGraphTable::accessor accessor;
+  _graphs.insert(accessor, name);
+  accessor->second = g;
+  return g;
 }
+std::shared_ptr<GraphCluster> GraphManager::FindGraphClusterByName(const std::string& name) {
+  std::shared_ptr<GraphCluster> ret;
+  ClusterGraphTable::const_accessor accessor;
+  if (_graphs.find(accessor, name)) {
+    ret = accessor->second;
+  }
+  return ret;
+}
+GraphContext* GraphManager::GetGraphContext(const std::string& cluster, const std::string& graph) {
+  std::shared_ptr<GraphCluster> c = FindGraphClusterByName(cluster);
+  if (!c) {
+    return nullptr;
+  }
+  Graph* g = c->FindGraphByName(graph);
+  if (!g) {
+    return nullptr;
+  }
+  GraphContext* ctx = g->GetContext();
+  ctx->SetRunningGraphCluster(c);  // make ctx has same lifetime with GraphCluster
+  return ctx;
+}
+int GraphManager::Execute(const GraphExecuteOptions& options,
+                          std::shared_ptr<GraphDataContext> data_ctx, const std::string& cluster,
+                          const std::string& graph, DoneClosure&& done) {
+  if (!options.concurrent_executor) {
+    WRDK_GRAPH_ERROR("Empty concurrent executor");
+    return -1;
+  }
+  if (!data_ctx) {
+    WRDK_GRAPH_ERROR("Empty 'GraphDataContext'");
+    return -1;
+  }
+  GraphContext* ctx = GetGraphContext(cluster, graph);
+  if (!ctx) {
+    WRDK_GRAPH_ERROR("Find graph {}::{} failed.", cluster, graph);
+    return -1;
+  }
+  WRDK_GRAPH_DEBUG("Find graph {}::{} success.", cluster, graph);
+  ctx->SetGraphDataContext(data_ctx);
+  std::shared_ptr<GraphExecuteOptions> exec_opt(new GraphExecuteOptions(options));
+  auto graph_done = [ctx, done](int code) {
+    ctx->GetGraph()->ReleaseContext(ctx);
+    done(code);
+  };
+  ctx->SetExecuteOptions(exec_opt);
+  ctx->GetRunningGraphCluster()->_context->Execute(ctx->GetGraphDataContext(),
+                                                   ctx->GetConfigSettingResults());
+  return ctx->Execute(nullptr, graph_done);
+}
+}  // namespace graph
+}  // namespace wrdk

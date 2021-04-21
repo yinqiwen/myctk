@@ -1,93 +1,80 @@
+#include <stdint.h>
+#include <tbb/concurrent_hash_map.h>
+#include <tbb/concurrent_queue.h>
+#include <atomic>
+#include <boost/functional/hash.hpp>
+#include <functional>
+#include <memory>
+#include <unordered_set>
+#include "executor.h"
 #include "toml_helper.h"
+#include "vertex.h"
 
 namespace wrdk {
-struct GraphNodeId {
-  std::string function;
-  std::string id;
-  std::string idx = 0;
-};
+namespace graph {
 
-struct OptionalData {
-  std::string cond;
-  std::string cond_id;
-  std::vector<std::string> data;
-  WRDK_TOML_DEFINE_FIELDS(cond, cond_id, data)
-
-  const char* GetFieldName(const char* v) {
-    static std::map<std::string, std::string> __field_mapping__ = {{"cond", "if"},
-                                                                   {"cond_id", "ifid"}};
-    auto found = __field_mapping__.find(v);
-    if (found != __field_mapping__.end()) {
-      return found->second.c_str();
-    }
-    return v;
-  }
-};
-
-struct GraphNode {
-  std::string id;
-
-  // phase node
-  std::string phase;
-  std::string args;
-
-  // script func node
-  std::string script;
-  std::string function;
-
-  // cond node
-  std::string cond;
-  std::set<std::string> consequent;
-  std::set<std::string> alternative;
-
-  // dependents or successors
-  std::set<std::string> successor;
-  std::set<std::string> dependents;
-  // std::map<std::string, std::set<std::string>> optional_successor;
-
-  std::vector<std::string> input;
-  std::vector<std::string> output;
-  std::vector<OptionalData> optional;  // optional input data
-
-  const char* GetFieldName(const char* v) {
-    static std::map<std::string, std::string> __field_mapping__ = {{"consequent", "if"},
-                                                                   {"alternative", "else"}};
-    auto found = __field_mapping__.find(v);
-    if (found != __field_mapping__.end()) {
-      return found->second.c_str();
-    }
-    return v;
-  }
-
-  std::string ToString() const;
-
-  WRDK_TOML_DEFINE_FIELDS(id, phase, args, successor, dependents, script, function, cond,
-                          consequent, alternative, input, output, optional)
-};
-
-struct GraphFunction {
-  typedef std::map<std::string, GraphNode*> NodeTable;
-  NodeTable _nodes;
-  NodeTable _data_mapping_table;
-  int64_t _idx = 0;
-
+struct GraphCluster;
+struct Graph {
   std::string name;
-  std::vector<GraphNode> nodes;
+  std::vector<Vertex> vertex;
 
-  WRDK_TOML_DEFINE_FIELDS(name, nodes)
-  std::string GetNodeId(const std::string& id);
-  int Init();
+  typedef std::unordered_map<std::string, Vertex*> VertexTable;
+  std::vector<std::shared_ptr<Vertex>> _gen_vertex;
+  VertexTable _nodes;
+  VertexTable _data_mapping_table;
+  int64_t _idx = 0;
+  GraphCluster* _cluster = nullptr;
+  tbb::concurrent_queue<GraphContext*> _graph_context_pool;
+
+  WRDK_TOML_DEFINE_FIELDS(name, vertex)
+  std::string generateNodeId();
+  Vertex* geneatedCondVertex(const std::string& cond);
+  Vertex* FindVertexByData(const std::string& data);
+  Vertex* FindVertexById(const std::string& id);
+  GraphContext* GetContext();
+  void ReleaseContext(GraphContext* p);
+
+  int Build();
   int DumpDot(std::string& s);
+  ~Graph();
 };
 
-struct GraphScript {
+struct GraphManager;
+class GraphClusterContext;
+struct GraphCluster {
   std::string desc;
-  std::vector<GraphFunction> function;
-  typedef std::map<std::string, GraphFunction*> GraphFunctionTable;
-  GraphFunctionTable _funcs;
-  WRDK_TOML_DEFINE_FIELDS(desc, function)
+  bool strict_dsl = true;
+  std::string default_expr_processor;
+  int64_t default_context_pool_size = 256;
+  std::vector<Graph> graph;
+  std::vector<ConfigSetting> config_setting;
 
-  int Init();
+  std::string _name;
+  typedef std::map<std::string, Graph*> GraphTable;
+  GraphTable _graphs;
+  GraphManager* _graph_manager = nullptr;
+  std::shared_ptr<GraphClusterContext> _context;
+  WRDK_TOML_DEFINE_FIELDS(desc, strict_dsl, default_expr_processor, default_context_pool_size,
+                          graph, config_setting)
+
+  int Build();
   int DumpDot(std::string& s);
+  Graph* FindGraphByName(const std::string& name);
+  ~GraphCluster();
 };
+
+class GraphContext;
+class GraphManager {
+ private:
+  typedef tbb::concurrent_hash_map<std::string, std::shared_ptr<GraphCluster>> ClusterGraphTable;
+  ClusterGraphTable _graphs;
+
+ public:
+  std::shared_ptr<GraphCluster> Load(const std::string& file);
+  std::shared_ptr<GraphCluster> FindGraphClusterByName(const std::string& name);
+  GraphContext* GetGraphContext(const std::string& cluster, const std::string& graph);
+  int Execute(const GraphExecuteOptions& options, std::shared_ptr<GraphDataContext> data_ctx,
+              const std::string& cluster, const std::string& graph, DoneClosure&& done);
+};
+}  // namespace graph
 }  // namespace wrdk

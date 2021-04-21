@@ -1,0 +1,61 @@
+name = "Example1"
+strict_dsl = false
+[[graph]]
+name = "sub_graph1"
+[[graph.vertex]]
+processor = "phase0"
+[[graph.vertex]]
+processor = "phase1"
+deps = ["phase0"]
+[[graph.vertex]]
+id = "phase2_0"
+processor = "phase2"
+deps = ["phase0"]
+[[graph.vertex]]
+id = "phase2_1"
+processor = "phase2"
+deps = ["phase0"]
+[[graph.vertex]]
+processor = "phase_merge_all"
+deps = ["phase1", "phase2_0", "phase2_1"]
+
+
+[[graph]]
+name = "sub_graph2"
+[[graph.vertex]]
+processor = "phase0"
+successor = ["test_34old"]
+[[graph.vertex]]
+id = "test_34old"
+cond = 'asdas'
+if = ["phase1"]
+else = ["phase2"]
+[[graph.vertex]]
+processor = "phase1"
+[[graph.vertex]]
+processor = "phase2"
+[[graph.vertex]]
+processor = "phase3"
+deps = ["phase1", "phase2"]
+
+
+[[graph]]
+name = "sub_graph3"
+[[graph.vertex]]
+processor = "phase0"
+successor = ["test_34old"]
+[[graph.vertex]]
+id = "test_34old"
+cond = 'env.user_group==34old'
+if = ["sub_graph2"]
+else = ["phase2"]
+[[graph.vertex]]
+id = "sub_graph2"
+cluster = "eample1.toml"
+graph = "sub_graph2"
+[[graph.vertex]]
+processor = "phase2"
+deps = ["sub_graph2"]
+[[graph.vertex]]
+processor = "phase3"
+deps = ["phase2"]
