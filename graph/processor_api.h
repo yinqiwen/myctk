@@ -144,6 +144,8 @@ enum ProcessorFieldType {
   FIELD_IN_OUT,
 };
 
+class VertexContext;
+class GraphClusterContext;
 class Processor {
  protected:
   typedef std::function<int(GraphDataContext&, const std::string&, bool)> InjectFunc;
@@ -156,6 +158,7 @@ class Processor {
   FieldInjectFuncTable _field_inject_table;
   FieldEmitFuncTable _field_emit_table;
   std::vector<ResetFunc> _reset_funcs;
+  std::shared_ptr<GraphDataContext> _data_ctx;
 
   template <typename T>
   size_t RegisterInput(const std::string& field, const T* p, InjectFunc&& inject) {
@@ -176,10 +179,17 @@ class Processor {
     return _field_emit_table.size();
   }
   size_t AddResetFunc(ResetFunc&& f);
+
+  void SetDataContext(std::shared_ptr<GraphDataContext> p) { _data_ctx = p; }
+  GraphDataContext& GetDataContext() { return *_data_ctx; }
+
   virtual int OnSetup(const Params& args) = 0;
   virtual int OnReset() { return 0; }
   virtual int OnExecute(const Params& args) { return ERR_UNIMPLEMENTED; };
   virtual void OnAsyncExecute(const Params& args, DoneClosure&& done) { done(ERR_UNIMPLEMENTED); };
+
+  friend class VertexContext;
+  friend class GraphClusterContext;
 
  public:
   virtual const char* Name() = 0;

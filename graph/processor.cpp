@@ -21,6 +21,7 @@ CreatorTable& GetCreatorTable() {
 ProcessorFactory g_processor_factory;
 int Processor::Setup(const Params& args) { return OnSetup(args); }
 void Processor::Reset() {
+  _data_ctx.reset();
   if (ERR_UNIMPLEMENTED == OnReset()) {
     for (auto& reset : _reset_funcs) {
       reset();

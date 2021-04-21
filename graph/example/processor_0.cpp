@@ -18,7 +18,7 @@ int OnExecute(const Params& args) {
   v1 = "from phase 0, hello";
   v2["key1"] = "val1";
   v2["key2"] = "val2";
-  WRDK_GRAPH_DEBUG("Run {}", Name());
+  WRDK_GRAPH_DEBUG("Run {} with abc={}", Name(), args["abc"].String());
   return 0;
 }
 GRAPH_PROC_END

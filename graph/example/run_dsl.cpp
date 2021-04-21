@@ -7,6 +7,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include "expr.h"
 #include "graph.h"
 #include "log.h"
 #include "processor.h"
@@ -53,6 +54,9 @@ int main(int argc, char** argv) {
   // set extern data value for dsl
   int v = 101;
   root->Set<int>("v0", &v, true);
+  RecmdEnv env;
+  env.expid = 1001;
+  root->Set<RecmdEnv>("env", &env, true);
   graphs.Execute(exec_opt, root, cluster_name, graph,
                  [](int c) { WRDK_GRAPH_ERROR("Graph done with {}", c); });
 

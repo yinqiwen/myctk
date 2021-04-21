@@ -40,7 +40,7 @@ class VertexContext {
   Processor* _processor = nullptr;
   GraphClusterContext* _subgraph_cluster = nullptr;
   Params _params;
-  std::unordered_map<std::string, Params> _select_params;
+  std::vector<CondParams> _select_params;
   typedef std::pair<DataKey, const GraphData*> FieldData;
   typedef std::map<std::string, FieldData> FieldDataTable;
   FieldDataTable _input_ids;

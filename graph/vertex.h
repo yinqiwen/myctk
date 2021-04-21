@@ -29,8 +29,9 @@ enum VertexErrCode {
 };
 
 struct CondParams {
-  std::string name;
-  std::string args;
+  std::string match;
+  Params args;
+  WRDK_TOML_DEFINE_FIELDS(match, args)
 };
 
 struct Graph;
@@ -40,8 +41,9 @@ struct Vertex {
   // phase node
   std::string processor;
   Params args;
-  std::unordered_map<std::string, Params> select_args;
+  std::vector<CondParams> select_args;
   std::string cond;
+  bool async = false;
 
   // sub graph node
   std::string cluster;
@@ -69,7 +71,7 @@ struct Vertex {
 
   WRDK_TOML_DEFINE_FIELDS(id, processor, args, cond, select_args, cluster, graph, successor,
                           successor_on_ok, successor_on_err, deps, deps_on_ok, deps_on_err, input,
-                          output)
+                          output, async)
   Vertex();
   void SetGeneratedId(const std::string& id);
   bool IsSuccessorsEmpty();

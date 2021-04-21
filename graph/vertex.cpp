@@ -27,8 +27,8 @@ std::string Vertex::GetDotLable() const {
     if (!select_args.empty()) {
       std::string s = processor;
       s.append("[");
-      for (const auto& pair : select_args) {
-        s.append(pair.first).append(",");
+      for (const auto& cond_args : select_args) {
+        s.append(cond_args.match).append(",");
       }
       s.append("]");
       return s;

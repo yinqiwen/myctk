@@ -72,8 +72,8 @@ void VertexContext::Reset() {
     _subgraph_cluster->GetCluster()->ReleaseContext(_subgraph_cluster);
     _subgraph_cluster = nullptr;
   }
-  for (auto& pair : _select_params) {
-    pair.second.SetParent(nullptr);
+  for (auto& args : _select_params) {
+    args.args.SetParent(nullptr);
   }
   _params.SetParent(nullptr);
 }
@@ -108,14 +108,21 @@ void VertexContext::FinishVertexProcess(int code) {
 }
 int VertexContext::ExecuteProcessor() {
   WRDK_GRAPH_DEBUG("Vertex:{} begin execute", _vertex->GetDotLable());
+  _processor->SetDataContext(_graph_ctx->GetGraphDataContext());
   Params* exec_params = nullptr;
-  if (!_params.Valid() && !_select_params.empty()) {
-    for (auto& pair : _select_params) {
-      const bool* v = _graph_ctx->GetGraphDataContextRef().Get<bool>(pair.first);
-      if (nullptr == v || !(*v)) {
+  if (!_select_params.empty()) {
+    for (auto& args : _select_params) {
+      const bool* v = _graph_ctx->GetGraphDataContextRef().Get<bool>(args.match);
+      if (nullptr == v) {
+        WRDK_GRAPH_DEBUG("0 Vertex:{} match {} null", _vertex->GetDotLable(), args.match);
         continue;
       }
-      exec_params = &(pair.second);
+      WRDK_GRAPH_DEBUG("0 Vertex:{} match {} args {}", _vertex->GetDotLable(), args.match, *v);
+      if (!(*v)) {
+        continue;
+      }
+      WRDK_GRAPH_DEBUG("Vertex:{} match {} args", _vertex->GetDotLable(), args.match);
+      exec_params = &(args.args);
       break;
     }
   }
@@ -334,6 +341,9 @@ void GraphClusterContext::Reset() {
     _running_graph->Reset();
     _running_graph = nullptr;
   }
+  for (Processor* p : _config_setting_processors) {
+    p->Reset();
+  }
   _config_setting_result.clear();
   _extern_data_ctx.reset();
   _exec_options.reset();
@@ -355,7 +365,8 @@ int GraphClusterContext::Setup(GraphCluster* c) {
     }
     if (nullptr != p) {
       Params args;
-      args["__EXPRESSION__"].SetString(cfg.cond);
+      args.SetString(cfg.cond);
+      // args["__EXPRESSION__"].SetString(cfg.cond);
       if (0 != p->Setup(args)) {
         WRDK_GRAPH_ERROR("Failed to setup expr processor", cfg.processor);
         return -1;
@@ -383,8 +394,13 @@ int GraphClusterContext::Execute(const std::string& graph, DoneClosure&& done) {
   }
   GraphDataContext& data_ctx = g->GetGraphDataContextRef();
   _config_setting_result.assign(_config_setting_processors.size(), 0);
+  WRDK_GRAPH_DEBUG("config setting size = {}", _config_setting_processors.size());
   for (size_t i = 0; i < _config_setting_processors.size(); i++) {
     Processor* p = _config_setting_processors[i];
+    p->SetDataContext(g->GetGraphDataContext());
+    for (const auto& input_id : p->GetInputIds()) {
+      p->InjectInputField(g->GetGraphDataContextRef(), input_id.name, input_id.name);
+    }
     Params args;
     if (0 != p->Execute(args)) {
       _config_setting_result[i] = 0;
@@ -392,7 +408,8 @@ int GraphClusterContext::Execute(const std::string& graph, DoneClosure&& done) {
       _config_setting_result[i] = 1;
     }
     bool* v = (bool*)(&_config_setting_result[i]);
-    data_ctx.Set<bool>(_cluster->config_setting[i].name, v);
+    WRDK_GRAPH_DEBUG("Set config setting:{} to {}", _cluster->config_setting[i].name, *v);
+    data_ctx.Set<bool>(_cluster->config_setting[i].name, v, true);
   }
   return g->Execute(std::move(done));
 }
