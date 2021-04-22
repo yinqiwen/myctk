@@ -1,10 +1,11 @@
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
-    name = "wrdk_expr",
+    name = "ssexpr",
     hdrs = ["spirit_expression.h"],
     srcs = ["spirit_expression.cpp"],
     deps = [
-        "//reflect:wrdk_reflect",
+        "//reflect:expr_struct",
     ],
+    includes=["./"],
 )
