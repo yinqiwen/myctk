@@ -55,6 +55,7 @@ struct GraphCluster {
                           graph, config_setting)
 
   int Build();
+  bool ContainsConfigSetting(const std::string& name);
   int DumpDot(std::string& s);
   Graph* FindGraphByName(const std::string& name);
   GraphClusterContext* GetContext();

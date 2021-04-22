@@ -32,7 +32,7 @@ digraph G {
   subgraph cluster_sub_graph3{
     style = rounded;
     label = "sub_graph3";
-    sub_graph3_sub_graph2 [label="eample1.toml::sub_graph2"];
+    sub_graph3_sub_graph2 [label="eample1.toml::sub_graph2" shape=box3d, color=blue fillcolor=aquamarine style=filled];
     sub_graph3_phase0 [label="phase0"];
     sub_graph3_phase3 [label="phase3"];
     sub_graph3_phase2 [label="phase2"];

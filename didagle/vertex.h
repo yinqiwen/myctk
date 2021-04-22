@@ -42,6 +42,8 @@ struct Vertex {
   Params args;
   std::vector<CondParams> select_args;
   std::string cond;
+  std::string expect;
+  std::string expect_config;
 
   // sub graph node
   std::string cluster;
@@ -67,9 +69,9 @@ struct Vertex {
 
   WRDK_TOML_DEFINE_FIELD_MAPPING(({"successor_on_ok", "if"}, {"successor_on_err", "else"}))
 
-  WRDK_TOML_DEFINE_FIELDS(id, processor, args, cond, select_args, cluster, graph, successor,
-                          successor_on_ok, successor_on_err, deps, deps_on_ok, deps_on_err, input,
-                          output)
+  WRDK_TOML_DEFINE_FIELDS(id, processor, args, cond, expect, expect_config, select_args, cluster,
+                          graph, successor, successor_on_ok, successor_on_err, deps, deps_on_ok,
+                          deps_on_err, input, output)
   Vertex();
   int FillInputOutput();
   void SetGeneratedId(const std::string& id);

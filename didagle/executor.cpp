@@ -156,6 +156,16 @@ int VertexContext::ExecuteProcessor() {
       break;
     }
   }
+  if (!_vertex->expect_config.empty()) {
+    const bool* v = _graph_ctx->GetGraphDataContextRef().Get<bool>(_vertex->expect_config);
+    if (nullptr == v || !(*v)) {
+      DIDAGLE_DEBUG("Vertex:{} match expect_config:{} failed.", _vertex->GetDotLable(),
+                    _vertex->expect_config);
+    } else {
+      DIDAGLE_DEBUG("Vertex:{} match expect_config:{} success.", _vertex->GetDotLable(),
+                    _vertex->expect_config);
+    }
+  }
   if (_processor->IsAsync()) {
     _processor->AsyncExecute(*exec_params, [this](int code) { FinishVertexProcess(code); });
   } else {

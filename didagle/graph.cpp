@@ -48,6 +48,28 @@ int Graph::Build() {
         n.id = n.processor;
       }
     }
+    if (!n.graph.empty()) {
+      if (n.cluster == "." || n.cluster.empty()) {
+        n.cluster = _cluster->_name;
+      }
+    }
+    if (!n.expect.empty() && !n.expect_config.empty()) {
+      DIDAGLE_ERROR("Vertex:{} can NOT both config 'expect' & 'expect_config'", n.id);
+      return -1;
+    }
+    if (!n.expect_config.empty()) {
+      if (!_cluster->ContainsConfigSetting(n.expect_config)) {
+        DIDAGLE_ERROR("No config_setting with name:{} defined.", n.expect_config);
+        return -1;
+      }
+    }
+    if (!n.expect.empty()) {
+      if (generated_cond_nodes.find(n.expect) == generated_cond_nodes.end()) {
+        generated_cond_nodes[n.expect] = geneatedCondVertex(n.expect);
+      }
+      Vertex* cond_vertex = generated_cond_nodes[n.expect];
+      n.deps_on_ok.insert(cond_vertex->id);
+    }
     if (_nodes.find(n.id) != _nodes.end()) {
       DIDAGLE_ERROR("Duplicate node id:{}", n.id);
       return -1;
@@ -86,13 +108,13 @@ int Graph::Build() {
       if (data.id.empty()) {
         data.id = data.field;
       }
-      if (!data.cond.empty()) {
-        if (generated_cond_nodes.find(data.cond) == generated_cond_nodes.end()) {
-          generated_cond_nodes[data.cond] = geneatedCondVertex(data.cond);
-        }
-        Vertex* cond_vertex = generated_cond_nodes[data.cond];
-        data._cond_vertex_id = cond_vertex->id;
-      }
+      // if (!data.cond.empty()) {
+      //   if (generated_cond_nodes.find(data.cond) == generated_cond_nodes.end()) {
+      //     generated_cond_nodes[data.cond] = geneatedCondVertex(data.cond);
+      //   }
+      //   Vertex* cond_vertex = generated_cond_nodes[data.cond];
+      //   data._cond_vertex_id = cond_vertex->id;
+      // }
     }
   }
   for (auto& n : vertex) {
@@ -131,6 +153,14 @@ int Graph::DumpDot(std::string& s) {
     Vertex* v = pair.second;
     v->DumpDotDefine(s);
   }
+  for (auto& config_setting : _cluster->config_setting) {
+    s.append("    ")
+        .append(name + "_" + config_setting.name)
+        .append(" [label=\"")
+        .append(config_setting.name)
+        .append("\"");
+    s.append(" shape=diamond color=black fillcolor=aquamarine style=filled];\n");
+  }
   for (auto& pair : _nodes) {
     Vertex* v = pair.second;
     v->DumpDotEdge(s);
@@ -141,6 +171,14 @@ int Graph::DumpDot(std::string& s) {
 
 Graph::~Graph() {}
 
+bool GraphCluster::ContainsConfigSetting(const std::string& name) {
+  for (ConfigSetting& cfg : config_setting) {
+    if (cfg.name == name) {
+      return true;
+    }
+  }
+  return false;
+}
 int GraphCluster::Build() {
   for (auto& f : graph) {
     f._cluster = this;

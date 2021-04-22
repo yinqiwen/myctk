@@ -7,6 +7,9 @@ digraph G {
     auto_link_phase3 [label="phase3"];
     auto_link_phase2 [label="phase2"];
     auto_link_phase1 [label="phase1"];
+    auto_link_with_exp_1000 [label="with_exp_1000" shape=diamond color=black fillcolor=aquamarine style=filled];
+    auto_link_with_exp_1001 [label="with_exp_1001" shape=diamond color=black fillcolor=aquamarine style=filled];
+    auto_link_with_exp_1002 [label="with_exp_1002" shape=diamond color=black fillcolor=aquamarine style=filled];
     auto_link_phase2 -> auto_link_phase3 [style=bold label="all"];
     auto_link_phase0 -> auto_link_phase3 [style=bold label="all"];
     auto_link_phase1 -> auto_link_phase3 [style=bold label="all"];
@@ -23,6 +26,9 @@ digraph G {
     sub_graph0_phase3_1 [label="phase3_1"];
     sub_graph0_phase0 [label="phase0"];
     sub_graph0_phase3_2 [label="phase3_2"];
+    sub_graph0_with_exp_1000 [label="with_exp_1000" shape=diamond color=black fillcolor=aquamarine style=filled];
+    sub_graph0_with_exp_1001 [label="with_exp_1001" shape=diamond color=black fillcolor=aquamarine style=filled];
+    sub_graph0_with_exp_1002 [label="with_exp_1002" shape=diamond color=black fillcolor=aquamarine style=filled];
     sub_graph0_phase3_2 -> sub_graph0_phase4 [style=bold label="all"];
     sub_graph0_phase3_0 -> sub_graph0_phase4 [style=bold label="all"];
     sub_graph0_phase3_1 -> sub_graph0_phase4 [style=bold label="all"];
@@ -34,6 +40,7 @@ digraph G {
     sub_graph0_phase2 -> sub_graph0_phase3_1 [style=bold label="all"];
     sub_graph0_phase0 -> sub_graph0_phase3_1 [style=bold label="all"];
     sub_graph0_phase1 -> sub_graph0_phase3_1 [style=bold label="all"];
+    sub_graph0_with_exp_1002 -> sub_graph0_phase3_2 [style=bold label="ok"];
     sub_graph0_phase2 -> sub_graph0_phase3_2 [style=bold label="all"];
     sub_graph0_phase0 -> sub_graph0_phase3_2 [style=bold label="all"];
     sub_graph0_phase1 -> sub_graph0_phase3_2 [style=bold label="all"];

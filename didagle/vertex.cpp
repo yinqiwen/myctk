@@ -1,6 +1,7 @@
 // Copyright (c) 2020, Tencent Inc.
 // All rights reserved.
 #include "vertex.h"
+#include <regex>
 #include "graph.h"
 #include "log.h"
 #include "processor.h"
@@ -60,7 +61,8 @@ bool Vertex::IsDepsEmpty() { return _deps_idx.empty(); }
 std::string Vertex::GetDotId() const { return _graph->name + "_" + id; }
 std::string Vertex::GetDotLable() const {
   if (!cond.empty()) {
-    return cond;
+    return std::regex_replace(cond, std::regex("\""), "\\\"");
+    // return cond;
   }
   if (!processor.empty()) {
     if (!_is_id_generated) {
@@ -87,11 +89,17 @@ int Vertex::DumpDotDefine(std::string& s) {
   s.append("    ").append(GetDotId()).append(" [label=\"").append(GetDotLable()).append("\"");
   if (!cond.empty()) {
     s.append(" shape=diamond color=black fillcolor=aquamarine style=filled");
+  } else if (!graph.empty()) {
+    s.append(" shape=box3d, color=blue fillcolor=aquamarine style=filled");
   }
   s.append("];\n");
   return 0;
 }
 int Vertex::DumpDotEdge(std::string& s) {
+  if (!expect_config.empty()) {
+    s.append("    ").append(_graph->name + "_" + expect_config).append(" -> ").append(GetDotId());
+    s.append(" [style=bold label=\"ok\"];\n");
+  }
   for (auto& pair : _deps_idx) {
     VertexResult expected = _deps_expected_results[pair.second];
     const Vertex* dep = pair.first;
@@ -145,6 +153,12 @@ int Vertex::BuildDeps(const std::set<std::string>& dependency, VertexResult expe
   return 0;
 }
 int Vertex::Build() {
+  for (const auto& select : select_args) {
+    if (!_graph->_cluster->ContainsConfigSetting(select.match)) {
+      DIDAGLE_ERROR("No config_setting with name:{} defined.", select.match);
+      return -1;
+    }
+  }
   for (auto& data : input) {
     if (data.merge.empty()) {
       Vertex* dep_vertex = _graph->FindVertexByData(data.id);
@@ -152,18 +166,10 @@ int Vertex::Build() {
         DIDAGLE_ERROR("No dep input id:{}", data.id);
         return -1;
       }
-      if (data._cond_vertex_id.empty()) {
-        if (nullptr == dep_vertex) {
-          continue;
-        }
-        Depend(dep_vertex, data.required ? V_RESULT_OK : V_RESULT_ALL);
-      } else {
-        Vertex* cond_vertex = _graph->FindVertexById(data._cond_vertex_id);
-        Depend(cond_vertex, V_RESULT_OK);
-        if (nullptr != dep_vertex) {
-          cond_vertex->Depend(dep_vertex, data.required ? V_RESULT_OK : V_RESULT_ALL);
-        }
+      if (nullptr == dep_vertex) {
+        continue;
       }
+      Depend(dep_vertex, data.required ? V_RESULT_OK : V_RESULT_ALL);
     } else {
       for (const std::string& merge_id : data.merge) {
         Vertex* dep_vertex = _graph->FindVertexByData(merge_id);
