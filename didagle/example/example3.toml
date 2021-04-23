@@ -12,7 +12,7 @@ cond = "expid==1002"
 
 [[graph]]
 # 若processor的member名能自动关联，则配置无需定义input/output, 能自动关联
-name = "auto_link"
+name = "auto_graph"
 [[graph.vertex]]
 processor = "phase0"
 input = [{ field = "v0", extern = true }]
@@ -71,8 +71,8 @@ input = [
 ]
 output = [{ field = "v100", id = "m1" }]
 [[graph.vertex]]
-#expect = 'user_type=="34old"'
-expect_config = "with_exp_1002"
+expect = 'user_type=="34old"'
+# expect_config = "with_exp_1002"
 processor = "phase3"
 id = "phase3_2"
 input = [

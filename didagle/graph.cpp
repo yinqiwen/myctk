@@ -149,6 +149,7 @@ int Graph::DumpDot(std::string& s) {
   s.append("  subgraph cluster_").append(name).append("{\n");
   s.append("    style = rounded;\n");
   s.append("    label = \"").append(name).append("\";\n");
+  s.append("    ").append(name + "__START__").append(" [label=\"START\"];\n");
   for (auto& pair : _nodes) {
     Vertex* v = pair.second;
     v->DumpDotDefine(s);

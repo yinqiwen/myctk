@@ -99,6 +99,13 @@ int Vertex::DumpDotEdge(std::string& s) {
   if (!expect_config.empty()) {
     s.append("    ").append(_graph->name + "_" + expect_config).append(" -> ").append(GetDotId());
     s.append(" [style=bold label=\"ok\"];\n");
+    s.append("    ")
+        .append(_graph->name + "__START__")
+        .append(" -> ")
+        .append(_graph->name + "_" + expect_config);
+  }
+  if (_deps_idx.empty()) {
+    s.append("    ").append(_graph->name + "__START__").append(" -> ").append(GetDotId());
   }
   for (auto& pair : _deps_idx) {
     VertexResult expected = _deps_expected_results[pair.second];

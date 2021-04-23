@@ -1,5 +1,15 @@
 name = "Example1"
 strict_dsl = false
+default_expr_processor = "expr_phase"
+[[config_setting]]
+name = "with_exp_1000"
+cond = 'expid==1000'
+[[config_setting]]
+name = "with_exp_1001"
+cond = "expid==1001"
+[[config_setting]]
+name = "with_exp_1002"
+cond = "expid==1002"
 [[graph]]
 name = "sub_graph1"
 [[graph.vertex]]
@@ -21,22 +31,32 @@ deps = ["phase1", "phase2_0", "phase2_1"]
 
 
 [[graph]]
-name = "sub_graph2"
+name = "sub_graph2" # DAG图名  
+[[graph.vertex]] # 顶点  
+processor = "phase0" # 顶点算子，与子图定义/条件算子三选一
+#id = "phase0"                          # 算子id，大多数情况无需设置，存在歧义时需要设置; 这里默认id等于processor名
+successor = ["test_34old"] # 顶点后继顶点
+args = { x = 1, y = "2", z = 1.2 } # 顶点算子参数
 [[graph.vertex]]
-processor = "phase0"
-successor = ["test_34old"]
+id = "test_34old" # 算子id，大多数情况无需设置，存在歧义时需要设置 
+cond = 'user_type=="34old"' # 条件算子表达式
+if = ["subgraph_invoke"] # 条件算子成功后继顶点
+else = ["phase2"] # 条件算子失败后继顶点
 [[graph.vertex]]
-id = "test_34old"
-cond = 'asdas'
-if = ["phase1"]
-else = ["phase2"]
-[[graph.vertex]]
-processor = "phase1"
+id = "subgraph_invoke" # 子图调用算子id
+cluster = "." # 子图集合名
+graph = "sub_graph3" # 子图名
 [[graph.vertex]]
 processor = "phase2"
+select_args = [
+    { match = "with_exp_1000", args = { abc = "hello1", xyz = "aaa" } },
+    { match = "with_exp_1001", args = { abc = "hello2", xyz = "bbb" } },
+    { match = "with_exp_1002", args = { abc = "hello3", xyz = "ccc" } },
+] # 条件变量， 全局变量with_exp_1000为true时生效，顺序判断选择
+args = { abc = "default", xyz = "default" } # 默认变量， 条件变量选择失败时选择  
 [[graph.vertex]]
 processor = "phase3"
-deps = ["phase1", "phase2"]
+deps = ["subgraph_invoke", "phase2"] # 算子依赖的算子集合   
 
 
 [[graph]]

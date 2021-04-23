@@ -187,7 +187,9 @@ args = { abc = "default", xyz = "default" }                                 # �
 processor = "phase3"
 deps = ["subgraph_invoke", "phase2"]    # 算子依赖的算子集合             
 ```
+以上流程驱动样例构建的可视图  
 
+ ![流程驱动推导图](example/example1.toml.png)
 
 #### 数据驱动
 
@@ -255,9 +257,38 @@ id = "phase3_2"
 output = [{ field = "v100", id = "m2" }]     # 将field输出到数据m2
 [[graph.vertex]]
 processor = "phase4"
-input = [{ field = "v100", aggregate = ["m0", "m1", "m2"] }]   # 输入为m0,m1,m2的聚合
+input = [{ field = "v100", aggregate = ["m0", "m1", "m2"] }]   # 输入为m0,m1,m2的聚合， 用途将多个重复类型的不同数据聚合在一起
 ```
+以上两个样例构建的可视图  
+
+ ![数据驱动推导图](example/example3.toml.png)
 
 didagle执行引擎工作时时将隐式、显式两种机制结合在一起工作，显式的配置会覆盖隐式的推导；
 
 ## Didagle执行引擎
+执行引擎比较轻量，只需要指定几个依赖即可，API定义如下：
+```cpp
+typedef std::function<void(int)> DoneClosure;
+typedef std::function<void(void)> AnyClosure;
+typedef std::function<void(AnyClosure&&)> ConcurrentExecutor;
+struct GraphExecuteOptions {
+  ConcurrentExecutor concurrent_executor;        //并发执行器
+  std::shared_ptr<Params> params;                //外部动态参数， 默认空
+};
+
+class GraphManager {
+ public:
+  int Execute(const GraphExecuteOptions& options, std::shared_ptr<GraphDataContext> data_ctx,
+              const std::string& cluster, const std::string& graph, DoneClosure&& done);
+};
+```
+其中关键的地方在于`ConcurrentExecutor`实现，didagle中没有默认实现； 在实际应用中， 用户可以用线程池、协程来封装实现；    
+图的执行规则遵循两组：
+- 顶点
+  - 每个顶点有初始化依赖计数， 初始化依赖计数为0的为起始顶点，可以多个
+  - 当顶点的的依赖计数为0时，执行引擎可以启动执行该顶点；
+  - 顶点执行完毕后，需要将顶点的后继依赖计数减去1
+  - 顶点执行完毕后，同时将图的join计数减去1
+- 图
+  - 每个图初始化join计数，数目为整个图的定点数
+  - 当图的join计数为0， 整个图执行完毕，通知调用者的done closure
