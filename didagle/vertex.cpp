@@ -160,7 +160,7 @@ int Vertex::Build() {
     }
   }
   for (auto& data : input) {
-    if (data.merge.empty()) {
+    if (data.aggregate.empty()) {
       Vertex* dep_vertex = _graph->FindVertexByData(data.id);
       if (nullptr == dep_vertex && !data.is_extern) {
         DIDAGLE_ERROR("No dep input id:{}", data.id);
@@ -171,10 +171,10 @@ int Vertex::Build() {
       }
       Depend(dep_vertex, data.required ? V_RESULT_OK : V_RESULT_ALL);
     } else {
-      for (const std::string& merge_id : data.merge) {
-        Vertex* dep_vertex = _graph->FindVertexByData(merge_id);
+      for (const std::string& aggregate_id : data.aggregate) {
+        Vertex* dep_vertex = _graph->FindVertexByData(aggregate_id);
         if (nullptr == dep_vertex && !data.is_extern) {
-          DIDAGLE_ERROR("No dep input id:{}", merge_id);
+          DIDAGLE_ERROR("No dep input id:{}", aggregate_id);
           return -1;
         }
         if (nullptr == dep_vertex) {

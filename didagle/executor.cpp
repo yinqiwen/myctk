@@ -140,9 +140,10 @@ int VertexContext::ExecuteProcessor() {
       required = graph_data->required;
     }
     int rc = 0;
-    if (nullptr != graph_data && !graph_data->merge.empty()) {
-      for (const std::string& merge_id : graph_data->merge) {
-        rc = _processor->InjectInputField(_graph_ctx->GetGraphDataContextRef(), field, merge_id);
+    if (nullptr != graph_data && !graph_data->aggregate.empty()) {
+      for (const std::string& aggregate_id : graph_data->aggregate) {
+        rc =
+            _processor->InjectInputField(_graph_ctx->GetGraphDataContextRef(), field, aggregate_id);
         if (0 != rc && required) {
           break;
         }

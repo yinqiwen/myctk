@@ -1,5 +1,4 @@
-name = "Example3"
-strict_dsl = true
+strict_dsl = true #aaa
 default_expr_processor = "expr_phase"
 [[config_setting]]
 name = "with_exp_1000"
@@ -87,4 +86,4 @@ input = [
 output = [{ field = "v100", id = "m2" }]
 [[graph.vertex]]
 processor = "phase4"
-input = [{ field = "v100", merge = ["m0", "m1", "m2"] }]
+input = [{ field = "v100", aggregate = ["m0", "m1", "m2"] }]

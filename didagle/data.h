@@ -15,13 +15,13 @@ namespace didagle {
 struct GraphData {
   std::string id;
   std::string field;
-  std::vector<std::string> merge;
+  std::vector<std::string> aggregate;
   bool required = false;
   bool move = false;
   bool is_extern = false;
 
   WRDK_TOML_DEFINE_FIELD_MAPPING(({"is_extern", "extern"}))
-  WRDK_TOML_DEFINE_FIELDS(id, field, required, move, is_extern, merge)
+  WRDK_TOML_DEFINE_FIELDS(id, field, required, move, is_extern, aggregate)
 };
 
 struct ConfigSetting {
