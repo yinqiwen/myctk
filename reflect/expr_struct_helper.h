@@ -6,28 +6,28 @@
 #include "expr_struct.h"
 #include "flatbuffers/flatbuffers.h"
 
-namespace expr_struct {
+// namespace expr_struct {
 
-template <typename T>
-struct ExprStructHelper {
-  static FieldAccessorTable& GetFieldAccessorTable() {
-    static FieldAccessorTable accessors;
-    return accessors;
-  }
-  static int GetFieldAccessors(const std::vector<std::string>& names,
-                               std::vector<FieldAccessor>& accessors) {
-    using HELPER_TYPE = ExprStructHelper<T>;
-    return expr_struct::GetFieldAccessors<HELPER_TYPE>(names, accessors);
-  }
-  template <typename fake = void>
-  static int InitExpr();
-};
-}  // namespace expr_struct
+// template <typename T>
+// struct ExprStructHelper {
+//   static FieldAccessorTable& GetFieldAccessorTable() {
+//     static FieldAccessorTable accessors;
+//     return accessors;
+//   }
+//   static int GetFieldAccessors(const std::vector<std::string>& names,
+//                                std::vector<FieldAccessor>& accessors) {
+//     using HELPER_TYPE = ExprStructHelper<T>;
+//     return expr_struct::GetFieldAccessors<HELPER_TYPE>(names, accessors);
+//   }
+//   template <typename fake = void>
+//   static int InitExpr();
+// };
+// }  // namespace expr_struct
 
 #define PB_FIELD_EACH_INIT(N, i, arg)                                                              \
   {                                                                                                \
     using FIELD_TYPE = decltype(__root_obj->arg());                                                \
-    FieldAccessorTable& accessors = PB_HELPER_TYPE::GetFieldAccessorTable();                       \
+    expr_struct::FieldAccessorTable& accessors = PB_HELPER_TYPE::GetFieldAccessorTable();          \
     if constexpr (std::is_same<FIELD_TYPE, double>::value ||                                       \
                   std::is_same<FIELD_TYPE, float>::value ||                                        \
                   std::is_same<FIELD_TYPE, char>::value ||                                         \
@@ -55,8 +55,9 @@ struct ExprStructHelper {
       using R = typename std::remove_reference<FIELD_TYPE>::type;                                  \
       using NR = typename std::remove_pointer<R>::type;                                            \
       using RR = typename std::remove_const<NR>::type;                                             \
-      ExprStructHelper<RR>::InitExpr();                                                            \
-      expr_struct::FieldAccessorTable value = ExprStructHelper<RR>::GetFieldAccessorTable();       \
+      expr_struct::ExprStructHelper<RR>::InitExpr();                                               \
+      expr_struct::FieldAccessorTable value =                                                      \
+          expr_struct::ExprStructHelper<RR>::GetFieldAccessorTable();                              \
       if constexpr (std::is_pointer<FIELD_TYPE>::value) {                                          \
         expr_struct::FieldAccessor field_accessor = [](const void* v) -> expr_struct::FieldValue { \
           const PB_TYPE* data = (const PB_TYPE*)v;                                                 \

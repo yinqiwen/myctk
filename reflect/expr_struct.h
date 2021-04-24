@@ -153,6 +153,39 @@ int GetFieldAccessors(const std::vector<std::string>& names,
   }
   return 0;
 }
+
+template <typename T>
+struct ExprStructHelper {
+  static FieldAccessorTable& GetFieldAccessorTable() {
+    static FieldAccessorTable accessors;
+    return accessors;
+  }
+  static int GetFieldAccessors(const std::vector<std::string>& names,
+                               std::vector<FieldAccessor>& accessors) {
+    using HELPER_TYPE = ExprStructHelper<T>;
+    return expr_struct::GetFieldAccessors<HELPER_TYPE>(names, accessors);
+  }
+  template <typename fake = void>
+  static int InitExpr();
+};
+
+// SFINAE test
+template <typename T>
+class HasGetFieldAccessors {
+  typedef char one;
+  struct two {
+    char x[2];
+  };
+
+  template <typename C>
+  static one test(decltype(&C::GetFieldAccessors));
+  template <typename C>
+  static two test(...);
+
+ public:
+  enum { value = sizeof(test<T>(0)) == sizeof(char) };
+};
+
 }  // namespace expr_struct
 
 #define FIELD_EACH(N, i, arg)                                                                      \
@@ -174,9 +207,15 @@ int GetFieldAccessors(const std::vector<std::string>& names,
           return data->STRIP(arg);                                                                 \
         };                                                                                         \
       } else {                                                                                     \
-        using R = typename std::remove_pointer<DT>::type;                                          \
-        R::InitExpr();                                                                             \
-        expr_struct::FieldAccessorTable value = R::GetFieldAccessorTable();                        \
+        using R = typename std::remove_const<typename std::remove_pointer<DT>::type>::type;        \
+        expr_struct::FieldAccessorTable value;                                                     \
+        if constexpr (expr_struct::HasGetFieldAccessors<R>::value) {                               \
+          R::InitExpr();                                                                           \
+          value = R::GetFieldAccessorTable();                                                      \
+        } else {                                                                                   \
+          expr_struct::ExprStructHelper<R>::InitExpr();                                            \
+          value = expr_struct::ExprStructHelper<R>::GetFieldAccessorTable();                       \
+        }                                                                                          \
         expr_struct::FieldAccessor field_accessor;                                                 \
         if constexpr (std::is_pointer<DT>::value) {                                                \
           field_accessor = [](const void* v) -> expr_struct::FieldValue {                          \
