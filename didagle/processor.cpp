@@ -38,14 +38,15 @@ size_t Processor::AddResetFunc(ResetFunc&& f) {
   return _reset_funcs.size();
 }
 int Processor::InjectInputField(GraphDataContext& ctx, const std::string& field_name,
-                                const std::string& data_name) {
-  DIDAGLE_DEBUG("[{}]InjectInputField field:{}, id:{}", Name(), field_name, data_name);
+                                const std::string& data_name, bool move) {
   auto found = _field_inject_table.find(field_name);
   if (found == _field_inject_table.end()) {
     DIDAGLE_DEBUG("[{}]InjectInputField field:{} not found", Name());
     return -1;
   }
-  return found->second(ctx, data_name, false);
+  int rc = found->second(ctx, data_name, move);
+  DIDAGLE_DEBUG("[{}]InjectInputField field:{}, id:{}, rc:{}", Name(), field_name, data_name, rc);
+  return rc;
 }
 int Processor::EmitOutputField(GraphDataContext& ctx, const std::string& field_name,
                                const std::string& data_name) {

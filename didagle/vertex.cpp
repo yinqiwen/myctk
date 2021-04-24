@@ -7,8 +7,22 @@
 #include "processor.h"
 namespace didagle {
 Vertex::Vertex() {
-  Params empty(true);
-  args = empty;
+  // Params empty(true);
+  // args = empty;
+}
+bool Vertex::FindVertexInSuccessors(Vertex* v) const {
+  if (_successor_vertex.empty()) {
+    return false;
+  }
+  if (_successor_vertex.count(v) > 0) {
+    return true;
+  }
+  for (Vertex* succeed : _successor_vertex) {
+    if (succeed->FindVertexInSuccessors(v)) {
+      return true;
+    }
+  }
+  return false;
 }
 int Vertex::FillInputOutput() {
   if (processor.empty()) {
@@ -91,6 +105,8 @@ int Vertex::DumpDotDefine(std::string& s) {
     s.append(" shape=diamond color=black fillcolor=aquamarine style=filled");
   } else if (!graph.empty()) {
     s.append(" shape=box3d, color=blue fillcolor=aquamarine style=filled");
+  } else {
+    s.append(" color=black fillcolor=linen style=filled");
   }
   s.append("];\n");
   return 0;
@@ -103,6 +119,9 @@ int Vertex::DumpDotEdge(std::string& s) {
         .append(_graph->name + "__START__")
         .append(" -> ")
         .append(_graph->name + "_" + expect_config);
+  }
+  if (_successor_vertex.empty()) {
+    s.append("    ").append(GetDotId()).append(" -> ").append(_graph->name + "__STOP__");
   }
   if (_deps_idx.empty()) {
     s.append("    ").append(_graph->name + "__START__").append(" -> ").append(GetDotId());
@@ -170,7 +189,7 @@ int Vertex::Build() {
     if (data.aggregate.empty()) {
       Vertex* dep_vertex = _graph->FindVertexByData(data.id);
       if (nullptr == dep_vertex && !data.is_extern) {
-        DIDAGLE_ERROR("No dep input id:{}", data.id);
+        DIDAGLE_ERROR("[{}]No dep input id:{}", GetDotLable(), data.id);
         return -1;
       }
       if (nullptr == dep_vertex) {

@@ -1,0 +1,27 @@
+name = "Example3"
+strict_dsl = false
+
+## ERROR dsl
+[[graph]]
+name = "circle"
+[[graph.vertex]]
+processor = "phase0"
+args = { a = 1, b = "as" }
+input = [{ field = "xxxx", extern = true }]
+output = [{ field = "v0" }, { field = "v1", id = "d1" }]
+[[graph.vertex]]
+processor = "phase1"
+input = [{ field = "f1", id = "d1", required = true }, { field = "ffy" }]
+output = [{ field = "ff1" }]
+[[graph.vertex]]
+processor = "phase2"
+input = [{ field = "v0" }]
+output = [{ field = "ff2" }]
+[[graph.vertex]]
+processor = "phase3"
+input = [{ field = "ff1" }, { field = "ff2" }]
+output = [{ field = "ff3" }]
+[[graph.vertex]]
+processor = "phase4"
+input = [{ field = "ff3" }]
+output = [{ field = "ffy" }]

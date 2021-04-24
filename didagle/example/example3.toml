@@ -87,3 +87,11 @@ output = [{ field = "v100", id = "m2" }]
 [[graph.vertex]]
 processor = "phase4"
 input = [{ field = "v100", aggregate = ["m0", "m1", "m2"] }]
+[[graph.vertex]]
+processor = "phase5"
+input = [{ field = "v100", move = true }]
+output = [{ field = "v100", id = "new_v100" }]
+[[graph.vertex]]
+processor = "phase6"
+input = [{ field = "v100", id = "new_v100", move = true }]
+output = [{ field = "v100", id = "new2_v100" }]

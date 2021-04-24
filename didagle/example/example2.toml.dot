@@ -3,15 +3,16 @@ digraph G {
   subgraph cluster_sub_graph0{
     style = rounded;
     label = "sub_graph0";
-    sub_graph0__START__ [label="START"];
-    sub_graph0_phase4 [label="phase4"];
-    sub_graph0_phase0 [label="phase0"];
-    sub_graph0_phase3 [label="phase3"];
-    sub_graph0_phase2 [label="phase2"];
-    sub_graph0_phase1 [label="phase1"];
+    sub_graph0__START__[color=black fillcolor=deepskyblue style=filled shape=Msquare label="START"];
+    sub_graph0__STOP__[color=black fillcolor=deepskyblue style=filled shape=Msquare label="STOP"];
+    sub_graph0_phase4 [label="phase4" color=black fillcolor=linen style=filled];
+    sub_graph0_phase0 [label="phase0" color=black fillcolor=linen style=filled];
+    sub_graph0_phase3 [label="phase3" color=black fillcolor=linen style=filled];
+    sub_graph0_phase2 [label="phase2" color=black fillcolor=linen style=filled];
+    sub_graph0_phase1 [label="phase1" color=black fillcolor=linen style=filled];
     sub_graph0_with_exp_1000 [label="with_exp_1000" shape=diamond color=black fillcolor=aquamarine style=filled];
     sub_graph0_with_exp_1001 [label="with_exp_1001" shape=diamond color=black fillcolor=aquamarine style=filled];
-    sub_graph0_phase3 -> sub_graph0_phase4 [style=bold label="all"];
+    sub_graph0_phase4 -> sub_graph0__STOP__    sub_graph0_phase3 -> sub_graph0_phase4 [style=bold label="all"];
     sub_graph0__START__ -> sub_graph0_phase0    sub_graph0_phase2 -> sub_graph0_phase3 [style=bold label="all"];
     sub_graph0_phase1 -> sub_graph0_phase3 [style=bold label="all"];
     sub_graph0_phase0 -> sub_graph0_phase2 [style=bold label="all"];

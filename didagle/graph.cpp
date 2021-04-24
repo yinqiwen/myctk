@@ -37,6 +37,16 @@ Vertex* Graph::FindVertexById(const std::string& id) {
   }
   return found->second;
 }
+bool Graph::TestCircle() {
+  for (auto& pair : _nodes) {
+    Vertex* v = pair.second;
+    if (v->FindVertexInSuccessors(v)) {
+      DIDAGLE_ERROR("[{}]Found vertex:{} has circle", name, v->GetDotLable());
+      return true;
+    }
+  }
+  return false;
+}
 int Graph::Build() {
   VertexTable generated_cond_nodes;
   for (auto& n : vertex) {
@@ -142,14 +152,21 @@ int Graph::Build() {
       return -1;
     }
   }
-
+  if (TestCircle()) {
+    return -1;
+  }
   return 0;
 }
 int Graph::DumpDot(std::string& s) {
   s.append("  subgraph cluster_").append(name).append("{\n");
   s.append("    style = rounded;\n");
   s.append("    label = \"").append(name).append("\";\n");
-  s.append("    ").append(name + "__START__").append(" [label=\"START\"];\n");
+  s.append("    ")
+      .append(name + "__START__")
+      .append("[color=black fillcolor=deepskyblue style=filled shape=Msquare label=\"START\"];\n");
+  s.append("    ")
+      .append(name + "__STOP__")
+      .append("[color=black fillcolor=deepskyblue style=filled shape=Msquare label=\"STOP\"];\n");
   for (auto& pair : _nodes) {
     Vertex* v = pair.second;
     v->DumpDotDefine(s);
@@ -198,7 +215,17 @@ int GraphCluster::Build() {
       }
     }
   }
-
+  if (strict_dsl) {
+    GraphClusterContext ctx;
+    if (0 != ctx.Setup(this)) {
+      return -1;
+    }
+    ctx.Reset();
+  }
+  for (int i = 0; i < default_context_pool_size; i++) {
+    GraphClusterContext* ctx = GetContext();
+    _graph_cluster_context_pool.push(ctx);
+  }
   return 0;
 }
 int GraphCluster::DumpDot(std::string& s) {

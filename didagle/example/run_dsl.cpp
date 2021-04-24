@@ -47,7 +47,10 @@ int main(int argc, char** argv) {
   }
   boost::asio::thread_pool pool(8);
   GraphExecuteOptions exec_opt;
-  exec_opt.concurrent_executor = [&pool](AnyClosure&& r) { boost::asio::post(pool, r); };
+  exec_opt.concurrent_executor = [&pool](AnyClosure&& r) {
+    // boost::asio::post(pool, r);
+    r();
+  };
   exec_opt.params.reset(new Params);
   std::shared_ptr<GraphDataContext> root(new GraphDataContext);
   std::string cluster_name = get_basename(config);

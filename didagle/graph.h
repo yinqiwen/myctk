@@ -32,6 +32,7 @@ struct Graph {
 
   int Build();
   int DumpDot(std::string& s);
+  bool TestCircle();
   ~Graph();
 };
 

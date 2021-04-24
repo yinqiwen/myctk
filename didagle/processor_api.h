@@ -18,10 +18,15 @@
 #define ERR_UNIMPLEMENTED -7890
 
 namespace didagle {
+enum ProcessorFieldType {
+  FIELD_IN = 0,
+  FIELD_OUT,
+};
 typedef std::function<void(int)> DoneClosure;
 struct DataKey {
   std::string name;
   uint32_t id = 0;
+  ProcessorFieldType field_type = FIELD_IN;
   bool operator<(const DataKey& k) const {
     if (id < k.id) {
       return true;
@@ -37,8 +42,13 @@ struct DataKeyView {
   uint32_t id = 0;
 };
 struct DataValue {
-  void* val = nullptr;
+  std::atomic<void*> val = nullptr;
   std::shared_ptr<std::string> name;
+  DataValue& operator=(const DataValue& other) {
+    val.store(other.val.load());
+    name = other.name;
+    return *this;
+  }
 };
 struct DataKeyViewHash {
   size_t operator()(const DataKeyView& id) const noexcept {
@@ -94,7 +104,7 @@ class GraphDataContext {
     DataKeyView key = {name, id};
     auto found = _data_table.find(key);
     if (found != _data_table.end()) {
-      const T* val = (const T*)(found->second.val);
+      const T* val = (const T*)(found->second.val.load());
       if (nullptr != val) {
         return val;
       }
@@ -106,6 +116,14 @@ class GraphDataContext {
   }
   template <typename T>
   T* Move(const std::string& name) {
+    uint32_t id = GetTypeId<T>();
+    DataKeyView key = {name, id};
+    auto found = _data_table.find(key);
+    if (found != _data_table.end()) {
+      void* empty = nullptr;
+      T* val = (T*)(found->second.val.exchange(empty));
+      return val;
+    }
     return nullptr;
   }
 
@@ -139,12 +157,6 @@ class GraphDataContext {
       return true;
     }
   }
-};
-
-enum ProcessorFieldType {
-  FIELD_IN = 0,
-  FIELD_OUT,
-  FIELD_IN_OUT,
 };
 
 class VertexContext;
@@ -204,7 +216,7 @@ class Processor {
   int Execute(const Params& args);
   void AsyncExecute(const Params& args, DoneClosure&& done);
   int InjectInputField(GraphDataContext& ctx, const std::string& field_name,
-                       const std::string& data_name);
+                       const std::string& data_name, bool move);
   int EmitOutputField(GraphDataContext& ctx, const std::string& field_name,
                       const std::string& data_name);
   virtual ~Processor();
@@ -245,7 +257,7 @@ using namespace didagle;
       });                                                                                         \
   size_t __reset_##NAME##_code = AddResetFunc([this]() { NAME = nullptr; });
 
-#define DEF_IN_MAP_FIELD(TYPE, NAME)                                                             \
+#define DEF_MAP_FIELD(TYPE, NAME)                                                                \
   std::map<std::string, const BOOST_PP_REMOVE_PARENS(TYPE)*> NAME;                               \
   const BOOST_PP_REMOVE_PARENS(TYPE)* __NAME_helper = nullptr;                                   \
   size_t __input_##NAME##_code = RegisterInput(                                                  \
@@ -264,6 +276,12 @@ using namespace didagle;
         NAME[data] = tmp;                                                                        \
         return 0;                                                                                \
       });                                                                                        \
+  size_t __output_##NAME##_code =                                                                \
+      RegisterOutput(#NAME, NAME, [this](GraphDataContext& ctx, const std::string& data) {       \
+        using FIELD_TYPE = decltype(NAME);                                                       \
+        ctx.Set<FIELD_TYPE>(data, &(this->NAME));                                                \
+        return 0;                                                                                \
+      });                                                                                        \
   size_t __reset_##NAME##_code = AddResetFunc([this]() { NAME = {}; });
 
 #define DEF_OUT_FIELD(TYPE, NAME)                                                          \
@@ -280,12 +298,11 @@ using namespace didagle;
   BOOST_PP_REMOVE_PARENS(TYPE)* NAME = nullptr;                                            \
   size_t __input_##NAME##_code = RegisterInput(                                            \
       #NAME, NAME, [this](GraphDataContext& ctx, const std::string& data, bool move) {     \
-        using FIELD_TYPE = typename std::remove_pointer<decltype(NAME)>::type;             \
-        if (move) {                                                                        \
-          NAME = ctx.Move<FIELD_TYPE>(data);                                               \
-        } else {                                                                           \
-          NAME = ctx.Get<FIELD_TYPE>(data);                                                \
+        if (!move) {                                                                       \
+          return -1;                                                                       \
         }                                                                                  \
+        using FIELD_TYPE = typename std::remove_pointer<decltype(NAME)>::type;             \
+        NAME = ctx.Move<FIELD_TYPE>(data);                                                 \
         return (nullptr == NAME) ? -1 : 0;                                                 \
       });                                                                                  \
   size_t __output_##NAME##_code =                                                          \

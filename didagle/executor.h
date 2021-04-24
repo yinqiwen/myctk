@@ -122,6 +122,7 @@ class GraphClusterContext {
   void Reset();
   int Execute(const std::string& graph, DoneClosure&& done);
   void Execute(GraphDataContext& session_ctx, std::vector<uint8_t>& eval_results);
+  ~GraphClusterContext();
 };
 
 }  // namespace didag

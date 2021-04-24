@@ -3,7 +3,16 @@ package(default_visibility = ["//visibility:public"])
 cc_library(
     name = "processor_lib",
     hdrs = ["expr.h"],
-    srcs = ["processor_0.cpp","processor_1.cpp","processor_2.cpp","processor_3.cpp","processor_4.cpp", "processor_expr.cpp"],
+    srcs = [
+        "processor_0.cpp",
+        "processor_1.cpp",
+        "processor_2.cpp",
+        "processor_3.cpp",
+        "processor_4.cpp", 
+        "processor_5.cpp", 
+        "processor_6.cpp", 
+        "processor_expr.cpp",
+    ],
     deps = [
         "//didagle:didagle_core",
         "//reflect:expr_struct",

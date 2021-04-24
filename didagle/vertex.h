@@ -73,6 +73,7 @@ struct Vertex {
                           graph, successor, successor_on_ok, successor_on_err, deps, deps_on_ok,
                           deps_on_err, input, output)
   Vertex();
+  bool FindVertexInSuccessors(Vertex* v) const;
   int FillInputOutput();
   void SetGeneratedId(const std::string& id);
   bool IsSuccessorsEmpty();
