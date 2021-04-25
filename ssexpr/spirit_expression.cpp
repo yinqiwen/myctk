@@ -626,6 +626,8 @@ Value SpiritExpression::Eval(EvalContext& ctx) {
   Error err;
   ssexpr::ast::Expression* ast = (ssexpr::ast::Expression*)(expr_.get());
   if (nullptr == ast) {
+    err.code = ERR_NIL_INTERPRETER;
+    err.reason = "SpiritExpression is not inited success";
     return err;
   }
   ssexpr::ast::Interpreter interpreter(ctx);

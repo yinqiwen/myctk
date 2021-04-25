@@ -20,7 +20,7 @@ namespace wrdk {
 typedef toml::basic_value<::toml::discard_comments, std::unordered_map, std::vector> TomlValue;
 
 #define WRDK_TOML_DEFINE_FIELD_MAPPING(init)                                                      \
-  const char* GetFieldName(const char* v) {                                                       \
+  const char* GetFieldName(const char* v) const {                                                 \
     static std::map<std::string, std::string> __field_mapping__ = {BOOST_PP_REMOVE_PARENS(init)}; \
     auto found = __field_mapping__.find(v);                                                       \
     if (found != __field_mapping__.end()) {                                                       \
@@ -46,10 +46,6 @@ class HasGetFieldName {
   enum { value = sizeof(test<T>(0)) == sizeof(char) };
 };
 
-// template <typename T>
-// using field_mapping_t = decltype(std::declval<T&>().__field_mapping__);
-// template <typename T>
-// constexpr bool has_field_mapping = std::experimental::is_detected_v<field_mapping_t, T>;
 template <typename T>
 static const char* GetFieldName(T* t, const char* v) {
   if constexpr (HasGetFieldName<T>::value) {
