@@ -1,0 +1,51 @@
+
+cc_binary(
+    name = "rimos-server",
+    srcs = ["server.cpp"],
+    includes=["./", "./common"],
+    deps = [
+        # "@native_query//:internal_scripts",
+        ":rimos-common",
+        #":internal_scripts",
+        "//ext/007:007",
+        "//ext/polaris:polaris",
+    ] + select({
+        ":with_123": ["//ext/tconf:tconf"],
+        "//conditions:default": [],
+    })+ select({
+        ":with_annoy": ["@rimos_dmg//src/annoy:annoy_dmg"],
+        "//conditions:default": [],
+    })+ select({
+        ":with_cmod": ["@rimos_dmg//src/cmod:cmod_dmg"],
+        "//conditions:default": [],
+    })+ select({
+        ":with_faiss": ["@rimos_dmg//src/faiss:faiss_dmg"],
+        "//conditions:default": [],
+    })+ select({
+        ":with_hnsw": ["@rimos_dmg//src/hnsw:hnsw_dmg"],
+        "//conditions:default": [],
+    })+ select({
+        ":with_wrdb": ["@rimos_dmg//src/wrdb:wrdb_dmg"],
+        "//conditions:default": [],
+    })+ select({
+        ":with_rocksdb": ["@rimos_dmg//src/rocksdb:rocksdb_dmg"],
+        "//conditions:default": [],
+    })+ select({
+        ":with_fasttext": ["@rimos_dmg//src/fasttext:fasttext_dmg"],
+        "//conditions:default": [],
+    })+ select({
+        ":with_redis": ["@rimos_dmg//src/redis:redis_dmg"],
+        "//conditions:default": [],
+    })+ select({
+        ":with_kv_ext": ["@rimos_native_module//kv:kv_ext"],
+        "//conditions:default": [],
+    })+ select({
+        ":with_ann_ext": ["@rimos_native_module//ann:ann_ext"],
+        "//conditions:default": [],
+    })+ select({
+        ":with_ef_ext": ["@rimos_native_module//elasticfaiss:ef_ext"],
+        "//conditions:default": [],
+    }),
+    malloc="//deps:jemalloc",
+    linkopts=["-l:libuv.a -l:liblz4.a -lpthread -lssl -lcrypto -ldl -lz -lstdc++fs -luuid -ltbb -lrt -Wl,--no-as-needed -lmkl_intel_ilp64 -lmkl_gnu_thread -lmkl_core -lgomp -rdynamic"]
+)

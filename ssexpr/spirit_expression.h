@@ -27,13 +27,13 @@ struct Expr {
 struct Error {
   int code = 0;
   std::string reason;
-  Error(int c = -1, const std::string& r = "unknown error") : code(c), reason(r) {}
+  Error(int c = -1, const std::string &r = "unknown error") : code(c), reason(r) {}
 };
-typedef std::variant<Error, bool, int64_t, double, std::string_view> Value;
-typedef std::function<Value(const std::vector<Value>&)> ExprFunction;
-typedef std::function<std::vector<expr_struct::FieldAccessor>(const std::vector<std::string>&)>
+typedef std::variant<Error, bool, int64_t, double, std::string_view, const void *> Value;
+typedef std::function<Value(const std::vector<Value> &)> ExprFunction;
+typedef std::function<std::vector<expr_struct::FieldAccessor>(const std::vector<std::string> &)>
     GetStructMemberAccessFunction;
-typedef std::function<Value(const std::vector<expr_struct::FieldAccessor>&)>
+typedef std::function<Value(const std::vector<expr_struct::FieldAccessor> &)>
     StructMemberVisitFunction;
 
 struct ExprOptions {
@@ -43,7 +43,7 @@ struct ExprOptions {
   template <typename T>
   void Init() {
     T::InitExpr();
-    get_member_access = [](const std::vector<std::string>& names) {
+    get_member_access = [](const std::vector<std::string> &names) {
       std::vector<expr_struct::FieldAccessor> accessors;
       T::GetFieldAccessors(names, accessors);
       return accessors;
@@ -60,11 +60,11 @@ class SpiritExpression {
   std::shared_ptr<Expr> expr_;
 
  public:
-  int Init(const std::string& expr, const ExprOptions& options);
-  Value Eval(EvalContext& ctx);
+  int Init(const std::string &expr, const ExprOptions &options);
+  Value Eval(EvalContext &ctx);
   template <typename T>
-  Value Eval(EvalContext& ctx, T& root_obj) {
-    ctx.struct_vistitor = [&root_obj](const std::vector<expr_struct::FieldAccessor>& accessors) {
+  Value Eval(EvalContext &ctx, const T &root_obj) {
+    ctx.struct_vistitor = [&root_obj](const std::vector<expr_struct::FieldAccessor> &accessors) {
       Value v;
       auto field_val = root_obj.GetFieldValue(accessors);
       switch (field_val.index()) {
@@ -114,6 +114,10 @@ class SpiritExpression {
         }
         case 11: {
           v = std::get<std::string_view>(field_val);
+          break;
+        }
+        case 12: {
+          v = std::get<const void *>(field_val);
           break;
         }
         default: {

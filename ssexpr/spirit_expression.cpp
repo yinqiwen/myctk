@@ -439,6 +439,9 @@ struct Initializer {
       return ERR_INVALID_FUNCTION;
     }
     n.functor_ = found->second;
+    for (auto& operand : n.args) {
+      boost::apply_visitor(*this, operand);
+    }
     return 0;
   }
   int operator()(Unary& n) const { return boost::apply_visitor(*this, n.operand_); }

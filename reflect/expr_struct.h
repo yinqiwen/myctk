@@ -169,6 +169,50 @@ struct ExprStructHelper {
   static int InitExpr();
 };
 
+template <typename T>
+struct HasConstIterator {
+ private:
+  typedef char yes;
+  typedef struct {
+    char array[2];
+  } no;
+
+  template <typename C>
+  static yes test(typename C::const_iterator*);
+  template <typename C>
+  static no test(...);
+
+ public:
+  static const bool value = sizeof(test<T>(0)) == sizeof(yes);
+  typedef T type;
+};
+
+template <typename T>
+struct HasBeginEnd {
+  template <typename C>
+  static char (
+      &f(typename std::enable_if<
+          std::is_same<decltype(static_cast<typename C::const_iterator (C::*)() const>(&C::begin)),
+                       typename C::const_iterator (C::*)() const>::value,
+          void>::type*))[1];
+
+  template <typename C>
+  static char (&f(...))[2];
+
+  template <typename C>
+  static char (
+      &g(typename std::enable_if<
+          std::is_same<decltype(static_cast<typename C::const_iterator (C::*)() const>(&C::end)),
+                       typename C::const_iterator (C::*)() const>::value,
+          void>::type*))[1];
+
+  template <typename C>
+  static char (&g(...))[2];
+
+  static bool const beg_value = sizeof(f<T>(0)) == 1;
+  static bool const end_value = sizeof(g<T>(0)) == 1;
+};
+
 // SFINAE test
 template <typename T>
 class HasGetFieldAccessors {
@@ -186,6 +230,14 @@ class HasGetFieldAccessors {
   enum { value = sizeof(test<T>(0)) == sizeof(char) };
 };
 
+template <typename T>
+struct is_container
+    : std::integral_constant<bool, HasConstIterator<T>::value && HasBeginEnd<T>::beg_value &&
+                                       HasBeginEnd<T>::end_value> {};
+
+struct NoExpr {
+  virtual ~NoExpr() {}
+};
 }  // namespace expr_struct
 
 #define FIELD_EACH(N, i, arg)                                                                      \
@@ -195,6 +247,7 @@ class HasGetFieldAccessors {
     FieldInit(expr_struct::FieldAccessorTable& accessors) {                                        \
       __CurrentDataType* vv = nullptr;                                                             \
       using DT = decltype(vv->STRIP(arg));                                                         \
+      using R = typename std::remove_const<typename std::remove_pointer<DT>::type>::type;          \
       if constexpr (std::is_same<DT, double>::value || std::is_same<DT, float>::value ||           \
                     std::is_same<DT, char>::value || std::is_same<DT, uint8_t>::value ||           \
                     std::is_same<DT, int32_t>::value || std::is_same<DT, uint32_t>::value ||       \
@@ -206,8 +259,20 @@ class HasGetFieldAccessors {
           const __CurrentDataType* data = (const __CurrentDataType*)v;                             \
           return data->STRIP(arg);                                                                 \
         };                                                                                         \
+      } else if constexpr (expr_struct::is_container<R>::value ||                                  \
+                           std::is_base_of<expr_struct::NoExpr, R>::value) {                       \
+        if constexpr (std::is_pointer<DT>::value) {                                                \
+          accessors[STRING(STRIP(arg))] = [](const void* v) -> expr_struct::FieldValue {           \
+            const __CurrentDataType* data = (const __CurrentDataType*)v;                           \
+            return data->STRIP(arg);                                                               \
+          };                                                                                       \
+        } else {                                                                                   \
+          accessors[STRING(STRIP(arg))] = [](const void* v) -> expr_struct::FieldValue {           \
+            const __CurrentDataType* data = (const __CurrentDataType*)v;                           \
+            return &(data->STRIP(arg));                                                            \
+          };                                                                                       \
+        }                                                                                          \
       } else {                                                                                     \
-        using R = typename std::remove_const<typename std::remove_pointer<DT>::type>::type;        \
         expr_struct::FieldAccessorTable value;                                                     \
         if constexpr (expr_struct::HasGetFieldAccessors<R>::value) {                               \
           R::InitExpr();                                                                           \
