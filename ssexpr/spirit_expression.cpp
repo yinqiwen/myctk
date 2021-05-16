@@ -148,8 +148,8 @@ void add_keywords() {
 
   equality_op.add("==", ast::op_equal)("!=", ast::op_not_equal);
 
-  relational_op.add("<", ast::op_less)("<=", ast::op_less_equal)(">", ast::op_greater)(
-      ">=", ast::op_greater_equal);
+  relational_op.add("<", ast::op_less)("<=", ast::op_less_equal)(
+      ">", ast::op_greater)(">=", ast::op_greater_equal);
 
   additive_op.add("+", ast::op_plus)("-", ast::op_minus);
 
@@ -224,7 +224,7 @@ auto const multiplicative_expr_def = unary_expr >> *(multiplicative_op > unary_e
 auto const unary_expr_def = primary_expr | (unary_op > primary_expr);
 auto const quoted_string = lexeme['"' >> *(char_ - '"') >> '"'];
 
-auto const func_def = identifier_rule >> '(' >> expression % ',' >> ')';
+auto const func_def = identifier_rule >> '(' >> -(expression % ',') >> ')';
 
 boost::spirit::x3::real_parser<double, boost::spirit::x3::strict_real_policies<double> > const
     strict_double_ = {};

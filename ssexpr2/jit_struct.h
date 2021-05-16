@@ -15,6 +15,7 @@
 #include <string_view>
 #include <variant>
 #include <vector>
+#include "flatbuffers/flatbuffers.h"
 #include "jit_err.h"
 #include "xbyak/xbyak.h"
 
@@ -35,6 +36,7 @@ enum ValueType {
   V_STD_STRING,
   V_STD_STRING_VIEW,
   V_CSTRING,
+  V_FLATBUFFERS_STRING,
 
   V_CHAR_VALUE = 100,
   V_BOOL_VALUE,
@@ -109,6 +111,11 @@ struct Value {
       type = V_STD_STRING;
       return;
     }
+    if constexpr (std::is_same<T, flatbuffers::String>::value) {
+      val = (uint64_t)(&v);
+      type = V_FLATBUFFERS_STRING;
+      return;
+    }
   }
 
   template <typename T>
@@ -136,6 +143,11 @@ struct Value {
           const std::string_view* s = (const std::string_view*)val;
           v = *s;
           return v;
+        }
+        case V_FLATBUFFERS_STRING: {
+          const flatbuffers::String* s = (const flatbuffers::String*)val;
+          std::string_view sv(s->c_str(), s->size());
+          return sv;
         }
         case V_CSTRING: {
           const char* s = (const char*)val;

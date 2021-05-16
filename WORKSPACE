@@ -1,2 +1,3 @@
-load("//:project.bzl", "myctk_workspace")
+load("//:myctk.bzl", "myctk_workspace")
+
 myctk_workspace()
