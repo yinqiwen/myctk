@@ -5,6 +5,33 @@ def clean_dep(dep):
     return str(Label(dep))
 
 def myctk_workspace(path_prefix = "", tf_repo_name = "", **kwargs):
+    http_archive(
+        name = "bazel_skylib",
+        urls = [
+            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
+        ],
+        sha256 = "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
+    )
+    http_archive(
+        name = "rules_proto",
+        sha256 = "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
+        strip_prefix = "rules_proto-97d8af4dc474595af3900dd85cb3a29ad28cc313",
+        urls = [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+            "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+        ],
+    )
+    http_archive(
+        name = "rules_python",
+        url = "https://github.com/bazelbuild/rules_python/releases/download/0.2.0/rules_python-0.2.0.tar.gz",
+        sha256 = "778197e26c5fbeb07ac2a2c5ae405b30f6cb7ad1f5510ea6fdac03bded96cc6f",
+    )
+    git_repository(
+        name = "rules_cc",
+        commit = "40548a2974f1aea06215272d9c2b47a14a24e556",
+        remote = "https://github.com/bazelbuild/rules_cc.git",
+    )
     _TOML11_BUILD_FILE = """
 cc_library(
     name = "toml",
@@ -92,5 +119,16 @@ cc_library(
         urls = [
             "https://mirrors.tencent.com/github.com/google/benchmark/archive/v{ver}.tar.gz".format(ver = bench_ver),
             "https://github.com/google/benchmark/archive/v{ver}.tar.gz".format(ver = bench_ver),
+        ],
+    )
+
+    protobuf_ver = kwargs.get("protobuf_ver", "3.17.0")
+    protobuf_name = "protobuf-{ver}".format(ver = protobuf_ver)
+    http_archive(
+        name = "com_google_protobuf",
+        strip_prefix = protobuf_name,
+        urls = [
+            "https://mirrors.tencent.com/github.com/protocolbuffers/protobuf/archive/v{ver}.tar.gz".format(ver = protobuf_ver),
+            "https://github.com/protocolbuffers/protobuf/archive/v{ver}.tar.gz".format(ver = protobuf_ver),
         ],
     )

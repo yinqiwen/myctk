@@ -3,7 +3,7 @@
 // Created on 2021/05/11
 // Authors: qiyingwang (qiyingwang@tencent.com)
 #pragma once
-
+#include <assert.h>
 // #include "flatbuffers/flatbuffers.h"
 #include "jit_struct.h"
 
@@ -13,8 +13,9 @@
 #define DEFINE_JIT_STRUCT_HELPER_MEMBER_INIT(r, data, i, elem)                                     \
   {                                                                                                \
     using FT = decltype(__root_obj->elem());                                                       \
-    using FT2 = typename std::remove_const<typename std::remove_reference<FT>::type>::type;        \
-    ssexpr2::FieldJitAccessBuilderTable& builders = HELPER_TYPE::GetFieldJitAccessBuilderTable();  \
+    using FT2 = typename std::remove_const<                                                        \
+        std::remove_pointer<typename std::remove_reference<FT>::type>::type>::type;                \
+    ssexpr2::FieldJitAccessBuilderTable& builders = GetFieldJitAccessBuilderTable();               \
     ssexpr2::FieldJitAccessBuilder builder;                                                        \
     ssexpr2::ValueType vtype;                                                                      \
     if constexpr (std::is_same<FT2, char>::value) {                                                \
@@ -45,6 +46,8 @@
       vtype = ssexpr2::V_STD_STRING;                                                               \
     } else if constexpr (std::is_same<FT2, std::string_view>::value) {                             \
       vtype = ssexpr2::V_STD_STRING_VIEW;                                                          \
+    } else if constexpr (std::is_same<FT, const flatbuffers::String*>::value) {                    \
+      vtype = ssexpr2::V_FLATBUFFERS_STRING;                                                       \
     } else if constexpr (std::is_same<FT, const char*>::value) {                                   \
       vtype = ssexpr2::V_CSTRING;                                                                  \
     } else {                                                                                       \
@@ -68,9 +71,12 @@
                   std::is_same<FT2, uint32_t>::value || std::is_same<FT2, int64_t>::value ||       \
                   std::is_same<FT2, uint64_t>::value || std::is_same<FT2, float>::value ||         \
                   std::is_same<FT2, double>::value || std::is_same<FT2, std::string>::value ||     \
-                  std::is_same<FT2, std::string_view>::value || std::is_same<FT2, int>::value) {   \
+                  std::is_same<FT2, std::string_view>::value ||                                    \
+                  std::is_same<FT, const flatbuffers::String*>::value ||                           \
+                  std::is_same<FT, const char*>::value) {                                          \
       builders[BOOST_PP_STRINGIZE(elem)] = builder;                                                \
     } else {                                                                                       \
+      assert(ssexpr2::JitStructHelper<FT2>::_jit_struct == true);                                  \
       ssexpr2::JitStructHelper<FT2>::InitJitBuilder();                                             \
       builders[BOOST_PP_STRINGIZE(elem)] =                                                         \
                    std::pair<ssexpr2::FieldJitAccessBuilder, ssexpr2::FieldJitAccessBuilderTable>( \

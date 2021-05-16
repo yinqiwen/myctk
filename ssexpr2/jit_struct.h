@@ -108,12 +108,7 @@ struct Value {
     }
     if constexpr (std::is_same<T, const char*>::value) {
       val = (uint64_t)(v);
-      type = V_STD_STRING;
-      return;
-    }
-    if constexpr (std::is_same<T, flatbuffers::String>::value) {
-      val = (uint64_t)(&v);
-      type = V_FLATBUFFERS_STRING;
+      type = V_CSTRING;
       return;
     }
   }
