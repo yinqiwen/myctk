@@ -30,6 +30,7 @@ struct Nil {};
 struct Unary;
 struct Expression;
 struct FuncCall;
+struct CondExpr;
 
 struct Variable : x3::position_tagged {
   std::vector<std::string> v;
@@ -38,8 +39,8 @@ struct Variable : x3::position_tagged {
 };
 
 struct Operand
-    : x3::variant<Nil, int64_t, double, bool, std::string, Variable, x3::forward_ast<FuncCall>,
-                  x3::forward_ast<Unary>, x3::forward_ast<Expression> > {
+    : x3::variant<Nil, int64_t, double, bool, std::string, Variable, x3::forward_ast<CondExpr>,
+                  x3::forward_ast<FuncCall>, x3::forward_ast<Unary>, x3::forward_ast<Expression> > {
   using base_type::base_type;
   using base_type::operator=;
 };
@@ -60,6 +61,12 @@ enum Optoken {
   op_greater_equal,
   op_and,
   op_or
+};
+
+struct CondExpr {
+  Operand lhs;
+  Operand rhs_true;
+  Operand rhs_false;
 };
 
 struct Unary {
@@ -90,6 +97,7 @@ BOOST_FUSION_ADAPT_STRUCT(ssexpr2::ast::Operation, operator_, operand_)
 BOOST_FUSION_ADAPT_STRUCT(ssexpr2::ast::Expression, first, rest)
 BOOST_FUSION_ADAPT_STRUCT(ssexpr2::ast::Variable, v)
 BOOST_FUSION_ADAPT_STRUCT(ssexpr2::ast::FuncCall, func, args)
+BOOST_FUSION_ADAPT_STRUCT(ssexpr2::ast::CondExpr, lhs, rhs_true, rhs_false)
 
 namespace ssexpr2 {
 namespace parser {
@@ -170,7 +178,7 @@ void add_keywords() {
 // Main expression grammar
 ////////////////////////////////////////////////////////////////////////////
 struct expression_class;
-typedef x3::rule<expression_class, ast::Expression> expression_type;
+typedef x3::rule<expression_class, ast::Operand> expression_type;
 BOOST_SPIRIT_DECLARE(expression_type);
 
 struct equality_expr_class;
@@ -182,7 +190,9 @@ struct unary_expr_class;
 struct primary_expr_class;
 struct var_class;
 struct func_class;
+struct cond_expr_class;
 
+typedef x3::rule<cond_expr_class, ast::Operand> cond_expr_type;
 typedef x3::rule<equality_expr_class, ast::Expression> equality_expr_type;
 typedef x3::rule<relational_expr_class, ast::Expression> relational_expr_type;
 typedef x3::rule<logical_expr_class, ast::Expression> logical_expr_type;
@@ -207,6 +217,7 @@ var_type const var = "var";
 auto const var_def = identifier_rule_def % '.';
 BOOST_SPIRIT_DEFINE(var);
 
+cond_expr_type const cond_expr = "cond_expr";
 expression_type const expression = "expression";
 equality_expr_type const equality_expr = "equality_expr";
 relational_expr_type const relational_expr = "relational_expr";
@@ -216,6 +227,18 @@ multiplicative_expr_type const multiplicative_expr = "multiplicative_expr";
 unary_expr_type const unary_expr = "unary_expr";
 primary_expr_type const primary_expr = "primary_expr";
 func_type const func = "func";
+
+auto make_conditional_op = [](auto& ctx) {
+  using boost::fusion::at_c;
+  ast::CondExpr n;
+  n.lhs = x3::_val(ctx);
+  n.rhs_true = at_c<0>(x3::_attr(ctx));
+  n.rhs_false = at_c<1>(x3::_attr(ctx));
+  x3::_val(ctx) = n;
+};
+
+auto const cond_expr_def = logical_expr[([](auto& ctx) { _val(ctx) = _attr(ctx); })] >>
+                           -('?' > expression > ':' > expression)[make_conditional_op];
 
 auto const logical_expr_def = equality_expr >> *(logical_op > equality_expr);
 
@@ -238,10 +261,10 @@ const auto int_or_double = strict_double_ | boost::spirit::x3::int64;
 auto const primary_expr_def =
     int_or_double | bool_ | quoted_string | func | var | '(' > expression > ')';
 
-auto const expression_def = logical_expr;
+auto const expression_def = cond_expr;
 
-BOOST_SPIRIT_DEFINE(expression, logical_expr, equality_expr, relational_expr, additive_expr,
-                    multiplicative_expr, unary_expr, func, primary_expr);
+BOOST_SPIRIT_DEFINE(expression, cond_expr, logical_expr, equality_expr, relational_expr,
+                    additive_expr, multiplicative_expr, unary_expr, func, primary_expr);
 
 struct unary_expr_class : x3::annotate_on_success {};
 struct primary_expr_class : x3::annotate_on_success {};
@@ -267,6 +290,21 @@ struct Initializer {
   int operator()(bool n) const { return 0; }
   int operator()(double n) const { return 0; }
   int operator()(std::string const& n) const { return 0; }
+  int operator()(CondExpr& n) const {
+    int rc = boost::apply_visitor(*this, n.lhs);
+    if (0 != rc) {
+      return rc;
+    }
+    rc = boost::apply_visitor(*this, n.rhs_true);
+    if (0 != rc) {
+      return rc;
+    }
+    rc = boost::apply_visitor(*this, n.rhs_false);
+    if (0 != rc) {
+      return rc;
+    }
+    return 0;
+  }
   int operator()(Variable& n) const {
     if (!opt_.get_member_access) {
       return ERR_INVALID_STRUCT_MEMBER;
@@ -322,7 +360,7 @@ static Value notValue(Value v) {
   }
   return v;
 }
-static bool getBool(Value v) { return v.Get<bool>(); }
+// static bool getBool(Value v) { return v.Get<bool>(); }
 static bool fastAndOr(Value v, size_t op) {
   // printf("####Enter fastAndOr %d %d %d\n", op, v.type, v.val);
   bool bv = v.Get<bool>();
@@ -1167,7 +1205,9 @@ static Value calcPairValue(Value left, Value right, size_t op) {
       return doLessEq(left, right);
     }
     case op_greater: {
-      return doGt(left, right);
+      Value rv = doGt(left, right);
+      // printf("####Exit GT %llu %llu\n", rv.type, rv.val);
+      return rv;
     }
     case op_greater_equal: {
       return doGe(left, right);
@@ -1190,6 +1230,10 @@ static Value calcPairValue(Value left, Value right, size_t op) {
   err.type = 0;
   err.val = ERR_INVALID_OPERATOR;
   return err;
+}
+static Value printValue(Value v) {
+  printf("##print value: %llu %llu\n", v.type, v.val);
+  return v;
 }
 
 struct CodeGenerator {
@@ -1256,6 +1300,34 @@ struct CodeGenerator {
     opt_.get_member_access(n.v, _jit_ptr);
     // jit_.pop(jit_.rbp);
   }
+  void operator()(CondExpr const& n) {
+    size_t current_cursor = cursor;
+    cursor++;
+    boost::apply_visitor(*this, n.lhs);
+    // DEBUG_ASM_OP((jit_.mov(jit_.rdi, jit_.rax)));
+    // DEBUG_ASM_OP((jit_.mov(jit_.rsi, jit_.rdx)));
+    // DEBUG_ASM_OP((jit_.mov(jit_.rax, (size_t)printValue)));
+    // DEBUG_ASM_OP((jit_.call(jit_.rax)));
+    jit_.cmp(jit_.edx, V_BOOL);
+    jit_.je(".cond_test_ptr" + std::to_string(current_cursor));
+    jit_.cmp(jit_.edx, V_BOOL_VALUE);
+    jit_.je(".cond_test_value" + std::to_string(current_cursor));
+    jit_.mov(jit_.r10, ERR_INVALID_OPERAND_TYPE);
+    jit_.jmp(".err_exit", jit_.T_NEAR);
+    jit_.L(".cond_test_ptr" + std::to_string(current_cursor));
+    jit_.mov(jit_.rdx, V_BOOL_VALUE);
+    jit_.mov(jit_.rax, jit_.ptr[jit_.rax]);
+    jit_.L(".cond_test_value" + std::to_string(current_cursor));
+    jit_.cmp(jit_.rax, 0);
+    jit_.je(".cond_test_false" + std::to_string(current_cursor), jit_.T_NEAR);
+    jit_.L(".cond_test_true" + std::to_string(current_cursor));
+    boost::apply_visitor(*this, n.rhs_true);
+    jit_.jmp(".cond_test_exit" + std::to_string(current_cursor), jit_.T_NEAR);
+    jit_.L(".cond_test_false" + std::to_string(current_cursor));
+    boost::apply_visitor(*this, n.rhs_false);
+    jit_.jmp(".cond_test_exit" + std::to_string(current_cursor));
+    jit_.L(".cond_test_exit" + std::to_string(current_cursor));
+  }
   void operator()(FuncCall const& n) {
     for (size_t i = 0; i < n.args.size(); i++) {
       boost::apply_visitor(*this, n.args[i]);
@@ -1318,31 +1390,39 @@ struct CodeGenerator {
     size_t current_cursor = cursor;
     cursor++;
     if (x.operator_ == op_and || x.operator_ == op_or) {
-      DEBUG_ASM_OP((jit_.cmp(jit_.rdx, V_BOOL)));
-      DEBUG_ASM_OP((jit_.je(".and_or" + std::to_string(current_cursor))));
-      DEBUG_ASM_OP((jit_.cmp(jit_.rdx, V_BOOL_VALUE)));
+      DEBUG_ASM_OP((jit_.cmp(jit_.edx, V_BOOL)));
+      DEBUG_ASM_OP((jit_.je(".and_or_ptr" + std::to_string(current_cursor))));
+      DEBUG_ASM_OP((jit_.cmp(jit_.edx, V_BOOL_VALUE)));
       DEBUG_ASM_OP((jit_.je(".and_or" + std::to_string(current_cursor))));
       DEBUG_ASM_OP((jit_.mov(jit_.r10, ERR_INVALID_OPERAND_TYPE)));
-      jit_.cmp(jit_.r13, 0);
-      jit_.je(".err_exit", jit_.T_NEAR);
-      jit_.L(".loop" + std::to_string(current_cursor));
-      PopValue();
-      jit_.jne(".loop" + std::to_string(current_cursor));
+      // jit_.cmp(jit_.r13, 0);
+      // jit_.je(".err_exit", jit_.T_NEAR);
+      // jit_.L(".loop" + std::to_string(current_cursor));
+      // PopValue();
+      // jit_.jne(".loop" + std::to_string(current_cursor));
       DEBUG_ASM_OP((jit_.jmp(".err_exit", jit_.T_NEAR)));
+      jit_.L(".and_or_ptr" + std::to_string(current_cursor));
+      jit_.mov(jit_.edx, V_BOOL_VALUE);
+      jit_.mov(jit_.rax, jit_.ptr[jit_.rax]);
       DEBUG_ASM_OP((jit_.L(".and_or" + std::to_string(current_cursor))));
-      DEBUG_ASM_OP((jit_.mov(jit_.r14, jit_.rax)));  // save value
-      DEBUG_ASM_OP((jit_.mov(jit_.r15, jit_.rdx)));
-      DEBUG_ASM_OP((jit_.mov(jit_.rdi, jit_.rax)));
-      DEBUG_ASM_OP((jit_.mov(jit_.rsi, jit_.rdx)));
-      DEBUG_ASM_OP((jit_.mov(jit_.rdx, x.operator_)));
-      DEBUG_ASM_OP((jit_.mov(jit_.rax, (size_t)(fastAndOr))));
-      // jit_.push(jit_.rbp);
-      DEBUG_ASM_OP((jit_.call(jit_.rax)));
-      // jit_.pop(jit_.rbp);
-      DEBUG_ASM_OP((jit_.cmp(jit_.rax, 1)));
-      DEBUG_ASM_OP((jit_.je(".fast_ret" + std::to_string(current_cursor))));
-      DEBUG_ASM_OP((jit_.mov(jit_.rax, jit_.r14)));  // restore value
-      DEBUG_ASM_OP((jit_.mov(jit_.rdx, jit_.r15)));
+      if(x.operator_ == op_and){
+        jit_.cmp(jit_.rax, 0);
+        jit_.je(".fast_ret" + std::to_string(current_cursor));
+      }else{
+        jit_.cmp(jit_.rax, 1);
+        jit_.je(".fast_ret" + std::to_string(current_cursor));
+      }
+      // DEBUG_ASM_OP((jit_.mov(jit_.r14, jit_.rax)));  // save value
+      // DEBUG_ASM_OP((jit_.mov(jit_.r15, jit_.rdx)));
+      // DEBUG_ASM_OP((jit_.mov(jit_.rdi, jit_.rax)));
+      // DEBUG_ASM_OP((jit_.mov(jit_.rsi, jit_.rdx)));
+      // DEBUG_ASM_OP((jit_.mov(jit_.rdx, x.operator_)));
+      // DEBUG_ASM_OP((jit_.mov(jit_.rax, (size_t)(fastAndOr))));
+      // DEBUG_ASM_OP((jit_.call(jit_.rax)));
+      // DEBUG_ASM_OP((jit_.cmp(jit_.rax, 1)));
+      // DEBUG_ASM_OP((jit_.je(".fast_ret" + std::to_string(current_cursor))));
+      // DEBUG_ASM_OP((jit_.mov(jit_.rax, jit_.r14)));  // restore value
+      // DEBUG_ASM_OP((jit_.mov(jit_.rdx, jit_.r15)));
     }
     // rhs
     PushRegisters();
@@ -1401,7 +1481,7 @@ int SpiritExpression::Init(const std::string& expr, const ExprOptions& options) 
       // it later in our on_error and on_sucess handlers
       with<boost::spirit::x3::error_handler_tag>(
           std::ref(error_handler))[ssexpr2::parser::get_expression()];
-  bool r = phrase_parse(iter, end, parser, space, *ast);
+  bool r = phrase_parse(iter, end, parser, space, ast->first);
   if (!r) {
     delete ast;
     return -1;
@@ -1426,6 +1506,12 @@ int SpiritExpression::Init(const std::string& expr, const ExprOptions& options) 
   gen(*ast);
   DEBUG_ASM_OP((jit_->jmp(".ok_exit")));
   DEBUG_ASM_OP((jit_->L(".err_exit")));
+  jit_->cmp(jit_->r13, 0);
+  jit_->je(".final_err_exit");
+  jit_->L(".err_exit_loop");
+  gen.PopValue();
+  jit_->jne(".err_exit_loop");
+  jit_->L(".final_err_exit");
   DEBUG_ASM_OP((jit_->mov(jit_->rax, jit_->r10)));
   DEBUG_ASM_OP((jit_->mov(jit_->rdx, 0)));
   DEBUG_ASM_OP((jit_->L(".ok_exit")));

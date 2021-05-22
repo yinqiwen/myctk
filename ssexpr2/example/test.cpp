@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <string>
+#include "flatbuffers/idl.h"
 #include "jit_struct.h"
 #include "jit_struct_helper.h"
 #include "ssexpr2/example/test_data.pb.h"
@@ -157,6 +158,9 @@ static void test6() {
     builder.Finish(offset);
     const test_fbs::Data* t = test_fbs::GetData(builder.GetBufferPointer());
     c.fbs = t;
+    // printf("###Got %p %p %lld\n", t, builder.GetBufferPointer(),
+    //        flatbuffers::EndianScalar<flatbuffers::uoffset_t>(
+    //            *(flatbuffers::uoffset_t*)(builder.GetBufferPointer())));
   }
 
   std::vector<std::string> names = {"pb", "unit", "feedid"};
@@ -169,6 +173,55 @@ static void test6() {
   v = access(&c);
   printf("###%d %s\n", v.type, v.Get<std::string_view>().data());
 }
+
+// static void test7() {
+//   flatbuffers::FlatBufferBuilder builder;
+//   test_fbs::DataT test;
+//   test.unit.reset(new test_fbs::SubDataT);
+//   test.name = "test_name";
+//   test.x = 234;
+//   test.score = 1.23;
+//   test.unit->id = 100;
+//   test.unit->name = "sub_name";
+
+//   auto offset = test_fbs::Data::Pack(builder, &test);
+//   builder.Finish(offset);
+//   const test_fbs::Data* t = test_fbs::GetData(builder.GetBufferPointer());
+
+//   flatbuffers::Parser parser;
+//   std::string schema = R"(attribute "priority";
+
+// namespace test_fbs;
+
+// table SubData {
+//   id:uint;
+//   iid:int;
+//   val:ulong;
+//   score:float;
+//   dscore:double;
+//   bv:bool;
+//   bb:byte;
+//   ubb:ubyte;
+//   sv:short;
+//   usv:ushort;
+//   name:string;
+// }
+
+// table Data {
+//   name:string;
+//   score:double;
+//   unit:SubData;
+// }
+
+// root_type Data;)";
+//   parser.Parse(schema.c_str());
+//   std::string jsongen;
+//   if (!flatbuffers::GenerateText(parser, builder.GetBufferPointer(), &jsongen)) {
+//     printf("Couldn't serialize parsed data to JSON!\n");
+//     return;
+//   }
+//   printf("####%s\n", jsongen.c_str());
+// }
 
 int main() {
   /*
@@ -198,5 +251,7 @@ int main() {
    *
    */
   test6();
+
+  // test7();
   return 0;
 }

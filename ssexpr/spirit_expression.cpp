@@ -11,6 +11,7 @@
 #include <boost/spirit/home/x3/support/ast/variant.hpp>
 #include <boost/spirit/home/x3/support/utility/annotate_on_success.hpp>
 
+#include <iostream>
 #include <list>
 #include <sstream>
 
@@ -24,6 +25,7 @@ struct Nil {};
 struct Unary;
 struct Expression;
 struct FuncCall;
+struct CondExpr;
 
 struct Variable : x3::position_tagged {
   std::vector<std::string> v;
@@ -31,9 +33,9 @@ struct Variable : x3::position_tagged {
   std::vector<expr_struct::FieldAccessor> accessor_;
 };
 
-struct Operand
-    : x3::variant<Nil, int64_t, double, bool, std::string, Variable, x3::forward_ast<FuncCall>,
-                  x3::forward_ast<Unary>, x3::forward_ast<Expression> > {
+struct Operand : public x3::variant<Nil, int64_t, double, bool, std::string, Variable,
+                                    x3::forward_ast<FuncCall>, x3::forward_ast<Unary>,
+                                    x3::forward_ast<CondExpr>, x3::forward_ast<Expression> > {
   using base_type::base_type;
   using base_type::operator=;
 };
@@ -61,6 +63,12 @@ struct Unary {
   Operand operand_;
 };
 
+struct CondExpr : x3::position_tagged {
+  Operand lhs;
+  Operand rhs_true;
+  Operand rhs_false;
+};
+
 struct Operation : x3::position_tagged {
   Optoken operator_;
   Operand operand_;
@@ -84,6 +92,7 @@ BOOST_FUSION_ADAPT_STRUCT(ssexpr::ast::Operation, operator_, operand_)
 BOOST_FUSION_ADAPT_STRUCT(ssexpr::ast::Expression, first, rest)
 BOOST_FUSION_ADAPT_STRUCT(ssexpr::ast::Variable, v)
 BOOST_FUSION_ADAPT_STRUCT(ssexpr::ast::FuncCall, func, args)
+BOOST_FUSION_ADAPT_STRUCT(ssexpr::ast::CondExpr, lhs, rhs_true, rhs_false)
 
 namespace ssexpr {
 namespace parser {
@@ -164,7 +173,7 @@ void add_keywords() {
 // Main expression grammar
 ////////////////////////////////////////////////////////////////////////////
 struct expression_class;
-typedef x3::rule<expression_class, ast::Expression> expression_type;
+typedef x3::rule<expression_class, ast::Operand> expression_type;
 BOOST_SPIRIT_DECLARE(expression_type);
 
 struct equality_expr_class;
@@ -176,6 +185,7 @@ struct unary_expr_class;
 struct primary_expr_class;
 struct var_class;
 struct func_class;
+struct cond_expr_class;
 
 typedef x3::rule<equality_expr_class, ast::Expression> equality_expr_type;
 typedef x3::rule<relational_expr_class, ast::Expression> relational_expr_type;
@@ -186,6 +196,7 @@ typedef x3::rule<unary_expr_class, ast::Operand> unary_expr_type;
 typedef x3::rule<primary_expr_class, ast::Operand> primary_expr_type;
 typedef x3::rule<var_class, ast::Variable> var_type;
 typedef x3::rule<func_class, ast::FuncCall> func_type;
+typedef x3::rule<cond_expr_class, ast::Operand> cond_expr_type;
 
 x3::rule<class identifier_rule_, std::string> const identifier_rule = "identifier_rule";
 auto const identifier_rule_def =
@@ -201,6 +212,7 @@ var_type const var = "var";
 auto const var_def = identifier_rule_def % '.';
 BOOST_SPIRIT_DEFINE(var);
 
+cond_expr_type const cond_expr = "cond_expr";
 expression_type const expression = "expression";
 equality_expr_type const equality_expr = "equality_expr";
 relational_expr_type const relational_expr = "relational_expr";
@@ -210,6 +222,20 @@ multiplicative_expr_type const multiplicative_expr = "multiplicative_expr";
 unary_expr_type const unary_expr = "unary_expr";
 primary_expr_type const primary_expr = "primary_expr";
 func_type const func = "func";
+
+auto make_conditional_op = [](auto& ctx) {
+  using boost::fusion::at_c;
+  ast::CondExpr n;
+  n.lhs = x3::_val(ctx);
+  n.rhs_true = at_c<0>(x3::_attr(ctx));
+  n.rhs_false = at_c<1>(x3::_attr(ctx));
+  x3::_val(ctx) = n;
+  // x3::_val(ctx) =
+  //     ssexpr::ast::CondExpr{x3::_val(ctx), at_c<0>(x3::_attr(ctx)), at_c<1>(x3::_attr(ctx))};
+};
+
+auto const cond_expr_def = logical_expr[([](auto& ctx) { _val(ctx) = _attr(ctx); })] >>
+                           -('?' > expression > ':' > expression)[make_conditional_op];
 
 auto const logical_expr_def = equality_expr >> *(logical_op > equality_expr);
 
@@ -232,10 +258,10 @@ const auto int_or_double = strict_double_ | boost::spirit::x3::int64;
 auto const primary_expr_def =
     int_or_double | bool_ | quoted_string | func | var | '(' > expression > ')';
 
-auto const expression_def = logical_expr;
+auto const expression_def = cond_expr;
 
-BOOST_SPIRIT_DEFINE(expression, logical_expr, equality_expr, relational_expr, additive_expr,
-                    multiplicative_expr, unary_expr, func, primary_expr);
+BOOST_SPIRIT_DEFINE(expression, cond_expr, logical_expr, equality_expr, relational_expr,
+                    additive_expr, multiplicative_expr, unary_expr, func, primary_expr);
 
 struct unary_expr_class : x3::annotate_on_success {};
 struct primary_expr_class : x3::annotate_on_success {};
@@ -275,8 +301,8 @@ struct CalcVisitor {
                        (std::is_same<decltype(right), const double&>::value ||
                         std::is_same<decltype(right), const int64_t&>::value))) {
           result = (left + right);
-          break;
         }
+        break;
       }
       case op_minus: {
         if constexpr ((std::is_same<decltype(left), const int64_t&>::value &&
@@ -286,8 +312,8 @@ struct CalcVisitor {
                        (std::is_same<decltype(right), const double&>::value ||
                         std::is_same<decltype(right), const int64_t&>::value))) {
           result = (left - right);
-          break;
         }
+        break;
       }
       case op_times: {
         if constexpr ((std::is_same<decltype(left), const int64_t&>::value &&
@@ -298,7 +324,6 @@ struct CalcVisitor {
                         std::is_same<decltype(right), const int64_t&>::value))) {
           result = (left * right);
         }
-
         break;
       }
       case op_divide: {
@@ -309,10 +334,11 @@ struct CalcVisitor {
                        (std::is_same<decltype(right), const double&>::value ||
                         std::is_same<decltype(right), const int64_t&>::value))) {
           result = (left / right);
-          break;
         }
+        break;
       }
       case op_equal: {
+        // printf("####equal test %s %s\n", typeid(left).name(), typeid(right).name());
         if constexpr ((std::is_same<decltype(left), const int64_t&>::value &&
                        (std::is_same<decltype(right), const int64_t&>::value ||
                         std::is_same<decltype(right), const double&>::value)) ||
@@ -322,8 +348,8 @@ struct CalcVisitor {
                       (std::is_same<decltype(left), const std::string_view&>::value &&
                        std::is_same<decltype(right), const std::string_view&>::value)) {
           result = (left == right);
-          break;
         }
+        break;
       }
       case op_not_equal: {
         if constexpr ((std::is_same<decltype(left), const int64_t&>::value &&
@@ -335,8 +361,8 @@ struct CalcVisitor {
                       (std::is_same<decltype(left), const std::string_view&>::value &&
                        std::is_same<decltype(right), const std::string_view&>::value)) {
           result = (left != right);
-          break;
         }
+        break;
       }
       case op_less: {
         if constexpr ((std::is_same<decltype(left), const int64_t&>::value &&
@@ -348,8 +374,8 @@ struct CalcVisitor {
                       (std::is_same<decltype(left), const std::string_view&>::value &&
                        std::is_same<decltype(right), const std::string_view&>::value)) {
           result = (left < right);
-          break;
         }
+        break;
       }
       case op_less_equal: {
         if constexpr ((std::is_same<decltype(left), const int64_t&>::value &&
@@ -362,7 +388,6 @@ struct CalcVisitor {
                        std::is_same<decltype(right), const std::string_view&>::value)) {
           result = (left <= right);
         }
-
         break;
       }
       case op_greater: {
@@ -375,8 +400,8 @@ struct CalcVisitor {
                       (std::is_same<decltype(left), const std::string_view&>::value &&
                        std::is_same<decltype(right), const std::string_view&>::value)) {
           result = (left > right);
-          break;
         }
+        break;
       }
       case op_greater_equal: {
         if constexpr ((std::is_same<decltype(left), const int64_t&>::value &&
@@ -388,22 +413,22 @@ struct CalcVisitor {
                       (std::is_same<decltype(left), const std::string_view&>::value &&
                        std::is_same<decltype(right), const std::string_view&>::value)) {
           result = (left >= right);
-          break;
         }
+        break;
       }
       case op_and: {
         if constexpr (std::is_same<decltype(left), const bool&>::value &&
                       std::is_same<decltype(right), const bool&>::value) {
           result = (left && right);
-          break;
         }
+        break;
       }
       case op_or: {
         if constexpr (std::is_same<decltype(left), const bool&>::value &&
                       std::is_same<decltype(right), const bool&>::value) {
           result = (left || right);
-          break;
         }
+        break;
       }
       default: {
         Error e(ERR_INVALID_OPERATOR, "invalid operator");
@@ -423,6 +448,21 @@ struct Initializer {
   int operator()(bool n) const { return 0; }
   int operator()(double n) const { return 0; }
   int operator()(std::string const& n) const { return 0; }
+  int operator()(CondExpr& n) const {
+    int rc = boost::apply_visitor(*this, n.lhs);
+    if (0 != rc) {
+      return rc;
+    }
+    rc = boost::apply_visitor(*this, n.rhs_true);
+    if (0 != rc) {
+      return rc;
+    }
+    rc = boost::apply_visitor(*this, n.rhs_false);
+    if (0 != rc) {
+      return rc;
+    }
+    return 0;
+  }
   int operator()(Variable& n) const {
     if (!opt_.get_member_access) {
       return ERR_INVALID_STRUCT_MEMBER;
@@ -465,6 +505,7 @@ struct Interpreter {
   Interpreter(EvalContext& ctx) : ctx_(ctx) {}
   Value operator()(Nil) const {
     Value empty;
+    // printf("####Eval empty error\n");
     return empty;
   }
   Value operator()(int64_t n) const {
@@ -485,7 +526,21 @@ struct Interpreter {
   Value operator()(std::string const& n) const {
     Value v;
     v = n;
+    // printf("####string val %s\n", n.c_str());
     return v;
+  }
+  Value operator()(CondExpr const& n) const {
+    Value test = boost::apply_visitor(*this, n.lhs);
+    auto ptest = std::get_if<bool>(&test);
+    // printf("####Eval %p \n", ptest);
+    if (nullptr != ptest) {
+      if (*ptest) {
+        return boost::apply_visitor(*this, n.rhs_true);
+      } else {
+        return boost::apply_visitor(*this, n.rhs_false);
+      }
+    }
+    return test;
   }
   Value operator()(Variable const& n) const {
     Value v;
@@ -494,7 +549,12 @@ struct Interpreter {
       v = e;
       return v;
     }
+    // for (const std::string& nn : n.v) {
+    //   printf("####Visit %s\n", nn.c_str());
+    // }
+
     v = ctx_.struct_vistitor(n.accessor_);
+    // printf("####Visit value index %d\n", v.index());
     return v;
   }
   Value operator()(FuncCall const& n) const {
@@ -578,6 +638,7 @@ struct Interpreter {
     Value rhs = boost::apply_visitor(*this, x.operand_);
     CalcVisitor visitor;
     visitor.op = x.operator_;
+    // printf("####calc value index %d %d %d\n", x.operator_, lhs.index(), rhs.index());
     Value result = std::visit(visitor, lhs, rhs);
     return result;
   }
@@ -611,7 +672,7 @@ int SpiritExpression::Init(const std::string& expr, const ExprOptions& options) 
       // it later in our on_error and on_sucess handlers
       with<boost::spirit::x3::error_handler_tag>(
           std::ref(error_handler))[ssexpr::parser::get_expression()];
-  bool r = phrase_parse(iter, end, parser, space, *ast);
+  bool r = phrase_parse(iter, end, parser, space, ast->first);
   if (!r) {
     delete ast;
     return -1;

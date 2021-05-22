@@ -35,7 +35,8 @@ void test_calc() {
     return v;
   };
   opt.Init<Combine>();
-  int rc = expr.Init("1 + 2.11 + hash(1712, 100) + user.score", opt);
+  int rc =
+      expr.Init("1 + 2.11 + hash(1712, 100) + user.score + (user.id == \"uid123\"?10:20)", opt);
 
   printf("Calc Expression init with rc:%d\n", rc);
   SubUser su = {101, "random"};
@@ -45,6 +46,7 @@ void test_calc() {
   Combine root = {&user, &item, 100.2, "combine"};  // root object
   ssexpr::EvalContext ctx;
   auto val = expr.Eval(ctx, root);
+  // printf("Calc Expression eval result:%d\n", val.index());
   printf("Calc Expression eval result:%.2f\n", std::get<double>(val));
 }
 

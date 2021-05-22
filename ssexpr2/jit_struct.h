@@ -53,6 +53,21 @@ enum ValueType {
   V_JIT_STRUCT = 10001,
 };
 
+#define IS_TYPE(dtype, type_v1, type_v2)         \
+  if constexpr (std::is_same<T, dtype>::value) { \
+    switch (type) {                              \
+      case type_v1: {                            \
+        return true;                             \
+      }                                          \
+      case type_v2: {                            \
+        return true;                             \
+      }                                          \
+      default: {                                 \
+        return false;                            \
+      }                                          \
+    }                                            \
+  }
+
 #define GET_VALUE(dtype, type_v1, type_v2)       \
   if constexpr (std::is_same<T, dtype>::value) { \
     switch (type) {                              \
@@ -155,6 +170,35 @@ struct Value {
       }
     }
     throw std::bad_variant_access();
+  }
+
+  template <typename T>
+  bool Is() {
+    IS_TYPE(char, V_CHAR, V_CHAR_VALUE)
+    IS_TYPE(bool, V_BOOL, V_BOOL_VALUE)
+    IS_TYPE(uint8_t, V_UINT8, V_UINT8_VALUE)
+    IS_TYPE(int16_t, V_INT16, V_INT16_VALUE)
+    IS_TYPE(uint16_t, V_UINT16, V_UINT16_VALUE)
+    IS_TYPE(int32_t, V_INT32, V_INT32_VALUE)
+    IS_TYPE(uint32_t, V_UINT32, V_UINT32_VALUE)
+    IS_TYPE(int64_t, V_INT64, V_INT64_VALUE)
+    IS_TYPE(uint64_t, V_UINT64, V_UINT64_VALUE)
+    IS_TYPE(float, V_FLOAT, V_FLOAT_VALUE)
+    IS_TYPE(double, V_DOUBLE, V_DOUBLE_VALUE)
+    if constexpr (std::is_same<T, std::string_view>::value) {
+      switch (type) {
+        case V_STD_STRING:
+        case V_STD_STRING_VIEW:
+        case V_FLATBUFFERS_STRING:
+        case V_CSTRING: {
+          return true;
+        }
+        default: {
+          return false;
+        }
+      }
+    }
+    return false;
   }
 };
 
