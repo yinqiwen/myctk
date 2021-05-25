@@ -325,7 +325,10 @@ struct Initializer {
       return ERR_TOO_MANY_ARGS;
     }
     for (auto& operand : n.args) {
-      boost::apply_visitor(*this, operand);
+      int rc = boost::apply_visitor(*this, operand);
+      if (0 != rc) {
+        return rc;
+      }
     }
     return 0;
   }
@@ -1339,12 +1342,15 @@ struct CodeGenerator {
       DEBUG_ASM_OP((jit_.mov(jit_.r8, jit_.rax)));
       DEBUG_ASM_OP((jit_.mov(jit_.r9, jit_.rdx)));
       PopValue();
+      DEBUG_ASM_OP((jit_.mov(jit_.r10, jit_.rax)));
       DEBUG_ASM_OP((jit_.mov(jit_.r11, jit_.rdx)));
-      DEBUG_ASM_OP((jit_.mov(jit_.rdx, jit_.rax)));
-      DEBUG_ASM_OP((jit_.mov(jit_.rcx, jit_.r11)));
+      // DEBUG_ASM_OP((jit_.mov(jit_.rdx, jit_.rax)));
+      // DEBUG_ASM_OP((jit_.mov(jit_.rcx, jit_.r11)));
       PopValue();
       DEBUG_ASM_OP((jit_.mov(jit_.rdi, jit_.rax)));
       DEBUG_ASM_OP((jit_.mov(jit_.rsi, jit_.rdx)));
+      DEBUG_ASM_OP((jit_.mov(jit_.rdx, jit_.r10)));
+      DEBUG_ASM_OP((jit_.mov(jit_.rcx, jit_.r11)));
     } else if (2 == n.args.size()) {
       DEBUG_ASM_OP((jit_.mov(jit_.r10, jit_.rax)));
       DEBUG_ASM_OP((jit_.mov(jit_.r11, jit_.rdx)));
@@ -1405,10 +1411,10 @@ struct CodeGenerator {
       jit_.mov(jit_.edx, V_BOOL_VALUE);
       jit_.mov(jit_.rax, jit_.ptr[jit_.rax]);
       DEBUG_ASM_OP((jit_.L(".and_or" + std::to_string(current_cursor))));
-      if(x.operator_ == op_and){
+      if (x.operator_ == op_and) {
         jit_.cmp(jit_.rax, 0);
         jit_.je(".fast_ret" + std::to_string(current_cursor));
-      }else{
+      } else {
         jit_.cmp(jit_.rax, 1);
         jit_.je(".fast_ret" + std::to_string(current_cursor));
       }

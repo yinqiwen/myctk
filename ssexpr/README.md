@@ -23,8 +23,7 @@ void test_logic() {
   SubItem si = {123456789, "subitem"};
   Item item = {3.14, "item100", {123456789, "subitem"}};
   Combine root = {&user, &item, 100.2, "combine"};  // root object
-  ssexpr::EvalContext ctx;
-  auto val = expr.Eval(ctx, root);
+  auto val = expr.Eval(root);
   printf("Logic Expression eval result:%d\n", std::get<bool>(val));
 }
 ```
@@ -56,8 +55,7 @@ void test_calc() {
   SubItem si = {123456789, "subitem"};
   Item item = {3.14, "item100", {123456789, "subitem"}};
   Combine root = {&user, &item, 100.2, "combine"};  // root object
-  ssexpr::EvalContext ctx;
-  auto val = expr.Eval(ctx, root);
+  auto val = expr.Eval(root);
   printf("Calc Expression eval result:%.2f\n", std::get<double>(val));
 }
 ```

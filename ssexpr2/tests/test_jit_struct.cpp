@@ -1,16 +1,16 @@
+#include <gtest/gtest.h>
 #include <stdint.h>
 #include <string>
-#include "flatbuffers/idl.h"
 #include "jit_struct.h"
 #include "jit_struct_helper.h"
-#include "ssexpr2/example/test_data.pb.h"
-#include "ssexpr2/example/test_data_generated.h"
+#include "ssexpr2/tests/test_data.pb.h"
+#include "ssexpr2/tests/test_data_generated.h"
 
 using namespace ssexpr2;
 DEFINE_JIT_STRUCT(SubItem1, (double)score, (std::string)id, (int32_t)vv)
 DEFINE_JIT_STRUCT(Item1, (double)score, (std::string)id, (int32_t)vv, (const SubItem1*)sub)
 
-void test1() {
+TEST(ReflectVisistTest, PODWithPtrSub) {
   Item1 item;
   item.score = 1.234;
   item.id = "234";
@@ -22,12 +22,13 @@ void test1() {
   std::vector<std::string> n = {"sub", "id"};
   ssexpr2::ValueAccessor access = ssexpr2::GetFieldAccessors<Item1>(n);
   ssexpr2::Value v = access(&item);
-  printf("###%d, %s\n", v.type, v.Get<std::string_view>().data());
+  EXPECT_EQ("abcs", v.Get<std::string_view>());
   n = {"sub", "vv"};
   access = ssexpr2::GetFieldAccessors<Item1>(n);
   v = access(&item);
-  printf("###%d, %d\n", v.type, v.Get<int32_t>());
+  EXPECT_EQ(101, v.Get<int32_t>());
 }
+
 struct SubMessage {
   int _a = 156;
   std::string _b = "hello,world_sub";
@@ -48,22 +49,22 @@ struct Message {
 };
 DEFINE_JIT_STRUCT_HELPER(SubMessage, a, b, c, d)
 DEFINE_JIT_STRUCT_HELPER(Message, a, b, sub)
-void test2() {
+
+TEST(ReflectVisistTest, PODHelperWithSub) {
   Message msg;
   ssexpr2::JitStructHelper<Message>::InitJitBuilder();
   std::vector<std::string> n = {"sub", "b"};
   ssexpr2::ValueAccessor access = ssexpr2::GetFieldAccessors<ssexpr2::JitStructHelper<Message>>(n);
   ssexpr2::Value v = access(&msg);
-  printf("###%d,  %s\n", v.type, v.Get<std::string_view>().data());
+  EXPECT_EQ("hello,world_sub", v.Get<std::string_view>());
   n = {"sub", "a"};
   access = ssexpr2::GetFieldAccessors<ssexpr2::JitStructHelper<Message>>(n);
   v = access(&msg);
-  printf("###%d, %d\n", v.type, v.Get<int32_t>());
+  EXPECT_EQ(156, v.Get<int32_t>());
 }
 
 DEFINE_JIT_STRUCT(Item2, (double)score, (std::string)id, (int32_t)vv, (const Message*)msg)
-
-void test3() {
+TEST(ReflectVisistTest, PODWithHelperSubPOD) {
   Item2::InitJitBuilder();
   Message msg;
   Item2 item2;
@@ -73,24 +74,24 @@ void test3() {
   std::vector<std::string> n = {"msg", "sub", "b"};
   ssexpr2::ValueAccessor access = ssexpr2::GetFieldAccessors<Item2>(n);
   ssexpr2::Value v = access(&item2);
-  printf("###%d, %s\n", v.type, v.Get<std::string_view>().data());
+  EXPECT_EQ("test3:msg", v.Get<std::string_view>());
   n = {"msg", "sub", "a"};
   access = ssexpr2::GetFieldAccessors<Item2>(n);
   v = access(&item2);
-  printf("###%d, %d\n", v.type, v.Get<int32_t>());
+  EXPECT_EQ(98765, v.Get<int32_t>());
   n = {"msg", "sub", "c"};
   access = ssexpr2::GetFieldAccessors<Item2>(n);
   v = access(&item2);
-  printf("###%d %d,  %.10f\n", access.Valid(), v.type, v.Get<double>());
+  EXPECT_DOUBLE_EQ(3.1415926, v.Get<double>());
   n = {"msg", "sub", "d"};
   access = ssexpr2::GetFieldAccessors<Item2>(n);
   v = access(&item2);
-  printf("###%d %d, %.5f\n", access.Valid(), v.type, v.Get<float>());
+  EXPECT_FLOAT_EQ(1.23345, v.Get<float>());
 }
 
 DEFINE_JIT_STRUCT_HELPER(test_fbs::SubData, id, iid, name, score)
 DEFINE_JIT_STRUCT_HELPER(test_fbs::Data, name, score, unit)
-static void test4() {
+TEST(ReflectVisistTest, FlatBuffers) {
   JitStructHelper<test_fbs::Data>::InitJitBuilder();
   test_fbs::DataT test;
   test.unit.reset(new test_fbs::SubDataT);
@@ -107,17 +108,16 @@ static void test4() {
   ssexpr2::ValueAccessor access =
       ssexpr2::GetFieldAccessors<JitStructHelper<test_fbs::Data>>(names);
   auto v = access(t);
-  printf("###%d %u\n", v.type, v.Get<uint32_t>());
+  EXPECT_EQ(100, v.Get<uint32_t>());
 
   names = {"unit", "name"};
   access = GetFieldAccessors<JitStructHelper<test_fbs::Data>>(names);
   v = access(t);
-  printf("###%d %s\n", v.type, v.Get<std::string_view>().data());
+  EXPECT_EQ("sub_name", v.Get<std::string_view>());
 }
-
 DEFINE_JIT_STRUCT_HELPER(test_proto::SubData, feedid, rank, score)
 DEFINE_JIT_STRUCT_HELPER(test_proto::Data, id, model_id, unit)
-static void test5() {
+TEST(ReflectVisistTest, ProtoBuffers) {
   JitStructHelper<test_proto::Data>::InitJitBuilder();
   test_proto::Data test;
   test.mutable_unit()->set_feedid("name123");
@@ -127,16 +127,16 @@ static void test5() {
   ssexpr2::ValueAccessor access =
       ssexpr2::GetFieldAccessors<JitStructHelper<test_proto::Data>>(names);
   auto v = access(&test);
-  printf("###%d %s\n", v.type, v.Get<std::string_view>().data());
+  EXPECT_EQ("name123", v.Get<std::string_view>());
 
   names = {"unit", "score"};
   access = GetFieldAccessors<JitStructHelper<test_proto::Data>>(names);
   v = access(&test);
-  printf("###%d %f\n", v.type, v.Get<double>());
+  EXPECT_DOUBLE_EQ(1.23, v.Get<double>());
 }
 
 DEFINE_JIT_STRUCT(Combine, (const test_proto::Data*)pb, (const test_fbs::Data*)fbs)
-static void test6() {
+TEST(ReflectVisistTest, PBAndFbs) {
   Combine::InitJitBuilder();
   Combine c;
   test_proto::Data test;
@@ -158,100 +158,15 @@ static void test6() {
     builder.Finish(offset);
     const test_fbs::Data* t = test_fbs::GetData(builder.GetBufferPointer());
     c.fbs = t;
-    // printf("###Got %p %p %lld\n", t, builder.GetBufferPointer(),
-    //        flatbuffers::EndianScalar<flatbuffers::uoffset_t>(
-    //            *(flatbuffers::uoffset_t*)(builder.GetBufferPointer())));
   }
 
   std::vector<std::string> names = {"pb", "unit", "feedid"};
   ssexpr2::ValueAccessor access = ssexpr2::GetFieldAccessors<Combine>(names);
   auto v = access(&c);
-  printf("###%d %s\n", v.type, v.Get<std::string_view>().data());
+  EXPECT_EQ("name123", v.Get<std::string_view>());
 
   names = {"fbs", "unit", "name"};
   access = GetFieldAccessors<Combine>(names);
   v = access(&c);
-  printf("###%d %s\n", v.type, v.Get<std::string_view>().data());
-}
-
-// static void test7() {
-//   flatbuffers::FlatBufferBuilder builder;
-//   test_fbs::DataT test;
-//   test.unit.reset(new test_fbs::SubDataT);
-//   test.name = "test_name";
-//   test.x = 234;
-//   test.score = 1.23;
-//   test.unit->id = 100;
-//   test.unit->name = "sub_name";
-
-//   auto offset = test_fbs::Data::Pack(builder, &test);
-//   builder.Finish(offset);
-//   const test_fbs::Data* t = test_fbs::GetData(builder.GetBufferPointer());
-
-//   flatbuffers::Parser parser;
-//   std::string schema = R"(attribute "priority";
-
-// namespace test_fbs;
-
-// table SubData {
-//   id:uint;
-//   iid:int;
-//   val:ulong;
-//   score:float;
-//   dscore:double;
-//   bv:bool;
-//   bb:byte;
-//   ubb:ubyte;
-//   sv:short;
-//   usv:ushort;
-//   name:string;
-// }
-
-// table Data {
-//   name:string;
-//   score:double;
-//   unit:SubData;
-// }
-
-// root_type Data;)";
-//   parser.Parse(schema.c_str());
-//   std::string jsongen;
-//   if (!flatbuffers::GenerateText(parser, builder.GetBufferPointer(), &jsongen)) {
-//     printf("Couldn't serialize parsed data to JSON!\n");
-//     return;
-//   }
-//   printf("####%s\n", jsongen.c_str());
-// }
-
-int main() {
-  /*
-   ** nested POD pointer
-   */
-  test1();
-  /*
-  ** nested POD object
-  */
-  test2();
-  /**
-   * struct with access methods
-   *
-   */
-  test3();
-  /*
-   ** flatbuffers test
-   */
-  test4();
-  /*
-  ** protobuffers test
-  */
-  test5();
-
-  /**
-   * combine pb & fbs in a POD
-   *
-   */
-  test6();
-
-  // test7();
-  return 0;
+  EXPECT_EQ("sub_name", v.Get<std::string_view>());
 }

@@ -20,7 +20,8 @@ DEFINE_JIT_STRUCT(SubItem1, (double)score, (std::string)id, (int32_t)vv)
 DEFINE_JIT_STRUCT(Item1, (double)score, (std::string)id, (int32_t)vv, (SubItem1)sub)
 
 static void BM_ssexpr_eval(benchmark::State& state) {
-  std::string str = "1 + 2*3.1 - 6/3 + cfunc1() - cfunc2(3) + sub.score + ((vv > 100 || vv < 10) ? 10000 : 0)";
+  std::string str =
+      "1 + 2*3.1 - 6/3 + cfunc1() - cfunc2(3) + sub.score + ((vv > 100 || vv < 10) ? 10000 : 0)";
   ssexpr2::SpiritExpression expr;
   ssexpr2::ExprOptions options;
   options.Init<Item1>();

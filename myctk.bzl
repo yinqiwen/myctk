@@ -132,3 +132,14 @@ cc_library(
             "https://github.com/protocolbuffers/protobuf/archive/v{ver}.tar.gz".format(ver = protobuf_ver),
         ],
     )
+
+    gtest_ver = kwargs.get("gtest_ver", "1.10.0")
+    gtest_name = "googletest-release-{ver}".format(ver = gtest_ver)
+    http_archive(
+        name = "com_google_googletest",
+        strip_prefix = gtest_name,
+        urls = [
+            "https://mirrors.tencent.com/github.com/google/googletest/archive/release-{ver}.tar.gz".format(ver = gtest_ver),
+            "https://github.com/google/googletest/archive/release-{ver}.tar.gz".format(ver = gtest_ver),
+        ],
+    )

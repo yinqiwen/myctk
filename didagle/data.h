@@ -83,4 +83,8 @@ class Params {
   bool ParseFromToml(const wrdk::TomlValue& doc);
 };
 
+class DataFactory{
+  
+};
+
 }  // namespace didag

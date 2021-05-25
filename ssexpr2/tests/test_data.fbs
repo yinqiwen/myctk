@@ -1,6 +1,6 @@
 attribute "priority";
 
-namespace test;
+namespace test_fbs;
 
 table SubData {
   id:uint;
@@ -20,6 +20,8 @@ table Data {
   name:string;
   score:double;
   unit:SubData;
+  x:uint;
+  y:uint;
 }
 
 root_type Data;

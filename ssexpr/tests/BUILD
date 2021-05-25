@@ -1,8 +1,7 @@
+load("@rules_cc//cc:defs.bzl", "cc_test")
 load("@com_github_google_flatbuffers//:build_defs.bzl", "flatbuffer_cc_library")
 load("@rules_cc//cc:defs.bzl", "cc_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
-
-package(default_visibility = ["//visibility:public"])
 
 flatbuffer_cc_library(
     name = "test_fbs",
@@ -22,23 +21,34 @@ proto_library(
     srcs = ["test_data.proto"],
 )
 
-cc_binary(
-    name = "example1",
-    srcs = ["test.cpp"],
-    linkopts = [],
+cc_test(
+    name = "test_struct",
+    size = "small",
+    srcs = ["test_struct.cpp"],
     deps = [
         ":test_data_cc_proto",
         ":test_fbs",
-        "//ssexpr2",
+        "//ssexpr",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "test_expr",
+    size = "small",
+    srcs = ["test_expr.cpp"],
+    deps = [
+        "//ssexpr",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
 cc_binary(
-    name = "example2",
-    srcs = ["test2.cpp"],
+    name = "expr_bench",
+    srcs = ["expr_bench.cpp"],
     linkopts = [],
     deps = [
-        "//ssexpr2",
+        "//ssexpr",
         "@com_github_google_benchmark//:benchmark",
     ],
 )

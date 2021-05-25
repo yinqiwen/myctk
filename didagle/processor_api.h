@@ -18,6 +18,23 @@
 #define ERR_UNIMPLEMENTED -7890
 
 namespace didagle {
+template<typename T>
+struct FieldTypeHelper{
+  typedef const T* input_type;
+  typedef T output_type;
+  typedef T* input_output_type;
+  static constexpr bool is_shared_ptr = false;
+};
+
+template<typename T>
+struct FieldTypeHelper<std::shared_ptr<T>>{
+  typedef std::shared_ptr<T> input_type;
+  typedef std::shared_ptr<T> output_type;
+  typedef std::shared_ptr<T> input_output_type;
+  static constexpr bool is_shared_ptr = true;
+};
+
+
 enum ProcessorFieldType {
   FIELD_IN = 0,
   FIELD_OUT,
@@ -243,7 +260,7 @@ using namespace didagle;
   }
 
 #define DEF_IN_FIELD(TYPE, NAME)                                                                  \
-  const BOOST_PP_REMOVE_PARENS(TYPE)* NAME = nullptr;                                             \
+  typename FieldTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::input_type NAME = {};                                             \
   size_t __input_##NAME##_code = RegisterInput(                                                   \
       #NAME, NAME, [this](GraphDataContext& ctx, const std::string& data, bool move) {            \
         using FIELD_TYPE =                                                                        \
@@ -255,7 +272,7 @@ using namespace didagle;
         }                                                                                         \
         return (nullptr == NAME) ? -1 : 0;                                                        \
       });                                                                                         \
-  size_t __reset_##NAME##_code = AddResetFunc([this]() { NAME = nullptr; });
+  size_t __reset_##NAME##_code = AddResetFunc([this]() { NAME = {}; });
 
 #define DEF_MAP_FIELD(TYPE, NAME)                                                                \
   std::map<std::string, const BOOST_PP_REMOVE_PARENS(TYPE)*> NAME;                               \
@@ -285,7 +302,7 @@ using namespace didagle;
   size_t __reset_##NAME##_code = AddResetFunc([this]() { NAME = {}; });
 
 #define DEF_OUT_FIELD(TYPE, NAME)                                                          \
-  BOOST_PP_REMOVE_PARENS(TYPE) NAME = {};                                                  \
+  typename FieldTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::output_type NAME = {};           \
   size_t __output_##NAME##_code =                                                          \
       RegisterOutput(#NAME, NAME, [this](GraphDataContext& ctx, const std::string& data) { \
         using FIELD_TYPE = decltype(NAME);                                                 \
@@ -295,7 +312,7 @@ using namespace didagle;
   size_t __reset_##NAME##_code = AddResetFunc([this]() {});
 
 #define DEF_IN_OUT_FIELD(TYPE, NAME)                                                       \
-  BOOST_PP_REMOVE_PARENS(TYPE)* NAME = nullptr;                                            \
+  typename FieldTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::input_output_type NAME = {};     \
   size_t __input_##NAME##_code = RegisterInput(                                            \
       #NAME, NAME, [this](GraphDataContext& ctx, const std::string& data, bool move) {     \
         if (!move) {                                                                       \

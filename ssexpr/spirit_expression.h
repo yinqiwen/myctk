@@ -31,10 +31,9 @@ struct Error {
 };
 typedef std::variant<Error, bool, int64_t, double, std::string_view, const void *> Value;
 typedef std::function<Value(const std::vector<Value> &)> ExprFunction;
-typedef std::function<std::vector<expr_struct::FieldAccessor>(const std::vector<std::string> &)>
+typedef std::function<std::vector<FieldAccessor>(const std::vector<std::string> &)>
     GetStructMemberAccessFunction;
-typedef std::function<Value(const std::vector<expr_struct::FieldAccessor> &)>
-    StructMemberVisitFunction;
+typedef std::function<Value(const std::vector<FieldAccessor> &)> StructMemberVisitFunction;
 
 struct ExprOptions {
   std::map<std::string, ExprFunction> functions;
@@ -44,7 +43,7 @@ struct ExprOptions {
   void Init() {
     T::InitExpr();
     get_member_access = [](const std::vector<std::string> &names) {
-      std::vector<expr_struct::FieldAccessor> accessors;
+      std::vector<ssexpr::FieldAccessor> accessors;
       T::GetFieldAccessors(names, accessors);
       return accessors;
     };
@@ -58,13 +57,18 @@ struct EvalContext {
 class SpiritExpression {
  private:
   std::shared_ptr<Expr> expr_;
+  Value DoEval(EvalContext &ctx);
 
  public:
   int Init(const std::string &expr, const ExprOptions &options);
-  Value Eval(EvalContext &ctx);
+  Value Eval() {
+    EvalContext ctx;
+    return DoEval(ctx);
+  }
   template <typename T>
-  Value Eval(EvalContext &ctx, const T &root_obj) {
-    ctx.struct_vistitor = [&root_obj](const std::vector<expr_struct::FieldAccessor> &accessors) {
+  Value Eval(const T &root_obj) {
+    EvalContext ctx;
+    ctx.struct_vistitor = [&root_obj](const std::vector<FieldAccessor> &accessors) {
       Value v;
       auto field_val = root_obj.GetFieldValue(accessors);
       switch (field_val.index()) {
@@ -126,7 +130,7 @@ class SpiritExpression {
       }
       return v;
     };
-    return Eval(ctx);
+    return DoEval(ctx);
   }
 };
 }  // namespace ssexpr

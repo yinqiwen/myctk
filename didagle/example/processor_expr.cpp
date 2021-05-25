@@ -20,8 +20,7 @@ int OnSetup(const Params& args) override {
 }
 int OnExecute(const Params& args) override {
   DIDAGLE_DEBUG("expip={}", env->expid);
-  ssexpr::EvalContext eval_ctx;
-  auto eval_val = _expr.Eval(eval_ctx, *env);
+  auto eval_val = _expr.Eval(*env);
   bool r = std::get<bool>(eval_val);
   DIDAGLE_DEBUG("cond:{} eval result:{}", _cond, r);
   return r ? 0 : -1;

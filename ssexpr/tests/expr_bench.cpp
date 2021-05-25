@@ -30,8 +30,7 @@ static void BM_ssexpr_eval(benchmark::State& state) {
   for (auto _ : state) {
     Item1 item;
     item.sub.score = 99.2;
-    ssexpr::EvalContext ctx;
-    rv = expr.Eval(ctx, item);
+    rv = expr.Eval(item);
   }
   printf("Eval result:%.2f\n", std::get<double>(rv));
 }

@@ -30,7 +30,7 @@ struct CondExpr;
 struct Variable : x3::position_tagged {
   std::vector<std::string> v;
 
-  std::vector<expr_struct::FieldAccessor> accessor_;
+  std::vector<ssexpr::FieldAccessor> accessor_;
 };
 
 struct Operand : public x3::variant<Nil, int64_t, double, bool, std::string, Variable,
@@ -686,7 +686,7 @@ int SpiritExpression::Init(const std::string& expr, const ExprOptions& options) 
   expr_.reset(ast);
   return 0;
 }
-Value SpiritExpression::Eval(EvalContext& ctx) {
+Value SpiritExpression::DoEval(EvalContext& ctx) {
   Error err;
   ssexpr::ast::Expression* ast = (ssexpr::ast::Expression*)(expr_.get());
   if (nullptr == ast) {
