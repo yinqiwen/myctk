@@ -1,10 +1,10 @@
 // Copyright (c) 2020, Tencent Inc.
 // All rights reserved.
-#include "vertex.h"
+#include "graph_vertex.h"
 #include <regex>
+#include "didagle_log.h"
 #include "graph.h"
-#include "log.h"
-#include "processor.h"
+#include "graph_processor.h"
 namespace didagle {
 Vertex::Vertex() {
   // Params empty(true);

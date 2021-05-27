@@ -1,6 +1,6 @@
 // Copyright (c) 2020, Tencent Inc.
 // All rights reserved.
-#include "data.h"
+#include "graph_data.h"
 
 namespace didagle {
 

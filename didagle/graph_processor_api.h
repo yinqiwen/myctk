@@ -12,52 +12,20 @@
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
-#include "data.h"
+#include "di_container.h"
+#include "graph_data.h"
 #include "tbb/concurrent_hash_map.h"
 
 #define ERR_UNIMPLEMENTED -7890
 
 namespace didagle {
-template<typename T>
-struct FieldTypeHelper{
-  typedef const T* input_type;
-  typedef T output_type;
-  typedef T* input_output_type;
-  static constexpr bool is_shared_ptr = false;
-};
-
-template<typename T>
-struct FieldTypeHelper<std::shared_ptr<T>>{
-  typedef std::shared_ptr<T> input_type;
-  typedef std::shared_ptr<T> output_type;
-  typedef std::shared_ptr<T> input_output_type;
-  static constexpr bool is_shared_ptr = true;
-};
-
 
 enum ProcessorFieldType {
   FIELD_IN = 0,
   FIELD_OUT,
 };
 typedef std::function<void(int)> DoneClosure;
-struct DataKey {
-  std::string name;
-  uint32_t id = 0;
-  ProcessorFieldType field_type = FIELD_IN;
-  bool operator<(const DataKey& k) const {
-    if (id < k.id) {
-      return true;
-    }
-    if (id > k.id) {
-      return false;
-    }
-    return name < k.name;
-  }
-};
-struct DataKeyView {
-  std::string_view name;
-  uint32_t id = 0;
-};
+
 struct DataValue {
   std::atomic<void*> val = nullptr;
   std::shared_ptr<std::string> name;
@@ -67,44 +35,23 @@ struct DataValue {
     return *this;
   }
 };
-struct DataKeyViewHash {
-  size_t operator()(const DataKeyView& id) const noexcept {
-    size_t h1 = std::hash<std::string_view>()(id.name);
-    size_t h2 = id.id;
-    return h1 ^ h2;
-  }
-};
-
-struct DataKeyViewEqual {
-  bool operator()(const DataKeyView& x, const DataKeyView& y) const {
-    return x.name == y.name && x.id == y.id;
-  }
-};
 
 class GraphDataContext {
  private:
-  typedef std::unordered_map<DataKeyView, DataValue, DataKeyViewHash, DataKeyViewEqual> DataTable;
+  typedef std::unordered_map<DIObjectKeyView, DataValue, DIObjectKeyViewHash, DIObjectKeyViewEqual>
+      DataTable;
   DataTable _data_table;
-  static uint32_t nextTypeId() {
-    static std::atomic<uint32_t> type_id_seed;
-    return type_id_seed.fetch_add(1);
-  }
   std::shared_ptr<GraphDataContext> _parent;
   bool _disable_entry_creation = false;
 
  public:
-  template <typename T>
-  static uint32_t GetTypeId() {
-    static uint32_t id = nextTypeId();
-    return id;
-  }
   GraphDataContext() {}
   void SetParent(std::shared_ptr<GraphDataContext> p) { _parent = p; }
 
-  void RegisterData(const DataKey& id) {
+  void RegisterData(const DIObjectKey& id) {
     DataValue dv;
     dv.name.reset(new std::string(id.name));
-    DataKeyView key = {*dv.name, id.id};
+    DIObjectKeyView key = {*dv.name, id.id};
     _data_table[key] = dv;
   }
 
@@ -116,32 +63,51 @@ class GraphDataContext {
     _disable_entry_creation = false;
   }
   template <typename T>
-  const T* Get(const std::string& name) const {
-    uint32_t id = GetTypeId<T>();
-    DataKeyView key = {name, id};
+  typename DIObjectTypeHelper<T>::read_type Get(const std::string& name,
+                                                bool with_di_container = true) const {
+    typedef typename DIObjectTypeHelper<T>::read_type GetValueType;
+    uint32_t id = DIContainer::GetTypeId<T>();
+    DIObjectKeyView key = {name, id};
     auto found = _data_table.find(key);
     if (found != _data_table.end()) {
-      const T* val = (const T*)(found->second.val.load());
+      if constexpr (std::is_pointer<GetValueType>::value) {
+        GetValueType val = (GetValueType)(found->second.val.load());
+        if (nullptr != val) {
+          return val;
+        }
+      }
+      GetValueType val = (GetValueType)(found->second.val.load());
       if (nullptr != val) {
         return val;
       }
     }
     if (_parent) {
-      return _parent->Get<T>(name);
+      GetValueType r = _parent->Get<T>(name, false);
+      if (r) {
+        return r;
+      }
     }
-    return nullptr;
+    GetValueType r = {};
+    if (with_di_container) {
+      r = DIContainer::Get<T>(name);
+    }
+    return r;
   }
   template <typename T>
-  T* Move(const std::string& name) {
-    uint32_t id = GetTypeId<T>();
-    DataKeyView key = {name, id};
+  typename DIObjectTypeHelper<T>::read_write_type Move(const std::string& name) {
+    typedef typename DIObjectTypeHelper<T>::read_write_type MoveValueType;
+    uint32_t id = DIContainer::GetTypeId<T>();
+    DIObjectKeyView key = {name, id};
     auto found = _data_table.find(key);
     if (found != _data_table.end()) {
-      void* empty = nullptr;
-      T* val = (T*)(found->second.val.exchange(empty));
-      return val;
+      if constexpr (std::is_pointer<MoveValueType>::value) {
+        void* empty = nullptr;
+        MoveValueType val = (MoveValueType)(found->second.val.exchange(empty));
+        return val;
+      }
     }
-    return nullptr;
+    MoveValueType empty;
+    return empty;
   }
 
   /**
@@ -156,8 +122,8 @@ class GraphDataContext {
    */
   template <typename T>
   bool Set(const std::string& name, const T* v, bool create_entry = false) {
-    uint32_t id = GetTypeId<T>();
-    DataKeyView key = {name, id};
+    uint32_t id = DIContainer::GetTypeId<T>();
+    DIObjectKeyView key = {name, id};
     auto found = _data_table.find(key);
     if (found != _data_table.end()) {
       found->second.val = (void*)v;
@@ -169,7 +135,7 @@ class GraphDataContext {
       DataValue dv;
       dv.val = (void*)v;
       dv.name.reset(new std::string(name));
-      DataKeyView key = {*(dv.name), id};
+      DIObjectKeyView key = {*(dv.name), id};
       _data_table[key] = dv;
       return true;
     }
@@ -185,8 +151,8 @@ class Processor {
   typedef std::function<void(void)> ResetFunc;
   typedef std::unordered_map<std::string, InjectFunc> FieldInjectFuncTable;
   typedef std::unordered_map<std::string, EmitFunc> FieldEmitFuncTable;
-  std::vector<DataKey> _input_ids;
-  std::vector<DataKey> _output_ids;
+  std::vector<DIObjectKey> _input_ids;
+  std::vector<DIObjectKey> _output_ids;
   FieldInjectFuncTable _field_inject_table;
   FieldEmitFuncTable _field_emit_table;
   std::vector<ResetFunc> _reset_funcs;
@@ -196,7 +162,7 @@ class Processor {
   size_t RegisterInput(const std::string& field, const T* p, InjectFunc&& inject) {
     using FIELD_TYPE =
         typename std::remove_const<typename std::remove_pointer<decltype(p)>::type>::type;
-    DataKey id{field, GraphDataContext::GetTypeId<FIELD_TYPE>()};
+    DIObjectKey id{field, DIContainer::GetTypeId<FIELD_TYPE>()};
     _input_ids.push_back(id);
     _field_inject_table.emplace(field, inject);
     return _field_inject_table.size();
@@ -205,7 +171,7 @@ class Processor {
   size_t RegisterOutput(const std::string& field, T& v, EmitFunc&& emit) {
     using FIELD_TYPE =
         typename std::remove_pointer<typename std::remove_reference<decltype(v)>::type>::type;
-    DataKey id{field, GraphDataContext::GetTypeId<FIELD_TYPE>()};
+    DIObjectKey id{field, DIContainer::GetTypeId<FIELD_TYPE>()};
     _output_ids.push_back(id);
     _field_emit_table.emplace(field, emit);
     return _field_emit_table.size();
@@ -226,8 +192,8 @@ class Processor {
  public:
   virtual const char* Name() = 0;
   virtual bool IsAsync() const { return false; }
-  const std::vector<DataKey>& GetInputIds() { return _input_ids; }
-  const std::vector<DataKey>& GetOutputIds() { return _output_ids; }
+  const std::vector<DIObjectKey>& GetInputIds() { return _input_ids; }
+  const std::vector<DIObjectKey>& GetOutputIds() { return _output_ids; }
   int Setup(const Params& args);
   void Reset();
   int Execute(const Params& args);
@@ -260,7 +226,7 @@ using namespace didagle;
   }
 
 #define DEF_IN_FIELD(TYPE, NAME)                                                                  \
-  typename FieldTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::input_type NAME = {};                                             \
+  typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_type NAME = {};                 \
   size_t __input_##NAME##_code = RegisterInput(                                                   \
       #NAME, NAME, [this](GraphDataContext& ctx, const std::string& data, bool move) {            \
         using FIELD_TYPE =                                                                        \
@@ -302,7 +268,7 @@ using namespace didagle;
   size_t __reset_##NAME##_code = AddResetFunc([this]() { NAME = {}; });
 
 #define DEF_OUT_FIELD(TYPE, NAME)                                                          \
-  typename FieldTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::output_type NAME = {};           \
+  typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::write_type NAME = {};         \
   size_t __output_##NAME##_code =                                                          \
       RegisterOutput(#NAME, NAME, [this](GraphDataContext& ctx, const std::string& data) { \
         using FIELD_TYPE = decltype(NAME);                                                 \
@@ -312,7 +278,7 @@ using namespace didagle;
   size_t __reset_##NAME##_code = AddResetFunc([this]() {});
 
 #define DEF_IN_OUT_FIELD(TYPE, NAME)                                                       \
-  typename FieldTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::input_output_type NAME = {};     \
+  typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_write_type NAME = {};    \
   size_t __input_##NAME##_code = RegisterInput(                                            \
       #NAME, NAME, [this](GraphDataContext& ctx, const std::string& data, bool move) {     \
         if (!move) {                                                                       \
@@ -320,7 +286,7 @@ using namespace didagle;
         }                                                                                  \
         using FIELD_TYPE = typename std::remove_pointer<decltype(NAME)>::type;             \
         NAME = ctx.Move<FIELD_TYPE>(data);                                                 \
-        return (nullptr == NAME) ? -1 : 0;                                                 \
+        return (!NAME) ? -1 : 0;                                                           \
       });                                                                                  \
   size_t __output_##NAME##_code =                                                          \
       RegisterOutput(#NAME, NAME, [this](GraphDataContext& ctx, const std::string& data) { \

@@ -9,8 +9,8 @@
 #include <functional>
 #include <memory>
 #include <unordered_set>
-#include "data.h"
-#include "processor_api.h"
+#include "graph_data.h"
+#include "graph_processor_api.h"
 #include "toml_helper.h"
 namespace didagle {
 enum VertexResult {

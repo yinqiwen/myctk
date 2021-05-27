@@ -1,9 +1,9 @@
 // Copyright (c) 2020, Tencent Inc.
 // All rights reserved.
 
+#include "didagle_log.h"
 #include "expr.h"
-#include "log.h"
-#include "processor_api.h"
+#include "graph_processor_api.h"
 #include "spirit_expression.h"
 
 GRAPH_PROC_BEGIN(expr_phase)

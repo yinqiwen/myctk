@@ -7,10 +7,10 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include "didagle_log.h"
 #include "expr.h"
 #include "graph.h"
-#include "log.h"
-#include "processor.h"
+#include "graph_processor.h"
 using namespace didagle;
 static std::string get_basename(const std::string& filename) {
 #if defined(_WIN32)

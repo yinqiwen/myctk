@@ -9,6 +9,7 @@
 #include <functional>
 #include <memory>
 #include <unordered_set>
+#include <variant>
 #include "toml_helper.h"
 
 namespace didagle {
@@ -83,8 +84,4 @@ class Params {
   bool ParseFromToml(const wrdk::TomlValue& doc);
 };
 
-class DataFactory{
-  
-};
-
-}  // namespace didag
+}  // namespace didagle

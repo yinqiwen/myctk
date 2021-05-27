@@ -2,41 +2,40 @@ package(default_visibility = ["//visibility:public"])
 
 cc_library(
     name = "processor_lib",
-    hdrs = ["expr.h"],
     srcs = [
         "processor_0.cpp",
         "processor_1.cpp",
         "processor_2.cpp",
         "processor_3.cpp",
-        "processor_4.cpp", 
-        "processor_5.cpp", 
-        "processor_6.cpp", 
+        "processor_4.cpp",
+        "processor_5.cpp",
+        "processor_6.cpp",
         "processor_expr.cpp",
     ],
+    hdrs = ["expr.h"],
     deps = [
         "//didagle:didagle_core",
-        "//reflect:expr_struct",
-        "//ssexpr:ssexpr",
+        "//ssexpr",
     ],
-    alwayslink=True,
+    alwayslink = True,
 )
 
 cc_binary(
     name = "dot_graph",
     srcs = ["dot_example.cpp"],
+    linkopts = ["-lrt -ltbb"],
     deps = [
-       "//didagle:didagle_core",
         ":processor_lib",
+        "//didagle:didagle_core",
     ],
-    linkopts=["-lrt -ltbb"],
 )
 
 cc_binary(
     name = "run_dsl",
     srcs = ["run_dsl.cpp"],
+    linkopts = ["-lrt -ltbb -lpthread"],
     deps = [
-        "//didagle:didagle_core",
         ":processor_lib",
+        "//didagle:didagle_core",
     ],
-    linkopts=["-lrt -ltbb -lpthread"],
 )

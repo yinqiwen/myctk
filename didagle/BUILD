@@ -2,11 +2,27 @@ package(default_visibility = ["//visibility:public"])
 
 cc_library(
     name = "didagle_core",
-    hdrs = ["data.h", "vertex.h", "graph.h", "processor_api.h", "executor.h", "log.h", "processor.h"],
-    srcs = ["vertex.cpp", "graph.cpp", "processor.cpp", "executor.cpp", "data.cpp"],
+    srcs = [
+        "di_container.cpp",
+        "graph.cpp",
+        "graph_data.cpp",
+        "graph_executor.cpp",
+        "graph_processor.cpp",
+        "graph_vertex.cpp",
+    ],
+    hdrs = [
+        "di_container.h",
+        "didagle_log.h",
+        "graph.h",
+        "graph_data.h",
+        "graph_executor.h",
+        "graph_processor.h",
+        "graph_processor_api.h",
+        "graph_vertex.h",
+    ],
+    includes = ["./"],
     deps = [
         "//config:wrdk_config",
         "@com_github_fmtlib//:fmt",
     ],
-    includes=["./"],
 )

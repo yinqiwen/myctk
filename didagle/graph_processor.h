@@ -7,7 +7,7 @@
 #include <memory>
 #include <string_view>
 #include <unordered_map>
-#include "processor_api.h"
+#include "graph_processor_api.h"
 #include "tbb/concurrent_hash_map.h"
 
 namespace didagle {

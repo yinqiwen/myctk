@@ -1,8 +1,8 @@
 // Copyright (c) 2020, Tencent Inc.
 // All rights reserved.
 
-#include "log.h"
-#include "processor_api.h"
+#include "didagle_log.h"
+#include "graph_processor_api.h"
 
 GRAPH_PROC_BEGIN(phase5)
 DEF_IN_OUT_FIELD((std::map<std::string, const std::string*>), v100)

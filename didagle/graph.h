@@ -6,9 +6,9 @@
 #include <functional>
 #include <memory>
 #include <unordered_set>
-#include "executor.h"
+#include "graph_executor.h"
+#include "graph_vertex.h"
 #include "toml_helper.h"
-#include "vertex.h"
 
 namespace didagle {
 

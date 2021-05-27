@@ -13,8 +13,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include "processor_api.h"
-#include "vertex.h"
+#include "graph_processor_api.h"
+#include "graph_vertex.h"
 
 namespace didagle {
 typedef std::function<void(int)> DoneClosure;
@@ -40,12 +40,12 @@ class VertexContext {
   GraphClusterContext* _subgraph_cluster = nullptr;
   Params _params;
   std::vector<CondParams> _select_params;
-  typedef std::pair<DataKey, const GraphData*> FieldData;
+  typedef std::pair<DIObjectKey, const GraphData*> FieldData;
   typedef std::map<std::string, FieldData> FieldDataTable;
   FieldDataTable _input_ids;
   FieldDataTable _output_ids;
 
-  int SetupInputOutputIds(const std::vector<DataKey>& fields,
+  int SetupInputOutputIds(const std::vector<DIObjectKey>& fields,
                           const std::vector<GraphData>& config_fields, FieldDataTable& field_ids);
 
  public:
@@ -76,8 +76,8 @@ class GraphContext {
   std::shared_ptr<GraphDataContext> _data_ctx;
   DoneClosure _done;
   std::vector<uint8_t> _config_setting_result;
-  std::set<DataKey> _all_input_ids;
-  std::set<DataKey> _all_output_ids;
+  std::set<DIObjectKey> _all_input_ids;
+  std::set<DIObjectKey> _all_output_ids;
 
  public:
   GraphContext();

@@ -2,7 +2,7 @@
 // All rights reserved.
 #include "graph.h"
 #include <iostream>
-#include "log.h"
+#include "didagle_log.h"
 
 namespace didagle {
 std::string Graph::generateNodeId() {

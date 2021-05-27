@@ -1,9 +1,9 @@
 // Copyright (c) 2020, Tencent Inc.
 // All rights reserved.
-#include "processor.h"
+#include "graph_processor.h"
 #include <stdlib.h>
-#include "log.h"
-#include "processor_api.h"
+#include "didagle_log.h"
+#include "graph_processor_api.h"
 
 namespace didagle {
 typedef std::unordered_map<std::string, ProcessorCreator> CreatorTable;

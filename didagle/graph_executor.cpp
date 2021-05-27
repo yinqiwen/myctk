@@ -1,19 +1,19 @@
 // Copyright (c) 2020, Tencent Inc.
 // All rights reserved.
-#include "executor.h"
+#include "graph_executor.h"
+#include "didagle_log.h"
 #include "graph.h"
-#include "log.h"
-#include "processor.h"
+#include "graph_processor.h"
 
 namespace didagle {
 VertexContext::~VertexContext() {
   delete _processor;
   // delete _subgraph;
 }
-int VertexContext::SetupInputOutputIds(const std::vector<DataKey>& fields,
+int VertexContext::SetupInputOutputIds(const std::vector<DIObjectKey>& fields,
                                        const std::vector<GraphData>& config_fields,
                                        FieldDataTable& ids) {
-  for (const DataKey& id : fields) {
+  for (const DIObjectKey& id : fields) {
     ids[id.name] = std::make_pair(id, (const GraphData*)nullptr);
   }
   for (const GraphData& data : config_fields) {
@@ -25,8 +25,8 @@ int VertexContext::SetupInputOutputIds(const std::vector<DataKey>& fields,
       DIDAGLE_ERROR("No field:{} found in processor:{}", data.field, _processor->Name());
       return -1;
     }
-    const DataKey& exist_key = found->second.first;
-    DataKey new_key{data.id, exist_key.id};
+    const DIObjectKey& exist_key = found->second.first;
+    DIObjectKey new_key{data.id, exist_key.id};
     ids[data.field] = std::make_pair(new_key, &data);
   }
   return 0;
@@ -105,7 +105,7 @@ void VertexContext::FinishVertexProcess(int code) {
     _result = V_RESULT_OK;
     for (const auto& pair : _output_ids) {
       const std::string& field = pair.first;
-      const DataKey& data = pair.second.first;
+      const DIObjectKey& data = pair.second.first;
       int rc = _processor->EmitOutputField(_graph_ctx->GetGraphDataContextRef(), field, data.name);
       if (0 != rc) {
         // log
@@ -142,7 +142,7 @@ int VertexContext::ExecuteProcessor() {
   }
   for (const auto& pair : _input_ids) {
     const std::string& field = pair.first;
-    const DataKey& data = pair.second.first;
+    const DIObjectKey& data = pair.second.first;
     const GraphData* graph_data = pair.second.second;
     bool required = false;
     if (nullptr != graph_data) {
@@ -257,7 +257,7 @@ int GraphContext::Setup(GraphClusterContext* c, Graph* g) {
     }
     _vertex_context_table[v] = c;
     for (const auto& pair : c->GetOutputIds()) {
-      const DataKey& key = pair.second.first;
+      const DIObjectKey& key = pair.second.first;
       if (_all_output_ids.count(key) > 0) {
         DIDAGLE_ERROR("Duplicate output name:{} in graph:{}", key.name, g->name);
         return -1;
@@ -265,11 +265,11 @@ int GraphContext::Setup(GraphClusterContext* c, Graph* g) {
       _all_output_ids.insert(key);
     }
   }
-  std::set<DataKey> move_ids;
+  std::set<DIObjectKey> move_ids;
   for (auto& pair : _vertex_context_table) {
     std::shared_ptr<VertexContext> c = pair.second;
     for (const auto& pair : c->GetInputIds()) {
-      const DataKey& key = pair.second.first;
+      const DIObjectKey& key = pair.second.first;
       const GraphData* data = pair.second.second;
       if (nullptr != data && !data->is_extern && data->aggregate.empty()) {
         if (_all_output_ids.count(key) == 0) {
