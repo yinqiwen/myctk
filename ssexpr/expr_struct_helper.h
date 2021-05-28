@@ -24,57 +24,21 @@
 // };
 // }  // namespace expr_struct
 
-#define PB_FIELD_EACH_INIT(N, i, arg)                                                            \
-  {                                                                                              \
-    using FIELD_TYPE = decltype(__root_obj->arg());                                              \
-    ssexpr::FieldAccessorTable& accessors = PB_HELPER_TYPE::GetFieldAccessorTable();             \
-    if constexpr (std::is_same<FIELD_TYPE, double>::value ||                                     \
-                  std::is_same<FIELD_TYPE, float>::value ||                                      \
-                  std::is_same<FIELD_TYPE, char>::value ||                                       \
-                  std::is_same<FIELD_TYPE, uint8_t>::value ||                                    \
-                  std::is_same<FIELD_TYPE, int32_t>::value ||                                    \
-                  std::is_same<FIELD_TYPE, uint32_t>::value ||                                   \
-                  std::is_same<FIELD_TYPE, int16_t>::value ||                                    \
-                  std::is_same<FIELD_TYPE, uint16_t>::value ||                                   \
-                  std::is_same<FIELD_TYPE, int64_t>::value ||                                    \
-                  std::is_same<FIELD_TYPE, uint64_t>::value ||                                   \
-                  std::is_same<FIELD_TYPE, bool>::value ||                                       \
-                  std::is_same<FIELD_TYPE, const std::string&>::value) {                         \
-      accessors[STRING(arg)] = [](const void* v) -> ssexpr::FieldValue {                         \
-        const PB_TYPE* data = (const PB_TYPE*)v;                                                 \
-        return data->arg();                                                                      \
-      };                                                                                         \
-    } else if constexpr (std::is_same<FIELD_TYPE, const flatbuffers::String*>::value) {          \
-      accessors[STRING(arg)] = [](const void* v) -> ssexpr::FieldValue {                         \
-        const PB_TYPE* data = (const PB_TYPE*)v;                                                 \
-        const flatbuffers::String* sv = data->arg();                                             \
-        std::string_view rv(sv->c_str(), sv->size());                                            \
-        return rv;                                                                               \
-      };                                                                                         \
-    } else {                                                                                     \
-      using R = typename std::remove_reference<FIELD_TYPE>::type;                                \
-      using NR = typename std::remove_pointer<R>::type;                                          \
-      using RR = typename std::remove_const<NR>::type;                                           \
-      ssexpr::ExprStructHelper<RR>::InitExpr();                                                  \
-      ssexpr::FieldAccessorTable value = ssexpr::ExprStructHelper<RR>::GetFieldAccessorTable();  \
-      if constexpr (std::is_pointer<FIELD_TYPE>::value) {                                        \
-        ssexpr::FieldAccessor field_accessor = [](const void* v) -> ssexpr::FieldValue {         \
-          const PB_TYPE* data = (const PB_TYPE*)v;                                               \
-          FIELD_TYPE fv = data->arg();                                                           \
-          return fv;                                                                             \
-        };                                                                                       \
-        accessors[STRING(arg)] =                                                                 \
-            std::pair<ssexpr::FieldAccessor, ssexpr::FieldAccessorTable>(field_accessor, value); \
-      } else {                                                                                   \
-        ssexpr::FieldAccessor field_accessor = [](const void* v) -> ssexpr::FieldValue {         \
-          const PB_TYPE* data = (const PB_TYPE*)v;                                               \
-          FIELD_TYPE fv = data->arg();                                                           \
-          return &fv;                                                                            \
-        };                                                                                       \
-        accessors[STRING(arg)] =                                                                 \
-            std::pair<ssexpr::FieldAccessor, ssexpr::FieldAccessorTable>(field_accessor, value); \
-      }                                                                                          \
-    }                                                                                            \
+#define PB_FIELD_EACH_INIT(N, i, arg)                                                          \
+  {                                                                                            \
+    using FIELD_TYPE = decltype(__root_obj->arg());                                            \
+    ssexpr::FieldAccessorTable& accessors = PB_HELPER_TYPE::GetFieldAccessorTable();           \
+    ssexpr::FieldAccessor field_accessor = [](const void* v) -> ssexpr::FieldValue {           \
+      const PB_TYPE* data = (const PB_TYPE*)v;                                                 \
+      return ssexpr::toFieldValue(data->arg());                                                \
+    };                                                                                         \
+    ssexpr::FieldAccessorTable value;                                                          \
+    if (ssexpr::fillHelperFieldAccessorTable<FIELD_TYPE>(value)) {                             \
+      accessors[STRING(arg)] =                                                                 \
+          std::pair<ssexpr::FieldAccessor, ssexpr::FieldAccessorTable>(field_accessor, value); \
+    } else {                                                                                   \
+      accessors[STRING(arg)] = field_accessor;                                                 \
+    }                                                                                          \
   }
 
 #define DEFINE_EXPR_STRUCT_HELPER(pb, ...)       \

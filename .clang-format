@@ -1,0 +1,11 @@
+Language: Cpp
+BasedOnStyle: Google
+ColumnLimit: 100
+
+DerivePointerAlignment: true
+
+PointerAlignment: Left
+
+# Only sort headers in each include block
+SortIncludes: true
+IncludeBlocks: Preserve

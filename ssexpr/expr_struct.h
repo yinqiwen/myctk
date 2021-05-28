@@ -14,6 +14,7 @@
 #include <variant>
 #include <vector>
 #include "expr_macro.h"
+#include "flatbuffers/flatbuffers.h"
 
 namespace ssexpr {
 
@@ -236,65 +237,111 @@ struct is_container
 struct NoExpr {
   virtual ~NoExpr() {}
 };
+
+template <typename T>
+FieldValue toFieldValue(const T& v) {
+  using R = typename std::remove_const<typename std::remove_pointer<T>::type>::type;
+  if constexpr (std::is_same<T, double>::value || std::is_same<T, float>::value ||
+                std::is_same<T, char>::value || std::is_same<T, uint8_t>::value ||
+                std::is_same<T, int32_t>::value || std::is_same<T, uint32_t>::value ||
+                std::is_same<T, int16_t>::value || std::is_same<T, uint16_t>::value ||
+                std::is_same<T, int64_t>::value || std::is_same<T, uint64_t>::value ||
+                std::is_same<T, std::string_view>::value || std::is_same<T, bool>::value ||
+                std::is_same<T, std::string>::value) {
+    return v;
+  } else if constexpr (std::is_same<T, const flatbuffers::String*>::value) {
+    std::string_view rv(v->c_str(), v->size());
+    return rv;
+  } else if constexpr (is_container<R>::value || std::is_base_of<NoExpr, R>::value) {
+    if constexpr (std::is_pointer<T>::value) {
+      return v;
+    } else {
+      return &v;
+    }
+  } else {
+    FieldAccessorTable value;
+    if constexpr (HasGetFieldAccessors<R>::value) {
+      R::InitExpr();
+      value = R::GetFieldAccessorTable();
+    } else {
+      ExprStructHelper<R>::InitExpr();
+      value = ExprStructHelper<R>::GetFieldAccessorTable();
+    }
+    if constexpr (std::is_pointer<T>::value) {
+      return v;
+    } else {
+      return &v;
+    }
+  }
+}
+template <typename T>
+bool fillFieldAccessorTable(FieldAccessorTable& v) {
+  using R = typename std::remove_const<typename std::remove_pointer<T>::type>::type;
+  if constexpr (std::is_same<T, double>::value || std::is_same<T, float>::value ||
+                std::is_same<T, char>::value || std::is_same<T, uint8_t>::value ||
+                std::is_same<T, int32_t>::value || std::is_same<T, uint32_t>::value ||
+                std::is_same<T, int16_t>::value || std::is_same<T, uint16_t>::value ||
+                std::is_same<T, int64_t>::value || std::is_same<T, uint64_t>::value ||
+                std::is_same<T, std::string_view>::value || std::is_same<T, bool>::value ||
+                std::is_same<T, std::string>::value) {
+    return false;
+  } else if constexpr (is_container<R>::value || std::is_base_of<NoExpr, R>::value) {
+    return false;
+  } else {
+    if constexpr (HasGetFieldAccessors<R>::value) {
+      R::InitExpr();
+      v = R::GetFieldAccessorTable();
+    } else {
+      ExprStructHelper<R>::InitExpr();
+      v = ExprStructHelper<R>::GetFieldAccessorTable();
+    }
+    return true;
+  }
+}
+
+template <typename T>
+bool fillHelperFieldAccessorTable(FieldAccessorTable& v) {
+  using R = typename std::remove_reference<T>::type;
+  using NR = typename std::remove_pointer<R>::type;
+  using RR = typename std::remove_const<NR>::type;
+  if constexpr (std::is_same<RR, double>::value || std::is_same<T, float>::value ||
+                std::is_same<RR, char>::value || std::is_same<T, uint8_t>::value ||
+                std::is_same<RR, int32_t>::value || std::is_same<T, uint32_t>::value ||
+                std::is_same<RR, int16_t>::value || std::is_same<T, uint16_t>::value ||
+                std::is_same<RR, int64_t>::value || std::is_same<T, uint64_t>::value ||
+                std::is_same<RR, std::string_view>::value || std::is_same<T, bool>::value ||
+                std::is_same<RR, std::string>::value ||
+                std::is_same<RR, flatbuffers::String>::value) {
+    return false;
+  } else {
+    ExprStructHelper<RR>::InitExpr();
+    v = ExprStructHelper<RR>::GetFieldAccessorTable();
+    return true;
+  }
+}
+
 }  // namespace ssexpr
 
-#define FIELD_EACH(N, i, arg)                                                                     \
-  PAIR(arg){};                                                                                    \
-  template <typename fake>                                                                        \
-  struct FieldInit<i, fake> {                                                                     \
-    FieldInit(ssexpr::FieldAccessorTable& accessors) {                                            \
-      __CurrentDataType* vv = nullptr;                                                            \
-      using DT = decltype(vv->STRIP(arg));                                                        \
-      using R = typename std::remove_const<typename std::remove_pointer<DT>::type>::type;         \
-      if constexpr (std::is_same<DT, double>::value || std::is_same<DT, float>::value ||          \
-                    std::is_same<DT, char>::value || std::is_same<DT, uint8_t>::value ||          \
-                    std::is_same<DT, int32_t>::value || std::is_same<DT, uint32_t>::value ||      \
-                    std::is_same<DT, int16_t>::value || std::is_same<DT, uint16_t>::value ||      \
-                    std::is_same<DT, int64_t>::value || std::is_same<DT, uint64_t>::value ||      \
-                    std::is_same<DT, std::string_view>::value || std::is_same<DT, bool>::value || \
-                    std::is_same<DT, std::string>::value) {                                       \
-        accessors[STRING(STRIP(arg))] = [](const void* v) -> ssexpr::FieldValue {                 \
-          const __CurrentDataType* data = (const __CurrentDataType*)v;                            \
-          return data->STRIP(arg);                                                                \
-        };                                                                                        \
-      } else if constexpr (ssexpr::is_container<R>::value ||                                      \
-                           std::is_base_of<ssexpr::NoExpr, R>::value) {                           \
-        if constexpr (std::is_pointer<DT>::value) {                                               \
-          accessors[STRING(STRIP(arg))] = [](const void* v) -> ssexpr::FieldValue {               \
-            const __CurrentDataType* data = (const __CurrentDataType*)v;                          \
-            return data->STRIP(arg);                                                              \
-          };                                                                                      \
-        } else {                                                                                  \
-          accessors[STRING(STRIP(arg))] = [](const void* v) -> ssexpr::FieldValue {               \
-            const __CurrentDataType* data = (const __CurrentDataType*)v;                          \
-            return &(data->STRIP(arg));                                                           \
-          };                                                                                      \
-        }                                                                                         \
-      } else {                                                                                    \
-        ssexpr::FieldAccessorTable value;                                                         \
-        if constexpr (ssexpr::HasGetFieldAccessors<R>::value) {                                   \
-          R::InitExpr();                                                                          \
-          value = R::GetFieldAccessorTable();                                                     \
-        } else {                                                                                  \
-          ssexpr::ExprStructHelper<R>::InitExpr();                                                \
-          value = ssexpr::ExprStructHelper<R>::GetFieldAccessorTable();                           \
-        }                                                                                         \
-        ssexpr::FieldAccessor field_accessor;                                                     \
-        if constexpr (std::is_pointer<DT>::value) {                                               \
-          field_accessor = [](const void* v) -> ssexpr::FieldValue {                              \
-            const __CurrentDataType* data = (const __CurrentDataType*)v;                          \
-            return data->STRIP(arg);                                                              \
-          };                                                                                      \
-        } else {                                                                                  \
-          field_accessor = [](const void* v) -> ssexpr::FieldValue {                              \
-            const __CurrentDataType* data = (const __CurrentDataType*)v;                          \
-            return &(data->STRIP(arg));                                                           \
-          };                                                                                      \
-        }                                                                                         \
-        accessors[STRING(STRIP(arg))] =                                                           \
-            std::pair<ssexpr::FieldAccessor, ssexpr::FieldAccessorTable>(field_accessor, value);  \
-      }                                                                                           \
-    }                                                                                             \
+#define FIELD_EACH(N, i, arg)                                                                    \
+  PAIR(arg){};                                                                                   \
+  template <typename fake>                                                                       \
+  struct FieldInit<i, fake> {                                                                    \
+    FieldInit(ssexpr::FieldAccessorTable& accessors) {                                           \
+      __CurrentDataType* vv = nullptr;                                                           \
+      using DT = decltype(vv->STRIP(arg));                                                       \
+      using R = typename std::remove_const<typename std::remove_pointer<DT>::type>::type;        \
+      ssexpr::FieldAccessor field_accessor = [](const void* v) -> ssexpr::FieldValue {           \
+        const __CurrentDataType* vdata = (const __CurrentDataType*)v;                            \
+        return ssexpr::toFieldValue(vdata->STRIP(arg));                                          \
+      };                                                                                         \
+      ssexpr::FieldAccessorTable value;                                                          \
+      if (ssexpr::fillFieldAccessorTable<DT>(value)) {                                           \
+        accessors[STRING(STRIP(arg))] =                                                          \
+            std::pair<ssexpr::FieldAccessor, ssexpr::FieldAccessorTable>(field_accessor, value); \
+      } else {                                                                                   \
+        accessors[STRING(STRIP(arg))] = field_accessor;                                          \
+      }                                                                                          \
+    }                                                                                            \
   };
 
 #define FIELD_EACH_INIT(N, i, arg) static FieldInit<i, void> __init__##N(GetFieldAccessorTable());
@@ -302,7 +349,7 @@ struct NoExpr {
 #define DEFINE_EXPR_STRUCT(st, ...)                                                            \
   struct st {                                                                                  \
     typedef st __CurrentDataType;                                                              \
-    template <int N, typename fake = void>                                                     \
+    template <int N, typename fake>                                                            \
     struct FieldInit {};                                                                       \
     static ssexpr::FieldAccessorTable& GetFieldAccessorTable() {                               \
       static ssexpr::FieldAccessorTable accessors;                                             \
