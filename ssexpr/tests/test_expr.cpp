@@ -61,3 +61,29 @@ TEST(ExprTest, Calc) {
   auto val = expr.Eval(root);
   EXPECT_DOUBLE_EQ(26.32, std::get<double>(val));
 }
+
+struct TestNoExpr : public ssexpr::NoExpr {
+  std::string val = "test";
+};
+DEFINE_EXPR_STRUCT(Item4, (double)score, (const TestNoExpr*)test)
+TEST(ExprTest, NoExpr) {
+  Item4::InitExpr();
+  ExprOptions opt;
+  opt.Init<Item4>();
+  opt.functions["func1"] = [](const std::vector<ssexpr::Value>& args) {
+    const void* v1 = std::get<const void*>(args[0]);
+    const TestNoExpr* test = (const TestNoExpr*)v1;
+    Value v = test->val;
+    return v;
+  };
+  SpiritExpression expr;
+  int rc = expr.Init("func1(test)", opt);
+  EXPECT_EQ(0, rc);
+
+  Item4 item;
+  TestNoExpr test;
+  test.val = "world";
+  item.test = &test;
+  auto val = expr.Eval(item);
+  EXPECT_EQ("world", std::get<std::string_view>(val));
+}

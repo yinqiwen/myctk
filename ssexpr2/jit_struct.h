@@ -169,6 +169,18 @@ struct Value {
         }
       }
     }
+    if constexpr (std::is_same<T, const void*>::value) {
+      switch (type) {
+        case V_STRUCT:
+        case V_JIT_STRUCT: {
+          const void* s = (const void*)val;
+          return s;
+        }
+        default: {
+          throw std::bad_variant_access();
+        }
+      }
+    }
     throw std::bad_variant_access();
   }
 

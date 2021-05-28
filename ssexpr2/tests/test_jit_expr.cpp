@@ -137,3 +137,27 @@ TEST(ExprTest, FastOr) {
   EXPECT_EQ(true, val.Get<bool>());
   EXPECT_EQ(false, test_bool_func_invoked);
 }
+
+struct NoExptStruct {
+  std::string val = "jel";
+};
+static Value custom_func(Value arg0) {
+  const void* p = (const void*)arg0.Get<const void*>();
+  const NoExptStruct* t = (const NoExptStruct*)p;
+  Value v;
+  v.Set(t->val);
+  return v;
+}
+DEFINE_JIT_STRUCT(Item2, (double)score, (NoExptStruct*)test)
+TEST(ExprTest, NoExpr) {
+  SpiritExpression expr;
+  ExprOptions opt;
+  opt.Init<Item2>();
+  opt.functions["custom_func"] = (ExprFunction)custom_func;
+  EXPECT_EQ(0, expr.Init(R"(custom_func(test))", opt));
+  Item2 item;
+  item.test = new NoExptStruct;
+  item.test->val = "world";
+  auto val = expr.Eval(item);
+  EXPECT_EQ("world", val.Get<std::string_view>());
+}
