@@ -8,6 +8,7 @@ cc_library(
         "graph_data.cpp",
         "graph_executor.cpp",
         "graph_processor.cpp",
+         "graph_processor_di.cpp",
         "graph_vertex.cpp",
     ],
     hdrs = [
@@ -17,6 +18,7 @@ cc_library(
         "graph_data.h",
         "graph_executor.h",
         "graph_processor.h",
+        "graph_processor_di.h",
         "graph_processor_api.h",
         "graph_vertex.h",
     ],

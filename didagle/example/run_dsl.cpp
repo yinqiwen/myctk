@@ -26,7 +26,13 @@ static std::string get_basename(const std::string& filename) {
     return filename;
 }
 int main(int argc, char** argv) {
-  GraphManager graphs;
+  boost::asio::thread_pool pool(8);
+  GraphExecuteOptions exec_opt;
+  exec_opt.concurrent_executor = [&pool](AnyClosure&& r) {
+    // boost::asio::post(pool, r);
+    r();
+  };
+  GraphManager graphs(exec_opt);
   std::string config = "./graph.toml";
   std::string graph = "sub_graph0";
   if (argc > 1) {
@@ -45,22 +51,17 @@ int main(int argc, char** argv) {
     printf("Failed to build graph cluster\n");
     return -1;
   }
-  boost::asio::thread_pool pool(8);
-  GraphExecuteOptions exec_opt;
-  exec_opt.concurrent_executor = [&pool](AnyClosure&& r) {
-    // boost::asio::post(pool, r);
-    r();
-  };
+
   exec_opt.params.reset(new Params);
   std::shared_ptr<GraphDataContext> root(new GraphDataContext);
   std::string cluster_name = get_basename(config);
   // set extern data value for dsl
   int v = 101;
-  root->Set<int>("v0", &v, true);
+  root->Set<int>("v0", &v);
   RecmdEnv env;
   env.expid = 1001;
-  root->Set<RecmdEnv>("env", &env, true);
-  graphs.Execute(exec_opt, root, cluster_name, graph,
+  root->Set<RecmdEnv>("env", &env);
+  graphs.Execute(root, cluster_name, graph, nullptr,
                  [](int c) { DIDAGLE_ERROR("Graph done with {}", c); });
 
   pool.join();

@@ -26,6 +26,10 @@ enum ProcessorFieldType {
 };
 typedef std::function<void(int)> DoneClosure;
 
+// struct FieldInfo : public DIObjectKey {
+//   bool aggregate = false;
+// };
+
 struct DataValue {
   std::atomic<void*> val = nullptr;
   std::shared_ptr<std::string> name;
@@ -48,20 +52,11 @@ class GraphDataContext {
   GraphDataContext() {}
   void SetParent(std::shared_ptr<GraphDataContext> p) { _parent = p; }
 
-  void RegisterData(const DIObjectKey& id) {
-    DataValue dv;
-    dv.name.reset(new std::string(id.name));
-    DIObjectKeyView key = {*dv.name, id.id};
-    _data_table[key] = dv;
-  }
+  void RegisterData(const DIObjectKey& id);
 
   void DisableEntryCreation() { _disable_entry_creation = true; }
 
-  void Reset() {
-    _data_table.clear();
-    _parent.reset();
-    _disable_entry_creation = false;
-  }
+  void Reset();
   template <typename T>
   typename DIObjectTypeHelper<T>::read_type Get(const std::string& name,
                                                 bool with_di_container = true) const {
@@ -75,10 +70,6 @@ class GraphDataContext {
         if (nullptr != val) {
           return val;
         }
-      }
-      GetValueType val = (GetValueType)(found->second.val.load());
-      if (nullptr != val) {
-        return val;
       }
     }
     if (_parent) {
@@ -121,7 +112,7 @@ class GraphDataContext {
    * @return false
    */
   template <typename T>
-  bool Set(const std::string& name, const T* v, bool create_entry = false) {
+  bool Set(const std::string& name, const T* v) {
     uint32_t id = DIContainer::GetTypeId<T>();
     DIObjectKeyView key = {name, id};
     auto found = _data_table.find(key);
@@ -129,7 +120,7 @@ class GraphDataContext {
       found->second.val = (void*)v;
       return true;
     } else {
-      if (!create_entry || _disable_entry_creation) {
+      if (_disable_entry_creation) {
         return false;
       }
       DataValue dv;
@@ -164,6 +155,7 @@ class Processor {
         typename std::remove_const<typename std::remove_pointer<decltype(p)>::type>::type;
     DIObjectKey id{field, DIContainer::GetTypeId<FIELD_TYPE>()};
     _input_ids.push_back(id);
+    // DIDAGLE_DEBUG("[{}]RegisterInput field:{}/{}", Name(), field, id.id);
     _field_inject_table.emplace(field, inject);
     return _field_inject_table.size();
   }
@@ -172,6 +164,7 @@ class Processor {
     using FIELD_TYPE =
         typename std::remove_pointer<typename std::remove_reference<decltype(v)>::type>::type;
     DIObjectKey id{field, DIContainer::GetTypeId<FIELD_TYPE>()};
+    // DIDAGLE_DEBUG("[{}]RegisterOutput field:{}/{}", Name(), field, id.id);
     _output_ids.push_back(id);
     _field_emit_table.emplace(field, emit);
     return _field_emit_table.size();
@@ -218,11 +211,11 @@ using namespace didagle;
   typedef GraphProcessor##NAME##Object LocalProcessorClass; \
   struct GraphProcessor##NAME##Object : public Processor {  \
     const char* Name() { return _local_processor_name; }
-#define GRAPH_PROC_END                                                                       \
-  }                                                                                          \
-  ;                                                                                          \
-  static ProcessorRegister instance(_local_processor_name,                                   \
-                                    []() -> Processor* { return new LocalProcessorClass; }); \
+#define GRAPH_PROC_END                                                                \
+  }                                                                                   \
+  ;                                                                                   \
+  static ProcessorRegister _##NAME##_instance(                                        \
+      _local_processor_name, []() -> Processor* { return new LocalProcessorClass; }); \
   }
 
 #define DEF_IN_FIELD(TYPE, NAME)                                                                  \

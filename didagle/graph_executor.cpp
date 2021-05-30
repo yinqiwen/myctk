@@ -8,29 +8,30 @@
 namespace didagle {
 VertexContext::~VertexContext() {
   delete _processor;
+  delete _processor_di;
   // delete _subgraph;
 }
-int VertexContext::SetupInputOutputIds(const std::vector<DIObjectKey>& fields,
-                                       const std::vector<GraphData>& config_fields,
-                                       FieldDataTable& ids) {
-  for (const DIObjectKey& id : fields) {
-    ids[id.name] = std::make_pair(id, (const GraphData*)nullptr);
-  }
-  for (const GraphData& data : config_fields) {
-    auto found = ids.find(data.field);
-    if (found == ids.end()) {
-      if (!_graph_ctx->GetGraphCluster()->strict_dsl) {
-        continue;
-      }
-      DIDAGLE_ERROR("No field:{} found in processor:{}", data.field, _processor->Name());
-      return -1;
-    }
-    const DIObjectKey& exist_key = found->second.first;
-    DIObjectKey new_key{data.id, exist_key.id};
-    ids[data.field] = std::make_pair(new_key, &data);
-  }
-  return 0;
-}
+// int VertexContext::SetupInputOutputIds(const std::vector<DIObjectKey>& fields,
+//                                        const std::vector<GraphData>& config_fields,
+//                                        FieldDataTable& ids) {
+//   for (const DIObjectKey& id : fields) {
+//     ids[id.name] = std::make_pair(id, (const GraphData*)nullptr);
+//   }
+//   for (const GraphData& data : config_fields) {
+//     auto found = ids.find(data.field);
+//     if (found == ids.end()) {
+//       if (!_graph_ctx->GetGraphCluster()->strict_dsl) {
+//         continue;
+//       }
+//       DIDAGLE_ERROR("No field:{} found in processor:{}", data.field, _processor->Name());
+//       return -1;
+//     }
+//     const DIObjectKey& exist_key = found->second.first;
+//     DIObjectKey new_key{data.id, exist_key.id};
+//     ids[data.field] = std::make_pair(new_key, &data);
+//   }
+//   return 0;
+// }
 int VertexContext::Setup(GraphContext* g, Vertex* v) {
   _graph_ctx = g;
   _vertex = v;
@@ -50,12 +51,19 @@ int VertexContext::Setup(GraphContext* g, Vertex* v) {
   _select_params = _vertex->select_args;
 
   if (nullptr != _processor) {
-    if (0 != SetupInputOutputIds(_processor->GetInputIds(), _vertex->input, _input_ids)) {
+    _processor_di = new ProcessorDI(_processor, _graph_ctx->GetGraphCluster()->strict_dsl);
+    if (0 != _processor_di->PrepareInputs(_vertex->input)) {
       return -1;
     }
-    if (0 != SetupInputOutputIds(_processor->GetOutputIds(), _vertex->output, _output_ids)) {
+    if (0 != _processor_di->PrepareOutputs(_vertex->output)) {
       return -1;
     }
+    // if (0 != SetupInputOutputIds(_processor->GetInputIds(), _vertex->input, _input_ids)) {
+    //   return -1;
+    // }
+    // if (0 != SetupInputOutputIds(_processor->GetOutputIds(), _vertex->output, _output_ids)) {
+    //   return -1;
+    // }
   }
   Reset();
   if (nullptr != _processor) {
@@ -103,14 +111,17 @@ void VertexContext::FinishVertexProcess(int code) {
     _result = V_RESULT_ERR;
   } else {
     _result = V_RESULT_OK;
-    for (const auto& pair : _output_ids) {
-      const std::string& field = pair.first;
-      const DIObjectKey& data = pair.second.first;
-      int rc = _processor->EmitOutputField(_graph_ctx->GetGraphDataContextRef(), field, data.name);
-      if (0 != rc) {
-        // log
-      }
+    if (nullptr != _processor_di) {
+      _processor_di->CollectOutputs(_graph_ctx->GetGraphDataContextRef());
     }
+    // for (const auto& pair : _output_ids) {
+    //   const std::string& field = pair.first;
+    //   const DIObjectKey& data = pair.second.first;
+    //   int rc = _processor->EmitOutputField(_graph_ctx->GetGraphDataContextRef(), field,
+    //   data.name); if (0 != rc) {
+    //     // log
+    //   }
+    // }
   }
   _graph_ctx->OnVertexDone(this);
 }
@@ -137,41 +148,48 @@ int VertexContext::ExecuteProcessor() {
   if (nullptr == exec_params) {
     exec_params = &_params;
   }
-  if (_graph_ctx->GetGraphClusterContext()->GetExecuteOptions()->params) {
-    exec_params->SetParent(_graph_ctx->GetGraphClusterContext()->GetExecuteOptions()->params.get());
+  const Params* cluster_exec_params = _graph_ctx->GetGraphClusterContext()->GetExecuteParams();
+  if (nullptr != cluster_exec_params) {
+    exec_params->SetParent(cluster_exec_params);
   }
-  for (const auto& pair : _input_ids) {
-    const std::string& field = pair.first;
-    const DIObjectKey& data = pair.second.first;
-    const GraphData* graph_data = pair.second.second;
-    bool required = false;
-    if (nullptr != graph_data) {
-      required = graph_data->required;
-    }
-    int rc = 0;
-    if (nullptr != graph_data && !graph_data->aggregate.empty()) {
-      for (const std::string& aggregate_id : graph_data->aggregate) {
-        rc = _processor->InjectInputField(_graph_ctx->GetGraphDataContextRef(), field, aggregate_id,
-                                          graph_data->move);
-        if (0 != rc && required) {
-          break;
-        }
-      }
-    } else {
-      if (nullptr != graph_data) {
-        rc = _processor->InjectInputField(_graph_ctx->GetGraphDataContextRef(), field, data.name,
-                                          graph_data->move);
-      } else {
-        rc = _processor->InjectInputField(_graph_ctx->GetGraphDataContextRef(), field, data.name,
-                                          false);
-      }
-    }
-    if (0 != rc && required) {
-      _result = V_RESULT_ERR;
-      _code = V_CODE_SKIP;
-      break;
-    }
+  if (0 != _processor_di->InjectInputs(_graph_ctx->GetGraphDataContextRef())) {
+    DIDAGLE_DEBUG("Vertex:{} inject inputs failed", _vertex->GetDotLable());
+    FinishVertexProcess(V_CODE_SKIP);
+    return 0;
   }
+  // for (const auto& pair : _input_ids) {
+  //   const std::string& field = pair.first;
+  //   const DIObjectKey& data = pair.second.first;
+  //   const GraphData* graph_data = pair.second.second;
+  //   bool required = false;
+  //   if (nullptr != graph_data) {
+  //     required = graph_data->required;
+  //   }
+  //   int rc = 0;
+  //   if (nullptr != graph_data && !graph_data->aggregate.empty()) {
+  //     for (const std::string& aggregate_id : graph_data->aggregate) {
+  //       rc = _processor->InjectInputField(_graph_ctx->GetGraphDataContextRef(), field,
+  //       aggregate_id,
+  //                                         graph_data->move);
+  //       if (0 != rc && required) {
+  //         break;
+  //       }
+  //     }
+  //   } else {
+  //     if (nullptr != graph_data) {
+  //       rc = _processor->InjectInputField(_graph_ctx->GetGraphDataContextRef(), field, data.name,
+  //                                         graph_data->move);
+  //     } else {
+  //       rc = _processor->InjectInputField(_graph_ctx->GetGraphDataContextRef(), field, data.name,
+  //                                         false);
+  //     }
+  //   }
+  //   if (0 != rc && required) {
+  //     _result = V_RESULT_ERR;
+  //     _code = V_CODE_SKIP;
+  //     break;
+  //   }
+  // }
 
   if (_processor->IsAsync()) {
     _processor->AsyncExecute(*exec_params, [this](int code) { FinishVertexProcess(code); });
@@ -191,7 +209,7 @@ int VertexContext::ExecuteSubGraph() {
     return -1;
   }
   _subgraph_cluster->SetGraphDataContext(_graph_ctx->GetGraphDataContext());
-  _subgraph_cluster->SetExecuteOptions(_graph_ctx->GetGraphClusterContext()->GetExecuteOptions());
+  _subgraph_cluster->SetExecuteParams(_graph_ctx->GetGraphClusterContext()->GetExecuteParams());
   _subgraph_cluster->Execute(_vertex->graph, [this](int code) { FinishVertexProcess(code); });
   return 0;
 }
@@ -256,36 +274,42 @@ int GraphContext::Setup(GraphClusterContext* c, Graph* g) {
       return -1;
     }
     _vertex_context_table[v] = c;
-    for (const auto& pair : c->GetOutputIds()) {
-      const DIObjectKey& key = pair.second.first;
-      if (_all_output_ids.count(key) > 0) {
-        DIDAGLE_ERROR("Duplicate output name:{} in graph:{}", key.name, g->name);
-        return -1;
+    ProcessorDI* di = c->GetProcessorDI();
+    if (nullptr != di) {
+      for (const auto& pair : di->GetOutputIds()) {
+        const DIObjectKey& key = pair.second.first;
+        if (_all_output_ids.count(key) > 0) {
+          DIDAGLE_ERROR("Duplicate output name:{} in graph:{}", key.name, g->name);
+          return -1;
+        }
+        _all_output_ids.insert(key);
       }
-      _all_output_ids.insert(key);
     }
   }
   std::set<DIObjectKey> move_ids;
   for (auto& pair : _vertex_context_table) {
     std::shared_ptr<VertexContext> c = pair.second;
-    for (const auto& pair : c->GetInputIds()) {
-      const DIObjectKey& key = pair.second.first;
-      const GraphData* data = pair.second.second;
-      if (nullptr != data && !data->is_extern && data->aggregate.empty()) {
-        if (_all_output_ids.count(key) == 0) {
-          DIDAGLE_ERROR(
-              "Graph:{} have missing output field with name:{}, type_id:{} for vertex:{}.", g->name,
-              key.name, key.id, c->GetVertex()->GetDotLable());
-          return -1;
+    ProcessorDI* di = c->GetProcessorDI();
+    if (nullptr != di) {
+      for (const auto& pair : di->GetInputIds()) {
+        const DIObjectKey& key = pair.second.first;
+        const GraphData* data = pair.second.second;
+        if (nullptr != data && !data->is_extern && data->aggregate.empty()) {
+          if (_all_output_ids.count(key) == 0) {
+            DIDAGLE_ERROR(
+                "Graph:{} have missing output field with name:{}, type_id:{} for vertex:{}.",
+                g->name, key.name, key.id, c->GetVertex()->GetDotLable());
+            return -1;
+          }
         }
-      }
-      _all_input_ids.insert(key);
-      if (nullptr != data && data->move) {
-        if (move_ids.count(key) > 0) {
-          DIDAGLE_ERROR("Graph:{} have duplicate moved data name:{}.", g->name, key.name);
-          return -1;
+        _all_input_ids.insert(key);
+        if (nullptr != data && data->move) {
+          if (move_ids.count(key) > 0) {
+            DIDAGLE_ERROR("Graph:{} have duplicate moved data name:{}.", g->name, key.name);
+            return -1;
+          }
+          move_ids.insert(key);
         }
-        move_ids.insert(key);
       }
     }
   }
@@ -317,7 +341,8 @@ void GraphContext::ExecuteReadyVertexs(std::vector<VertexContext*>& ready_vertex
     for (VertexContext* ctx : ready_vertexs) {
       VertexContext* next = ctx;
       auto f = [next]() { next->Execute(); };
-      _cluster->GetExecuteOptions()->concurrent_executor(f);
+      const auto& exec_opts = _cluster->GetCluster()->GetGraphManager()->GetGraphExecuteOptions();
+      exec_opts.concurrent_executor(f);
     }
   }
 }
@@ -360,9 +385,11 @@ int GraphContext::Execute(DoneClosure&& done) {
   _done = std::move(done);
   // make all data entry precreated in data ctx
   for (const auto& id : _all_input_ids) {
+    DIDAGLE_ERROR("Graph register input {}/{}", id.name, id.id);
     _data_ctx->RegisterData(id);
   }
   for (const auto& id : _all_output_ids) {
+    DIDAGLE_ERROR("Graph register output {}/{}", id.name, id.id);
     _data_ctx->RegisterData(id);
   }
   std::vector<VertexContext*> ready_successors;
@@ -389,6 +416,7 @@ GraphContext* GraphClusterContext::GetRunGraph(const std::string& name) {
   return _running_graph;
 }
 void GraphClusterContext::Reset() {
+  _exec_params = nullptr;
   _running_cluster.reset();
   if (nullptr != _running_graph) {
     _running_graph->Reset();
@@ -399,7 +427,7 @@ void GraphClusterContext::Reset() {
   }
   _config_setting_result.clear();
   _extern_data_ctx.reset();
-  _exec_options.reset();
+  // _exec_options.reset();
   GraphClusterContext* sub_graph = nullptr;
   while (_sub_graphs.try_pop(sub_graph)) {
     sub_graph->Reset();
@@ -461,7 +489,7 @@ int GraphClusterContext::Execute(const std::string& graph, DoneClosure&& done) {
     }
     bool* v = (bool*)(&_config_setting_result[i]);
     DIDAGLE_DEBUG("Set config setting:{} to {}", _cluster->config_setting[i].name, *v);
-    data_ctx.Set<bool>(_cluster->config_setting[i].name, v, true);
+    data_ctx.Set<bool>(_cluster->config_setting[i].name, v);
   }
   /**
    * @brief diable data entry creation since the graph is executing while the creation is not

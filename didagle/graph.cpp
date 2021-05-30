@@ -280,7 +280,7 @@ static std::string get_basename(const std::string& filename) {
   else
     return filename;
 }
-
+GraphManager::GraphManager(const GraphExecuteOptions& options) : _exec_options(options) {}
 std::shared_ptr<GraphCluster> GraphManager::Load(const std::string& file) {
   std::shared_ptr<GraphCluster> g(new GraphCluster);
   bool v = wrdk::ParseFromTomlFile(file, *g);
@@ -290,6 +290,7 @@ std::shared_ptr<GraphCluster> GraphManager::Load(const std::string& file) {
   }
   std::string name = get_basename(file);
   g->_name = name;
+  g->_graph_manager = this;
   ClusterGraphTable::accessor accessor;
   _graphs.insert(accessor, name);
   accessor->second = g;
@@ -313,10 +314,9 @@ GraphClusterContext* GraphManager::GetGraphClusterContext(const std::string& clu
   return ctx;
 }
 
-int GraphManager::Execute(const GraphExecuteOptions& options,
-                          std::shared_ptr<GraphDataContext> data_ctx, const std::string& cluster,
-                          const std::string& graph, DoneClosure&& done) {
-  if (!options.concurrent_executor) {
+int GraphManager::Execute(std::shared_ptr<GraphDataContext> data_ctx, const std::string& cluster,
+                          const std::string& graph, const Params* params, DoneClosure&& done) {
+  if (!_exec_options.concurrent_executor) {
     DIDAGLE_ERROR("Empty concurrent executor");
     return -1;
   }
@@ -330,12 +330,12 @@ int GraphManager::Execute(const GraphExecuteOptions& options,
     return -1;
   }
   ctx->SetGraphDataContext(data_ctx);
-  std::shared_ptr<GraphExecuteOptions> exec_opt(new GraphExecuteOptions(options));
+  ctx->SetExecuteParams(params);
   auto graph_done = [ctx, done](int code) {
     ctx->GetCluster()->ReleaseContext(ctx);
     done(code);
   };
-  ctx->SetExecuteOptions(exec_opt);
+  // ctx->SetExecuteOptions(&_exec_opt);
   return ctx->Execute(graph, graph_done);
 }
 }  // namespace didagle

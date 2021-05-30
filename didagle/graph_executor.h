@@ -14,6 +14,7 @@
 #include <unordered_set>
 #include <vector>
 #include "graph_processor_api.h"
+#include "graph_processor_di.h"
 #include "graph_vertex.h"
 
 namespace didagle {
@@ -37,22 +38,25 @@ class VertexContext {
   VertexResult _result;
   VertexErrCode _code;
   Processor* _processor = nullptr;
+  ProcessorDI* _processor_di = nullptr;
   GraphClusterContext* _subgraph_cluster = nullptr;
   Params _params;
   std::vector<CondParams> _select_params;
-  typedef std::pair<DIObjectKey, const GraphData*> FieldData;
-  typedef std::map<std::string, FieldData> FieldDataTable;
-  FieldDataTable _input_ids;
-  FieldDataTable _output_ids;
+  // typedef std::pair<DIObjectKey, const GraphData*> FieldData;
+  // typedef std::map<std::string, FieldData> FieldDataTable;
+  // FieldDataTable _input_ids;
+  // FieldDataTable _output_ids;
 
-  int SetupInputOutputIds(const std::vector<DIObjectKey>& fields,
-                          const std::vector<GraphData>& config_fields, FieldDataTable& field_ids);
+  // int SetupInputOutputIds(const std::vector<DIObjectKey>& fields,
+  //                         const std::vector<GraphData>& config_fields, FieldDataTable&
+  //                         field_ids);
 
  public:
   VertexContext();
   Vertex* GetVertex() { return _vertex; }
-  const FieldDataTable& GetInputIds() { return _input_ids; }
-  const FieldDataTable& GetOutputIds() { return _output_ids; }
+  ProcessorDI* GetProcessorDI() { return _processor_di; }
+  // const FieldDataTable& GetInputIds() { return _input_ids; }
+  // const FieldDataTable& GetOutputIds() { return _output_ids; }
   VertexResult GetResult() { return _result; };
   void FinishVertexProcess(int code);
   int ExecuteProcessor();
@@ -100,7 +104,8 @@ class GraphContext {
 
 class GraphClusterContext {
  private:
-  std::shared_ptr<GraphExecuteOptions> _exec_options;
+  const Params* _exec_params = nullptr;
+  // const GraphExecuteOptions* _exec_options = nullptr;
   std::shared_ptr<GraphCluster> _running_cluster;
   GraphContext* _running_graph = nullptr;
   GraphCluster* _cluster = nullptr;
@@ -113,8 +118,10 @@ class GraphClusterContext {
 
  public:
   void SetGraphDataContext(std::shared_ptr<GraphDataContext> p) { _extern_data_ctx = p; }
-  void SetExecuteOptions(std::shared_ptr<GraphExecuteOptions> opt) { _exec_options = opt; }
-  std::shared_ptr<GraphExecuteOptions> GetExecuteOptions() { return _exec_options; }
+  // void SetExecuteOptions(const GraphExecuteOptions* opt) { _exec_options = opt; }
+  // const GraphExecuteOptions& GetExecuteOptions() { return *_exec_options; }
+  void SetExecuteParams(const Params* p) { _exec_params = p; }
+  const Params* GetExecuteParams() const { return _exec_params; }
   GraphCluster* GetCluster() { return _cluster; }
   GraphContext* GetRunGraph(const std::string& name);
   void SetRunningCluster(std::shared_ptr<GraphCluster> c) { _running_cluster = c; }
@@ -125,4 +132,4 @@ class GraphClusterContext {
   ~GraphClusterContext();
 };
 
-}  // namespace didag
+}  // namespace didagle

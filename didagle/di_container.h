@@ -75,8 +75,7 @@ struct DIObjectBuilder : public DIObjectBuilderBase {
 
   std::function<DIObjectType()> _functor;
   std::function<int()> _init;
-  DIObjectBuilder(const std::function<DIObjectType()>& f = std::function<DIObjectType()>(),
-                  const std::function<int()> init = std::function<int()>())
+  DIObjectBuilder(const std::function<DIObjectType()>& f = {}, const std::function<int()> init = {})
       : _functor(f), _init(init) {}
   virtual int Init() {
     if (_init) {

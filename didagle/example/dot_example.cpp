@@ -8,7 +8,8 @@
 #include "graph.h"
 using namespace didagle;
 int main(int argc, char** argv) {
-  GraphManager grpahs;
+  GraphExecuteOptions exec_opt;
+  GraphManager grpahs(exec_opt);
   std::string config = "./graph.toml";
   if (argc > 1) {
     config = argv[1];

@@ -1,6 +1,7 @@
 // Copyright (c) 2020, Tencent Inc.
 // All rights reserved.
 
+#include "di_container.h"
 #include "didagle_log.h"
 #include "graph_processor_api.h"
 
@@ -19,6 +20,7 @@ int OnExecute(const Params& args) override {
   v2["key1"] = "val1";
   v2["key2"] = "val2";
   DIDAGLE_DEBUG("Run {} with abc={}", Name(), args["abc"].String());
+  DIDAGLE_DEBUG("Type id1={}", DIContainer::GetTypeId<std::map<std::string, std::string>>());
   return 0;
 }
 GRAPH_PROC_END

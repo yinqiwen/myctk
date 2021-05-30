@@ -61,6 +61,7 @@ struct GraphCluster {
   Graph* FindGraphByName(const std::string& name);
   GraphClusterContext* GetContext();
   void ReleaseContext(GraphClusterContext* p);
+  const GraphManager* GetGraphManager() const { return _graph_manager; }
   ~GraphCluster();
 };
 
@@ -69,12 +70,15 @@ class GraphManager {
  private:
   typedef tbb::concurrent_hash_map<std::string, std::shared_ptr<GraphCluster>> ClusterGraphTable;
   ClusterGraphTable _graphs;
+  GraphExecuteOptions _exec_options;
 
  public:
+  GraphManager(const GraphExecuteOptions& options);
+  const GraphExecuteOptions& GetGraphExecuteOptions() const { return _exec_options; }
   std::shared_ptr<GraphCluster> Load(const std::string& file);
   std::shared_ptr<GraphCluster> FindGraphClusterByName(const std::string& name);
   GraphClusterContext* GetGraphClusterContext(const std::string& cluster);
-  int Execute(const GraphExecuteOptions& options, std::shared_ptr<GraphDataContext> data_ctx,
-              const std::string& cluster, const std::string& graph, DoneClosure&& done);
+  int Execute(std::shared_ptr<GraphDataContext> data_ctx, const std::string& cluster,
+              const std::string& graph, const Params* params, DoneClosure&& done);
 };
 }  // namespace didagle
