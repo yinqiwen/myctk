@@ -28,4 +28,16 @@ int DIContainer::Init() {
   }
   return 0;
 }
+void DIObject::DoInjectInputFields() {
+  for (auto& pair : _field_inject_table) {
+    pair.second();
+  }
+}
+int DIObject::Init() {
+  if (!_inited) {
+    _inited = true;
+    DoInjectInputFields();
+  }
+  return 0;
+}
 }  // namespace didagle

@@ -4,11 +4,12 @@ cc_library(
     name = "didagle_core",
     srcs = [
         "di_container.cpp",
+        "didagle_log.cpp",
         "graph.cpp",
         "graph_data.cpp",
         "graph_executor.cpp",
         "graph_processor.cpp",
-         "graph_processor_di.cpp",
+        "graph_processor_di.cpp",
         "graph_vertex.cpp",
     ],
     hdrs = [
@@ -18,13 +19,24 @@ cc_library(
         "graph_data.h",
         "graph_executor.h",
         "graph_processor.h",
-        "graph_processor_di.h",
         "graph_processor_api.h",
+        "graph_processor_di.h",
         "graph_vertex.h",
     ],
     includes = ["./"],
+    linkopts = ["-lpthread"],
     deps = [
-        "//config:wrdk_config",
-        "@com_github_fmtlib//:fmt",
+        "//config:kcfg",
+        "@com_github_spdlog//:spdlog",
+    ],
+)
+
+cc_library(
+    name = "didagle_processor_dump",
+    srcs = [
+        "processor_dump.cpp",
+    ],
+    deps = [
+        ":didagle_core",
     ],
 )

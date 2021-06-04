@@ -53,9 +53,30 @@ cc_library(
         build_file_content = _TOML11_BUILD_FILE,
     )
 
+    _RAPIDJSON_BUILD_FILE = """
+cc_library(
+    name = "rapidjson",
+    hdrs = glob(["include/rapidjson/**/*.h"]),
+    includes = ["include"],
+    defines = ["RAPIDJSON_HAS_STDSTRING=1"],
+    visibility = [ "//visibility:public" ],
+)
+"""
+    rapidjson_ver = kwargs.get("rapidjson_ver", "1.1.0")
+    rapidjson_name = "rapidjson-{ver}".format(ver = rapidjson_ver)
+    http_archive(
+        name = "com_github_tencent_rapidjson",
+        strip_prefix = rapidjson_name,
+        urls = [
+            "https://mirrors.tencent.com/github.com/Tencent/rapidjson/archive/v{ver}.tar.gz".format(ver = rapidjson_ver),
+            "https://github.com/Tencent/rapidjson/archive/v{ver}.tar.gz".format(ver = rapidjson_ver),
+        ],
+        build_file_content = _RAPIDJSON_BUILD_FILE,
+    )
+
     _FMT_BUILD_FILE = """
 cc_library(
-    name = "fmt",
+    name = "fmtlib",
     hdrs = glob([
         "include/fmt/*.h",
     ]),
@@ -69,13 +90,40 @@ cc_library(
     fmtlib_ver = kwargs.get("fmtlib_ver", "7.1.3")
     fmtlib_name = "fmt-{ver}".format(ver = fmtlib_ver)
     http_archive(
-        name = "com_github_fmtlib",
+        name = "com_github_fmtlib_fmt",
         strip_prefix = fmtlib_name,
         urls = [
             "https://mirrors.tencent.com/github.com/fmtlib/fmt/archive/{ver}.tar.gz".format(ver = fmtlib_ver),
             "https://github.com/fmtlib/fmt/archive/{ver}.tar.gz".format(ver = fmtlib_ver),
         ],
         build_file_content = _FMT_BUILD_FILE,
+    )
+
+    _SPDLOG_BUILD_FILE = """
+cc_library(
+    name = "spdlog",
+    hdrs = glob([
+        "include/**/*.h",
+    ]),
+    srcs= glob([
+        "src/*.cpp",
+    ]),
+    defines = ["SPDLOG_FMT_EXTERNAL", "SPDLOG_COMPILED_LIB"],
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+    deps = ["@com_github_fmtlib_fmt//:fmtlib"],
+)
+"""
+    spdlog_ver = kwargs.get("spdlog_ver", "1.8.5")
+    spdlog_name = "spdlog-{ver}".format(ver = spdlog_ver)
+    http_archive(
+        name = "com_github_spdlog",
+        strip_prefix = spdlog_name,
+        urls = [
+            "https://mirrors.tencent.com/github.com/gabime/spdlog/archive/v{ver}.tar.gz".format(ver = spdlog_ver),
+            "https://github.com/gabime/spdlog/archive/v{ver}.tar.gz".format(ver = spdlog_ver),
+        ],
+        build_file_content = _SPDLOG_BUILD_FILE,
     )
 
     _XBYAK_BUILD_FILE = """

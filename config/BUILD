@@ -1,10 +1,16 @@
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
-    name = "wrdk_config",
-    hdrs = ["toml_helper.h"],
+    name = "kcfg",
+    hdrs = [
+        "kcfg.hpp",
+        "kcfg_common.h",
+        "kcfg_json.h",
+        "kcfg_toml.h",
+    ],
+    includes = ["./"],
     deps = [
+        "@com_github_tencent_rapidjson//:rapidjson",
         "@com_github_toml11//:toml",
     ],
-    includes=["./"],
 )

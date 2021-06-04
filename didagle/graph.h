@@ -8,7 +8,7 @@
 #include <unordered_set>
 #include "graph_executor.h"
 #include "graph_vertex.h"
-#include "toml_helper.h"
+#include "kcfg_toml.h"
 
 namespace didagle {
 
@@ -24,7 +24,7 @@ struct Graph {
   int64_t _idx = 0;
   GraphCluster* _cluster = nullptr;
 
-  WRDK_TOML_DEFINE_FIELDS(name, vertex)
+  KCFG_TOML_DEFINE_FIELDS(name, vertex)
   std::string generateNodeId();
   Vertex* geneatedCondVertex(const std::string& cond);
   Vertex* FindVertexByData(const std::string& data);
@@ -52,7 +52,7 @@ struct GraphCluster {
   GraphManager* _graph_manager = nullptr;
 
   tbb::concurrent_queue<GraphClusterContext*> _graph_cluster_context_pool;
-  WRDK_TOML_DEFINE_FIELDS(desc, strict_dsl, default_expr_processor, default_context_pool_size,
+  KCFG_TOML_DEFINE_FIELDS(desc, strict_dsl, default_expr_processor, default_context_pool_size,
                           graph, config_setting)
 
   int Build();

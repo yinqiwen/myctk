@@ -21,6 +21,15 @@ cc_library(
 )
 
 cc_binary(
+    name = "graph_processor_dump",
+    linkopts = ["-lrt -ltbb"],
+    deps = [
+        ":processor_lib",
+        "//didagle:didagle_processor_dump",
+    ],
+)
+
+cc_binary(
     name = "dot_graph",
     srcs = ["dot_example.cpp"],
     linkopts = ["-lrt -ltbb"],

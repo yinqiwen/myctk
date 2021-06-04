@@ -86,6 +86,20 @@ Processor* ProcessorFactory::GetProcessor(const std::string& name) {
   }
   return nullptr;
 }
+int ProcessorFactory::DumpAllMetas(const std::string& file) {
+  std::vector<ProcessorMeta> all_metas;
+  for (auto& pair : GetCreatorTable()) {
+    ProcessorMeta meta;
+    meta.name = pair.first;
+    Processor* p = pair.second();
+    meta.input = p->GetInputIds();
+    meta.output = p->GetOutputIds();
+    delete p;
+    all_metas.push_back(meta);
+  }
+  return kcfg::WriteToJsonFile(all_metas, file);
+}
+
 ProcessorRegister::ProcessorRegister(const char* name, const ProcessorCreator& creator) {
   ProcessorFactory::Register(name, creator);
 }

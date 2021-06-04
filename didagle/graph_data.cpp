@@ -182,7 +182,7 @@ const char* Params::GetVar(const char* v) {
   }
   return "";
 }
-bool Params::ParseFromToml(const wrdk::TomlValue& doc) {
+bool Params::ParseFromToml(const kcfg::TomlValue& doc) {
   if (doc.is_table()) {
     for (const auto& kv : doc.as_table()) {
       const std::string& name = kv.first;

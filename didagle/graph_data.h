@@ -10,7 +10,7 @@
 #include <memory>
 #include <unordered_set>
 #include <variant>
-#include "toml_helper.h"
+#include "kcfg_toml.h"
 
 namespace didagle {
 struct GraphData {
@@ -21,16 +21,16 @@ struct GraphData {
   bool move = false;
   bool is_extern = false;
 
-  WRDK_TOML_DEFINE_FIELD_MAPPING(({"is_extern", "extern"}))
-  WRDK_TOML_DEFINE_FIELDS(id, field, required, move, is_extern, aggregate)
+  KCFG_TOML_DEFINE_FIELD_MAPPING(({"is_extern", "extern"}))
+  KCFG_TOML_DEFINE_FIELDS(id, field, required, move, is_extern, aggregate)
 };
 
 struct ConfigSetting {
   std::string name;
   std::string cond;
   std::string processor;
-  WRDK_TOML_DEFINE_FIELD_MAPPING(({"data", "if"}))
-  WRDK_TOML_DEFINE_FIELDS(name, cond, processor)
+  KCFG_TOML_DEFINE_FIELD_MAPPING(({"data", "if"}))
+  KCFG_TOML_DEFINE_FIELDS(name, cond, processor)
 };
 
 class Params {
@@ -81,7 +81,7 @@ class Params {
   void BuildFromString(const std::string& v);
   void ParseFromString(const std::string& v);
   const char* GetVar(const char* v);
-  bool ParseFromToml(const wrdk::TomlValue& doc);
+  bool ParseFromToml(const kcfg::TomlValue& doc);
 };
 
 }  // namespace didagle

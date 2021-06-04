@@ -385,11 +385,11 @@ int GraphContext::Execute(DoneClosure&& done) {
   _done = std::move(done);
   // make all data entry precreated in data ctx
   for (const auto& id : _all_input_ids) {
-    DIDAGLE_ERROR("Graph register input {}/{}", id.name, id.id);
+    // DIDAGLE_ERROR("Graph register input {}/{}", id.name, id.id);
     _data_ctx->RegisterData(id);
   }
   for (const auto& id : _all_output_ids) {
-    DIDAGLE_ERROR("Graph register output {}/{}", id.name, id.id);
+    // DIDAGLE_ERROR("Graph register output {}/{}", id.name, id.id);
     _data_ctx->RegisterData(id);
   }
   std::vector<VertexContext*> ready_successors;

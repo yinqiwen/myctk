@@ -283,7 +283,7 @@ static std::string get_basename(const std::string& filename) {
 GraphManager::GraphManager(const GraphExecuteOptions& options) : _exec_options(options) {}
 std::shared_ptr<GraphCluster> GraphManager::Load(const std::string& file) {
   std::shared_ptr<GraphCluster> g(new GraphCluster);
-  bool v = wrdk::ParseFromTomlFile(file, *g);
+  bool v = kcfg::ParseFromTomlFile(file, *g);
   if (!v) {
     DIDAGLE_ERROR("Failed to parse toml");
     return nullptr;

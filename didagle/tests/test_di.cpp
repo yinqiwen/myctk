@@ -68,3 +68,40 @@ TEST(DIContainer, CustomBuilderClass) {
   EXPECT_EQ(10000, p->a);
   EXPECT_EQ("new_instance", p->id);
 }
+
+struct TestPOD3 {
+  int a = 101;
+  std::string id = "test";
+};
+
+struct TestPOD4 : public DIObject {
+  DI_DEP(TestPOD3, pod3)
+  DI_DEP(std::shared_ptr<TestPOD3>, pod33)
+};
+
+TEST(DIContainer, DepInject) {
+  DIContainer::RegisterBuilder<TestPOD3>("pod3", std::make_unique<DIObjectBuilder<TestPOD3>>([]() {
+                                           static TestPOD3 pod;
+                                           pod.a = 202;
+                                           pod.id = "notest";
+                                           return &pod;
+                                         }));
+  DIContainer::RegisterBuilder<std::shared_ptr<TestPOD3>>(
+      "pod33", std::make_unique<DIObjectBuilder<std::shared_ptr<TestPOD3>>>([]() {
+        std::shared_ptr<TestPOD3> p(new TestPOD3);
+        p->a = 303;
+        p->id = "sptest";
+        return p;
+      }));
+  DIContainer::RegisterBuilder<TestPOD4>("pod4", std::make_unique<DIObjectBuilder<TestPOD4>>([]() {
+                                           static TestPOD4 pod;
+                                           return &pod;
+                                         }));
+  DIContainer::Init();
+
+  const TestPOD4* p = DIContainer::Get<TestPOD4>("pod4");
+  EXPECT_EQ(202, p->pod3->a);
+  EXPECT_EQ("notest", p->pod3->id);
+  EXPECT_EQ(303, p->pod33->a);
+  EXPECT_EQ("sptest", p->pod33->id);
+}

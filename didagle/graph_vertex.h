@@ -11,7 +11,7 @@
 #include <unordered_set>
 #include "graph_data.h"
 #include "graph_processor_api.h"
-#include "toml_helper.h"
+#include "kcfg_toml.h"
 namespace didagle {
 enum VertexResult {
   V_RESULT_INVALID = 0,
@@ -30,7 +30,7 @@ enum VertexErrCode {
 struct CondParams {
   std::string match;
   Params args;
-  WRDK_TOML_DEFINE_FIELDS(match, args)
+  KCFG_TOML_DEFINE_FIELDS(match, args)
 };
 
 struct Graph;
@@ -67,9 +67,9 @@ struct Vertex {
   Graph* _vertex_graph = nullptr;
   bool _is_id_generated = false;
 
-  WRDK_TOML_DEFINE_FIELD_MAPPING(({"successor_on_ok", "if"}, {"successor_on_err", "else"}))
+  KCFG_TOML_DEFINE_FIELD_MAPPING(({"successor_on_ok", "if"}, {"successor_on_err", "else"}))
 
-  WRDK_TOML_DEFINE_FIELDS(id, processor, args, cond, expect, expect_config, select_args, cluster,
+  KCFG_TOML_DEFINE_FIELDS(id, processor, args, cond, expect, expect_config, select_args, cluster,
                           graph, successor, successor_on_ok, successor_on_err, deps, deps_on_ok,
                           deps_on_err, input, output)
   Vertex();

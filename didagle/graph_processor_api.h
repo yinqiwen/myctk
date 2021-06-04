@@ -150,20 +150,20 @@ class Processor {
   std::shared_ptr<GraphDataContext> _data_ctx;
 
   template <typename T>
-  size_t RegisterInput(const std::string& field, const T* p, InjectFunc&& inject) {
-    using FIELD_TYPE =
-        typename std::remove_const<typename std::remove_pointer<decltype(p)>::type>::type;
-    DIObjectKey id{field, DIContainer::GetTypeId<FIELD_TYPE>()};
+  size_t RegisterInput(const std::string& field, InjectFunc&& inject) {
+    // using FIELD_TYPE =
+    //     typename std::remove_const<typename std::remove_pointer<decltype(p)>::type>::type;
+    DIObjectKey id{field, DIContainer::GetTypeId<T>()};
     _input_ids.push_back(id);
     // DIDAGLE_DEBUG("[{}]RegisterInput field:{}/{}", Name(), field, id.id);
     _field_inject_table.emplace(field, inject);
     return _field_inject_table.size();
   }
   template <typename T>
-  size_t RegisterOutput(const std::string& field, T& v, EmitFunc&& emit) {
-    using FIELD_TYPE =
-        typename std::remove_pointer<typename std::remove_reference<decltype(v)>::type>::type;
-    DIObjectKey id{field, DIContainer::GetTypeId<FIELD_TYPE>()};
+  size_t RegisterOutput(const std::string& field, EmitFunc&& emit) {
+    // using FIELD_TYPE =
+    //     typename std::remove_pointer<typename std::remove_reference<decltype(v)>::type>::type;
+    DIObjectKey id{field, DIContainer::GetTypeId<T>()};
     // DIDAGLE_DEBUG("[{}]RegisterOutput field:{}/{}", Name(), field, id.id);
     _output_ids.push_back(id);
     _field_emit_table.emplace(field, emit);
@@ -220,8 +220,8 @@ using namespace didagle;
 
 #define DEF_IN_FIELD(TYPE, NAME)                                                                  \
   typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_type NAME = {};                 \
-  size_t __input_##NAME##_code = RegisterInput(                                                   \
-      #NAME, NAME, [this](GraphDataContext& ctx, const std::string& data, bool move) {            \
+  size_t __input_##NAME##_code = RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>(                     \
+      #NAME, [this](GraphDataContext& ctx, const std::string& data, bool move) {                  \
         using FIELD_TYPE =                                                                        \
             typename std::remove_const<typename std::remove_pointer<decltype(NAME)>::type>::type; \
         if (move) {                                                                               \
@@ -229,77 +229,60 @@ using namespace didagle;
         } else {                                                                                  \
           NAME = ctx.Get<FIELD_TYPE>(data);                                                       \
         }                                                                                         \
-        return (nullptr == NAME) ? -1 : 0;                                                        \
+        return (!NAME) ? -1 : 0;                                                                  \
       });                                                                                         \
   size_t __reset_##NAME##_code = AddResetFunc([this]() { NAME = {}; });
 
-#define DEF_MAP_FIELD(TYPE, NAME)                                                                \
-  std::map<std::string, const BOOST_PP_REMOVE_PARENS(TYPE)*> NAME;                               \
-  const BOOST_PP_REMOVE_PARENS(TYPE)* __NAME_helper = nullptr;                                   \
-  size_t __input_##NAME##_code = RegisterInput(                                                  \
-      #NAME, __NAME_helper, [this](GraphDataContext& ctx, const std::string& data, bool move) {  \
-        const BOOST_PP_REMOVE_PARENS(TYPE)* tmp = nullptr;                                       \
-        using FIELD_TYPE =                                                                       \
-            typename std::remove_const<typename std::remove_pointer<decltype(tmp)>::type>::type; \
-        if (move) {                                                                              \
-          tmp = ctx.Move<FIELD_TYPE>(data);                                                      \
-        } else {                                                                                 \
-          tmp = ctx.Get<FIELD_TYPE>(data);                                                       \
-        }                                                                                        \
-        if (nullptr == tmp) {                                                                    \
-          return -1;                                                                             \
-        }                                                                                        \
-        NAME[data] = tmp;                                                                        \
-        return 0;                                                                                \
-      });                                                                                        \
-  size_t __output_##NAME##_code =                                                                \
-      RegisterOutput(#NAME, NAME, [this](GraphDataContext& ctx, const std::string& data) {       \
-        using FIELD_TYPE = decltype(NAME);                                                       \
-        ctx.Set<FIELD_TYPE>(data, &(this->NAME));                                                \
-        return 0;                                                                                \
-      });                                                                                        \
+#define DEF_MAP_FIELD(TYPE, NAME)                                                \
+  std::map<std::string, const BOOST_PP_REMOVE_PARENS(TYPE)*> NAME;               \
+  size_t __input_##NAME##_code = RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>(    \
+      #NAME, [this](GraphDataContext& ctx, const std::string& data, bool move) { \
+        using FIELD_TYPE = BOOST_PP_REMOVE_PARENS(TYPE);                         \
+        const FIELD_TYPE* tmp = nullptr;                                         \
+        if (move) {                                                              \
+          tmp = ctx.Move<FIELD_TYPE>(data);                                      \
+        } else {                                                                 \
+          tmp = ctx.Get<FIELD_TYPE>(data);                                       \
+        }                                                                        \
+        if (nullptr == tmp) {                                                    \
+          return -1;                                                             \
+        }                                                                        \
+        NAME[data] = tmp;                                                        \
+        return 0;                                                                \
+      });                                                                        \
+  size_t __output_##NAME##_code = RegisterOutput<decltype(NAME)>(                \
+      #NAME, [this](GraphDataContext& ctx, const std::string& data) {            \
+        using FIELD_TYPE = decltype(NAME);                                       \
+        ctx.Set<FIELD_TYPE>(data, &(this->NAME));                                \
+        return 0;                                                                \
+      });                                                                        \
   size_t __reset_##NAME##_code = AddResetFunc([this]() { NAME = {}; });
 
-#define DEF_OUT_FIELD(TYPE, NAME)                                                          \
-  typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::write_type NAME = {};         \
-  size_t __output_##NAME##_code =                                                          \
-      RegisterOutput(#NAME, NAME, [this](GraphDataContext& ctx, const std::string& data) { \
-        using FIELD_TYPE = decltype(NAME);                                                 \
-        ctx.Set<FIELD_TYPE>(data, &(this->NAME));                                          \
-        return 0;                                                                          \
-      });                                                                                  \
+#define DEF_OUT_FIELD(TYPE, NAME)                                                  \
+  typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::write_type NAME = {}; \
+  size_t __output_##NAME##_code = RegisterOutput<BOOST_PP_REMOVE_PARENS(TYPE)>(    \
+      #NAME, [this](GraphDataContext& ctx, const std::string& data) {              \
+        using FIELD_TYPE = decltype(NAME);                                         \
+        ctx.Set<FIELD_TYPE>(data, &(this->NAME));                                  \
+        return 0;                                                                  \
+      });                                                                          \
   size_t __reset_##NAME##_code = AddResetFunc([this]() {});
 
-#define DEF_IN_OUT_FIELD(TYPE, NAME)                                                       \
-  typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_write_type NAME = {};    \
-  size_t __input_##NAME##_code = RegisterInput(                                            \
-      #NAME, NAME, [this](GraphDataContext& ctx, const std::string& data, bool move) {     \
-        if (!move) {                                                                       \
-          return -1;                                                                       \
-        }                                                                                  \
-        using FIELD_TYPE = typename std::remove_pointer<decltype(NAME)>::type;             \
-        NAME = ctx.Move<FIELD_TYPE>(data);                                                 \
-        return (!NAME) ? -1 : 0;                                                           \
-      });                                                                                  \
-  size_t __output_##NAME##_code =                                                          \
-      RegisterOutput(#NAME, NAME, [this](GraphDataContext& ctx, const std::string& data) { \
-        using FIELD_TYPE = typename std::remove_pointer<decltype(NAME)>::type;             \
-        ctx.Set<FIELD_TYPE>(data, NAME);                                                   \
-        return 0;                                                                          \
-      });                                                                                  \
+#define DEF_IN_OUT_FIELD(TYPE, NAME)                                                    \
+  typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_write_type NAME = {}; \
+  size_t __input_##NAME##_code = RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>(           \
+      #NAME, [this](GraphDataContext& ctx, const std::string& data, bool move) {        \
+        if (!move) {                                                                    \
+          return -1;                                                                    \
+        }                                                                               \
+        using FIELD_TYPE = typename std::remove_pointer<decltype(NAME)>::type;          \
+        NAME = ctx.Move<FIELD_TYPE>(data);                                              \
+        return (!NAME) ? -1 : 0;                                                        \
+      });                                                                               \
+  size_t __output_##NAME##_code = RegisterOutput<BOOST_PP_REMOVE_PARENS(TYPE)>(         \
+      #NAME, [this](GraphDataContext& ctx, const std::string& data) {                   \
+        using FIELD_TYPE = typename std::remove_pointer<decltype(NAME)>::type;          \
+        ctx.Set<FIELD_TYPE>(data, NAME);                                                \
+        return 0;                                                                       \
+      });                                                                               \
   size_t __reset_##NAME##_code = AddResetFunc([this]() { NAME = {}; });
-
-#define DEF_IF_INPUT_FIELD(TYPE, NAME, FTYPE) \
-  BOOST_PP_REMOVE_PARENS(                     \
-      BOOST_PP_IIF(BOOST_PP_EQUAL(FTYPE, FIELD_IN), (DEF_IN_FIELD(TYPE, NAME)), BOOST_PP_EMPTY()))
-#define DEF_IF_OUTPUT_FIELD(TYPE, NAME, FTYPE)                          \
-  BOOST_PP_REMOVE_PARENS(BOOST_PP_IIF(BOOST_PP_EQUAL(FTYPE, FIELD_OUT), \
-                                      (DEF_OUT_FIELD(TYPE, NAME)), BOOST_PP_EMPTY()))
-#define DEF_IF_INPUT_OUPUT_FIELD(TYPE, NAME, FTYPE)                        \
-  BOOST_PP_REMOVE_PARENS(BOOST_PP_IIF(BOOST_PP_EQUAL(FTYPE, FIELD_IN_OUT), \
-                                      (DEF_IN_OUT_FIELD(TYPE, NAME)), BOOST_PP_EMPTY()))
-
-#define DEF_FIELD(TYPE, NAME, FIELD_TYPE) \
-  DEF_IF_INPUT_FIELD(TYPE, NAME, FTYPE)   \
-  DEF_IF_OUTPUT_FIELD(TYPE, NAME, FTYPE)  \
-  DEF_IF_INPUT_OUPUT_FIELD(TYPE, NAME, FTYPE)

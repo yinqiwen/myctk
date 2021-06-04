@@ -4,20 +4,23 @@
 // Authors: qiyingwang (qiyingwang@tencent.com)
 #pragma once
 #include <atomic>
+#include <boost/preprocessor/library.hpp>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include "didagle_log.h"
+#include "kcfg_json.h"
 
 namespace didagle {
 
+class DIObject;
 template <typename T>
 struct DIObjectTypeHelper {
   typedef const T* read_type;
   typedef T write_type;
   typedef T* read_write_type;
-  // static constexpr bool is_shared_ptr = false;
+  static constexpr bool is_di_object = std::is_base_of<DIObject, T>::value;
   // static constexpr bool is_unique_ptr = false;
 };
 
@@ -26,7 +29,7 @@ struct DIObjectTypeHelper<std::shared_ptr<T>> {
   typedef std::shared_ptr<T> read_type;
   typedef std::shared_ptr<T> write_type;
   typedef std::shared_ptr<T> read_write_type;
-  // static constexpr bool is_shared_ptr = true;
+  static constexpr bool is_di_object = std::is_base_of<DIObject, T>::value;
   // static constexpr bool is_unique_ptr = false;
 };
 
@@ -35,13 +38,16 @@ struct DIObjectTypeHelper<std::unique_ptr<T>> {
   typedef std::unique_ptr<T> read_type;
   typedef std::unique_ptr<T> write_type;
   typedef std::unique_ptr<T> read_write_type;
-  // static constexpr bool is_shared_ptr = false;
+  static constexpr bool is_di_object = std::is_base_of<DIObject, T>::value;
   // static constexpr bool is_unique_ptr = true;
 };
 
 struct DIObjectKey {
   std::string name;
   uint32_t id = 0;
+
+  KCFG_DEFINE_FIELDS(name, id)
+
   bool operator<(const DIObjectKey& other) const {
     if (id == other.id) {
       return name < other.name;
@@ -65,6 +71,7 @@ struct DIObjectKeyViewEqual {
     return x.name == y.name && x.id == y.id;
   }
 };
+
 struct DIObjectBuilderBase {
   virtual int Init() { return 0; }
   virtual ~DIObjectBuilderBase() {}
@@ -140,10 +147,47 @@ class DIContainer {
     if (found != builders.end()) {
       DIObjectBuilderPtr builder_ptr = found->second.builder;
       DIObjectBuilder<T>* builder = (DIObjectBuilder<T>*)(builder_ptr.get());
-      return builder->Get();
+      auto val = builder->Get();
+      if (val) {
+        if constexpr (DIObjectTypeHelper<T>::is_di_object) {
+          ((typename DIObjectTypeHelper<T>::read_write_type)(val))->Init();
+        }
+      }
+      return val;
     }
     typename DIObjectTypeHelper<T>::read_type r = {};
     return r;
   }
 };
+
+class DIObject {
+ private:
+  typedef std::function<int()> InjectFunc;
+  typedef std::unordered_map<std::string, InjectFunc> FieldInjectFuncTable;
+  std::vector<DIObjectKey> _input_ids;
+  FieldInjectFuncTable _field_inject_table;
+  bool _inited = false;
+
+ protected:
+  template <typename T>
+  size_t RegisterInput(const std::string& field, InjectFunc&& inject) {
+    DIObjectKey id{field, DIContainer::GetTypeId<T>()};
+    _input_ids.push_back(id);
+    _field_inject_table.emplace(field, inject);
+    return _field_inject_table.size();
+  }
+  void DoInjectInputFields();
+
+ public:
+  int Init();
+  virtual ~DIObject() {}
+};
+
 }  // namespace didagle
+using namespace didagle;
+#define DI_DEP(TYPE, NAME)                                                                     \
+  typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_type NAME = {};              \
+  size_t __input_##NAME##_code = RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>(#NAME, [this]() { \
+    NAME = DIContainer::Get<BOOST_PP_REMOVE_PARENS(TYPE)>(#NAME);                              \
+    return NAME ? 0 : -1;                                                                      \
+  });

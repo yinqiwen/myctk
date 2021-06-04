@@ -12,23 +12,18 @@
 
 namespace didagle {
 
-// struct ProcessorField {
-//   std::string name;
-//   std::string type_info;
-// };
-
-// struct ProcessorDesc {
-//   std::string name;
-//   std::string desc;
-//   std::vector<ProcessorField> input_field;
-//   std::vector<ProcessorField> output_field;
-//   std::vector<ProcessorField> input_output_field;
-// };
+struct ProcessorMeta {
+  std::string name;
+  std::vector<DIObjectKey> input;
+  std::vector<DIObjectKey> output;
+  KCFG_DEFINE_FIELDS(name, input, output)
+};
 
 class ProcessorFactory {
  public:
   static void Register(const std::string& name, const ProcessorCreator& creator);
   static Processor* GetProcessor(const std::string& name);
+  static int DumpAllMetas(const std::string& file = "all_processors.json");
 };
 
 struct ProcessorRunResult {
