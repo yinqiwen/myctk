@@ -55,7 +55,7 @@ TEST(ReflectTest, SubPOD2) {
 }
 
 DEFINE_EXPR_STRUCT_HELPER(test_fbs::SubData, id, iid, name, score)
-DEFINE_EXPR_STRUCT_HELPER(test_fbs::Data, name, score, unit)
+DEFINE_EXPR_STRUCT_HELPER(test_fbs::Data, name, score, unit, value)
 TEST(ReflectTest, FlatBuffers) {
   ExprStructHelper<test_fbs::Data>::InitExpr();
   std::vector<std::string> names = {"unit", "id"};
@@ -80,6 +80,12 @@ TEST(ReflectTest, FlatBuffers) {
   ExprStructHelper<test_fbs::Data>::GetFieldAccessors(names, accessors);
   val = GetFieldValue(t, accessors);
   EXPECT_EQ("sub_name", std::get<std::string_view>(val));
+
+  // test empty string
+  names = {"value"};
+  ExprStructHelper<test_fbs::Data>::GetFieldAccessors(names, accessors);
+  val = GetFieldValue(t, accessors);
+  EXPECT_EQ("", std::get<std::string_view>(val));
 }
 
 DEFINE_EXPR_STRUCT_HELPER(test_proto::SubData, feedid, rank, score)

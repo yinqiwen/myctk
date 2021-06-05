@@ -146,21 +146,37 @@ struct Value {
       switch (type) {
         case V_STD_STRING: {
           const std::string* s = (const std::string*)val;
+          if (nullptr == s) {
+            std::string_view empty;
+            return empty;
+          }
           v = *s;
           return v;
         }
         case V_STD_STRING_VIEW: {
           const std::string_view* s = (const std::string_view*)val;
+          if (nullptr == s) {
+            std::string_view empty;
+            return empty;
+          }
           v = *s;
           return v;
         }
         case V_FLATBUFFERS_STRING: {
           const flatbuffers::String* s = (const flatbuffers::String*)val;
+          if (nullptr == s) {
+            std::string_view empty;
+            return empty;
+          }
           std::string_view sv(s->c_str(), s->size());
           return sv;
         }
         case V_CSTRING: {
           const char* s = (const char*)val;
+          if (nullptr == s) {
+            std::string_view empty;
+            return empty;
+          }
           v = s;
           return v;
         }

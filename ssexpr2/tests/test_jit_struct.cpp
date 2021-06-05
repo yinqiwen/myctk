@@ -90,7 +90,7 @@ TEST(ReflectVisistTest, PODWithHelperSubPOD) {
 }
 
 DEFINE_JIT_STRUCT_HELPER(test_fbs::SubData, id, iid, name, score)
-DEFINE_JIT_STRUCT_HELPER(test_fbs::Data, name, score, unit)
+DEFINE_JIT_STRUCT_HELPER(test_fbs::Data, name, score, unit, value)
 TEST(ReflectVisistTest, FlatBuffers) {
   JitStructHelper<test_fbs::Data>::InitJitBuilder();
   test_fbs::DataT test;
@@ -114,6 +114,12 @@ TEST(ReflectVisistTest, FlatBuffers) {
   access = GetFieldAccessors<JitStructHelper<test_fbs::Data>>(names);
   v = access(t);
   EXPECT_EQ("sub_name", v.Get<std::string_view>());
+
+  // test empty string
+  names = {"value"};
+  access = GetFieldAccessors<JitStructHelper<test_fbs::Data>>(names);
+  v = access(t);
+  EXPECT_EQ("", v.Get<std::string_view>());
 }
 DEFINE_JIT_STRUCT_HELPER(test_proto::SubData, feedid, rank, score)
 DEFINE_JIT_STRUCT_HELPER(test_proto::Data, id, model_id, unit)

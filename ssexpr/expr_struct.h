@@ -250,6 +250,10 @@ FieldValue toFieldValue(const T& v) {
                 std::is_same<T, std::string>::value) {
     return v;
   } else if constexpr (std::is_same<T, const flatbuffers::String*>::value) {
+    if (nullptr == v) {
+      std::string_view empty;
+      return empty;
+    }
     std::string_view rv(v->c_str(), v->size());
     return rv;
   } else if constexpr (is_container<R>::value || std::is_base_of<NoExpr, R>::value) {

@@ -18,6 +18,7 @@ table SubData {
 
 table Data {
   name:string;
+  value:string;
   score:double;
   unit:SubData;
   x:uint;
