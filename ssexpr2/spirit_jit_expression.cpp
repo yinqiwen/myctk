@@ -1409,10 +1409,10 @@ struct CodeGenerator {
       DEBUG_ASM_OP((jit_.L(".and_or" + std::to_string(current_cursor))));
       if (x.operator_ == op_and) {
         jit_.cmp(jit_.rax, 0);
-        jit_.je(".fast_ret" + std::to_string(current_cursor));
+        jit_.je(".fast_ret" + std::to_string(current_cursor), jit_.T_NEAR);
       } else {
         jit_.cmp(jit_.rax, 1);
-        jit_.je(".fast_ret" + std::to_string(current_cursor));
+        jit_.je(".fast_ret" + std::to_string(current_cursor), jit_.T_NEAR);
       }
     }
     // rhs
