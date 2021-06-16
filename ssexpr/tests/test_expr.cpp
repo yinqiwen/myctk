@@ -27,6 +27,7 @@ TEST(ExprTest, Logic) {
   SpiritExpression expr;
   ExprOptions opt;
   opt.Init<Combine>();
+  // 1. Parse & Validate
   //                         true                true                  false
   int rc = expr.Init("user.id == \"uid123\" && (item.score > 1 || item.id == \"item101\") ", opt);
   EXPECT_EQ(0, rc);
@@ -35,6 +36,8 @@ TEST(ExprTest, Logic) {
   SubItem si = {123456789, "subitem"};
   Item item = {3.14, "item100", {123456789, "subitem"}};
   Combine root = {&user, &item, 100.2, "combine"};  // root object
+
+  // 2. Eval expr
   auto val = expr.Eval(root);
   EXPECT_EQ(true, std::get<bool>(val));
 }

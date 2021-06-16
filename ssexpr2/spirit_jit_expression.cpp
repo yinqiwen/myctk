@@ -1307,10 +1307,6 @@ struct CodeGenerator {
     size_t current_cursor = cursor;
     cursor++;
     boost::apply_visitor(*this, n.lhs);
-    // DEBUG_ASM_OP((jit_.mov(jit_.rdi, jit_.rax)));
-    // DEBUG_ASM_OP((jit_.mov(jit_.rsi, jit_.rdx)));
-    // DEBUG_ASM_OP((jit_.mov(jit_.rax, (size_t)printValue)));
-    // DEBUG_ASM_OP((jit_.call(jit_.rax)));
     jit_.cmp(jit_.edx, V_BOOL);
     jit_.je(".cond_test_ptr" + std::to_string(current_cursor));
     jit_.cmp(jit_.edx, V_BOOL_VALUE);
@@ -1418,17 +1414,6 @@ struct CodeGenerator {
         jit_.cmp(jit_.rax, 1);
         jit_.je(".fast_ret" + std::to_string(current_cursor));
       }
-      // DEBUG_ASM_OP((jit_.mov(jit_.r14, jit_.rax)));  // save value
-      // DEBUG_ASM_OP((jit_.mov(jit_.r15, jit_.rdx)));
-      // DEBUG_ASM_OP((jit_.mov(jit_.rdi, jit_.rax)));
-      // DEBUG_ASM_OP((jit_.mov(jit_.rsi, jit_.rdx)));
-      // DEBUG_ASM_OP((jit_.mov(jit_.rdx, x.operator_)));
-      // DEBUG_ASM_OP((jit_.mov(jit_.rax, (size_t)(fastAndOr))));
-      // DEBUG_ASM_OP((jit_.call(jit_.rax)));
-      // DEBUG_ASM_OP((jit_.cmp(jit_.rax, 1)));
-      // DEBUG_ASM_OP((jit_.je(".fast_ret" + std::to_string(current_cursor))));
-      // DEBUG_ASM_OP((jit_.mov(jit_.rax, jit_.r14)));  // restore value
-      // DEBUG_ASM_OP((jit_.mov(jit_.rdx, jit_.r15)));
     }
     // rhs
     PushRegisters();
