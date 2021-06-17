@@ -720,11 +720,13 @@ static inline Value doEq(Value left, Value right) {
     }
     case V_STD_STRING:
     case V_STD_STRING_VIEW:
+    case V_FLATBUFFERS_STRING:
     case V_CSTRING: {
       std::string_view lstr = left.Get<std::string_view>();
       switch (right.type) {
         case V_STD_STRING:
         case V_STD_STRING_VIEW:
+        case V_FLATBUFFERS_STRING:
         case V_CSTRING: {
           std::string_view rstr = right.Get<std::string_view>();
           vv.Set<bool>(lstr == rstr);
@@ -797,11 +799,13 @@ static inline Value doNotEq(Value left, Value right) {
     }
     case V_STD_STRING:
     case V_STD_STRING_VIEW:
+    case V_FLATBUFFERS_STRING:
     case V_CSTRING: {
       std::string_view lstr = left.Get<std::string_view>();
       switch (right.type) {
         case V_STD_STRING:
         case V_STD_STRING_VIEW:
+        case V_FLATBUFFERS_STRING:
         case V_CSTRING: {
           std::string_view rstr = right.Get<std::string_view>();
           vv.Set<bool>(lstr != rstr);
@@ -874,11 +878,13 @@ static inline Value doLess(Value left, Value right) {
     }
     case V_STD_STRING:
     case V_STD_STRING_VIEW:
+    case V_FLATBUFFERS_STRING:
     case V_CSTRING: {
       std::string_view lstr = left.Get<std::string_view>();
       switch (right.type) {
         case V_STD_STRING:
         case V_STD_STRING_VIEW:
+        case V_FLATBUFFERS_STRING:
         case V_CSTRING: {
           std::string_view rstr = right.Get<std::string_view>();
           vv.Set<bool>(lstr < rstr);
@@ -951,11 +957,13 @@ static inline Value doLessEq(Value left, Value right) {
     }
     case V_STD_STRING:
     case V_STD_STRING_VIEW:
+    case V_FLATBUFFERS_STRING:
     case V_CSTRING: {
       std::string_view lstr = left.Get<std::string_view>();
       switch (right.type) {
         case V_STD_STRING:
         case V_STD_STRING_VIEW:
+        case V_FLATBUFFERS_STRING:
         case V_CSTRING: {
           std::string_view rstr = right.Get<std::string_view>();
           vv.Set<bool>(lstr <= rstr);
@@ -1027,11 +1035,13 @@ static inline Value doGt(Value left, Value right) {
       break;
     }
     case V_STD_STRING:
+    case V_FLATBUFFERS_STRING:
     case V_STD_STRING_VIEW:
     case V_CSTRING: {
       std::string_view lstr = left.Get<std::string_view>();
       switch (right.type) {
         case V_STD_STRING:
+        case V_FLATBUFFERS_STRING:
         case V_STD_STRING_VIEW:
         case V_CSTRING: {
           std::string_view rstr = right.Get<std::string_view>();
@@ -1104,11 +1114,13 @@ static inline Value doGe(Value left, Value right) {
       break;
     }
     case V_STD_STRING:
+    case V_FLATBUFFERS_STRING:
     case V_STD_STRING_VIEW:
     case V_CSTRING: {
       std::string_view lstr = left.Get<std::string_view>();
       switch (right.type) {
         case V_STD_STRING:
+        case V_FLATBUFFERS_STRING:
         case V_STD_STRING_VIEW:
         case V_CSTRING: {
           std::string_view rstr = right.Get<std::string_view>();
