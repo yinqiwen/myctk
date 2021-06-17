@@ -1495,7 +1495,7 @@ int SpiritExpression::Init(const std::string& expr, const ExprOptions& options) 
     delete ast;
     return rc;
   }
-  jit_.reset(new Xbyak::CodeGenerator);
+  jit_.reset(new Xbyak::CodeGenerator(options.jit_code_size));
   ssexpr2::ast::CodeGenerator gen(options, jit_);
   jit_->inLocalLabel();
   // jit_->push(jit_->rbx);

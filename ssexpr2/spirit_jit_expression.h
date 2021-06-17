@@ -26,7 +26,7 @@ typedef std::function<ValueAccessor(const std::vector<std::string> &,
 struct ExprOptions {
   std::map<std::string, ExprFunction> functions;
   GetStructMemberAccessFunction get_member_access;
-
+  int jit_code_size = 8192;
   template <typename T>
   void Init() {
     T::InitJitBuilder();
