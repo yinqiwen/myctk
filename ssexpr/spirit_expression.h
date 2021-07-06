@@ -19,6 +19,7 @@
 #define ERR_INVALID_STRUCT_MEMBER 10004
 #define ERR_EMPTY_STRUCT_VISITOR 10005
 #define ERR_NIL_INTERPRETER 10006
+#define ERR_EMPTY_DYNAMIC_VAR_VISITOR 10007
 
 namespace ssexpr {
 struct Expr {
@@ -34,10 +35,13 @@ typedef std::function<Value(const std::vector<Value> &)> ExprFunction;
 typedef std::function<std::vector<FieldAccessor>(const std::vector<std::string> &)>
     GetStructMemberAccessFunction;
 typedef std::function<Value(const std::vector<FieldAccessor> &)> StructMemberVisitFunction;
+typedef std::function<Value(const void *, const std::vector<std::string> &)>
+    DynamicVarVisitFunction;
 
 struct ExprOptions {
   std::map<std::string, ExprFunction> functions;
   GetStructMemberAccessFunction get_member_access;
+  DynamicVarVisitFunction dynamic_var_access;
 
   template <typename T>
   void Init() {
@@ -52,10 +56,13 @@ struct ExprOptions {
 
 struct EvalContext {
   StructMemberVisitFunction struct_vistitor;
+  DynamicVarVisitFunction dynamic_var_access;
+  const void *dynamic_root = nullptr;
 };
 
 class SpiritExpression {
  private:
+  ExprOptions options_;
   std::shared_ptr<Expr> expr_;
   Value DoEval(EvalContext &ctx);
 
@@ -63,11 +70,20 @@ class SpiritExpression {
   int Init(const std::string &expr, const ExprOptions &options);
   Value Eval() {
     EvalContext ctx;
+    ctx.dynamic_var_access = options_.dynamic_var_access;
+    return DoEval(ctx);
+  }
+  template <typename T>
+  Value EvalDynamic(const T &root_dynamic_obj) {
+    EvalContext ctx;
+    ctx.dynamic_var_access = options_.dynamic_var_access;
+    ctx.dynamic_root = &root_dynamic_obj;
     return DoEval(ctx);
   }
   template <typename T>
   Value Eval(const T &root_obj) {
     EvalContext ctx;
+    ctx.dynamic_var_access = options_.dynamic_var_access;
     ctx.struct_vistitor = [&root_obj](const std::vector<FieldAccessor> &accessors) {
       Value v;
       auto field_val = root_obj.GetFieldValue(accessors);

@@ -22,67 +22,6 @@ typedef std::variant<bool, char, uint8_t, int16_t, uint16_t, int32_t, uint32_t, 
                      float, double, std::string_view, const void*>
     FieldValueVariant;
 
-// union FieldValueUnion {
-//   bool bv;
-//   char cv;
-//   int16_t i16;
-//   int32_t i32;
-//   int64_t i64;
-//   float fv;
-//   double dv;
-//   const char* sv;
-//   void* data;
-//   inline FieldValueUnion() : data(nullptr) {}
-//   inline FieldValueUnion(bool v) : bv(v) {}
-//   inline FieldValueUnion(char v) : cv(v) {}
-//   inline FieldValueUnion(int16_t v) : i16(v) {}
-//   inline FieldValueUnion(int32_t v) : i32(v) {}
-//   inline FieldValueUnion(int64_t v) : i64(v) {}
-//   inline FieldValueUnion(float v) : fv(v) {}
-//   inline FieldValueUnion(double v) : dv(v) {}
-//   inline FieldValueUnion(const std::string& v) : sv(v.c_str()) {}
-//   inline FieldValueUnion(void* v) : data(v) {}
-
-//   template <typename T>
-//   T Get() {
-//     return (T)data;
-//   }
-// };
-
-// template <>
-// double FieldValueUnion::Get() {
-//   return dv;
-// }
-// template <>
-// float FieldValueUnion::Get() {
-//   return fv;
-// }
-// template <>
-// int16_t FieldValueUnion::Get() {
-//   return i16;
-// }
-// template <>
-// int32_t FieldValueUnion::Get() {
-//   return i32;
-// }
-// template <>
-// int64_t FieldValueUnion::Get() {
-//   return i64;
-// }
-// template <>
-// std::string FieldValueUnion::Get() {
-//   return sv;
-// }
-// template <>
-// void* FieldValueUnion::Get() {
-//   return data;
-// }
-// typedef FieldValueUnion FieldValue;
-// template <typename T, typename R>
-// inline T GetValue(R& v) {
-//   return v.template Get<T>();
-// }
-
 typedef FieldValueVariant FieldValue;
 template <typename T, typename R>
 inline T GetValue(R& v) {
