@@ -332,8 +332,8 @@ int GraphManager::Execute(std::shared_ptr<GraphDataContext> data_ctx, const std:
   ctx->SetGraphDataContext(data_ctx);
   ctx->SetExecuteParams(params);
   auto graph_done = [ctx, done](int code) {
-    ctx->GetCluster()->ReleaseContext(ctx);
     done(code);
+    ctx->GetCluster()->ReleaseContext(ctx);
   };
   // ctx->SetExecuteOptions(&_exec_opt);
   return ctx->Execute(graph, graph_done);

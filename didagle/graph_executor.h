@@ -42,6 +42,7 @@ class VertexContext {
   GraphClusterContext* _subgraph_cluster = nullptr;
   Params _params;
   std::vector<CondParams> _select_params;
+  uint64_t _exec_start_ustime = 0;
   // typedef std::pair<DIObjectKey, const GraphData*> FieldData;
   // typedef std::map<std::string, FieldData> FieldDataTable;
   // FieldDataTable _input_ids;

@@ -1,11 +1,22 @@
 // Copyright (c) 2020, Tencent Inc.
 // All rights reserved.
 #include "graph_executor.h"
+#include <sys/time.h>
+#include <time.h>
 #include "didagle_log.h"
 #include "graph.h"
 #include "graph_processor.h"
 
 namespace didagle {
+static inline uint64_t ustime() {
+  struct timeval tv;
+  uint64_t ust;
+  gettimeofday(&tv, nullptr);
+  ust = ((long long)tv.tv_sec) * 1000000;
+  ust += tv.tv_usec;
+  return ust;
+}
+
 VertexContext::~VertexContext() {
   delete _processor;
   delete _processor_di;
@@ -76,6 +87,7 @@ int VertexContext::Setup(GraphContext* g, Vertex* v) {
 }
 
 void VertexContext::Reset() {
+  _exec_start_ustime = 0;
   _result = V_RESULT_INVALID;
   _code = V_CODE_INVALID;
   _deps_results.assign(_vertex->_deps_idx.size(), V_RESULT_INVALID);
@@ -214,6 +226,7 @@ int VertexContext::ExecuteSubGraph() {
   return 0;
 }
 int VertexContext::Execute() {
+  _exec_start_ustime = ustime();
   bool match_dep_expected_result = true;
   if (nullptr == _processor && nullptr == _subgraph_cluster) {
     match_dep_expected_result = false;
