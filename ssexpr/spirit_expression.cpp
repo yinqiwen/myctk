@@ -33,9 +33,14 @@ struct Variable : x3::position_tagged {
   std::vector<ssexpr::FieldAccessor> accessor_;
 };
 
-struct Operand : public x3::variant<Nil, int64_t, double, bool, std::string, Variable,
-                                    x3::forward_ast<FuncCall>, x3::forward_ast<Unary>,
-                                    x3::forward_ast<CondExpr>, x3::forward_ast<Expression> > {
+struct DynamicVariable : x3::position_tagged {
+  std::vector<std::string> v;
+};
+
+struct Operand
+    : public x3::variant<Nil, int64_t, double, bool, std::string, Variable, DynamicVariable,
+                         x3::forward_ast<FuncCall>, x3::forward_ast<Unary>,
+                         x3::forward_ast<CondExpr>, x3::forward_ast<Expression> > {
   using base_type::base_type;
   using base_type::operator=;
 };
@@ -91,6 +96,7 @@ BOOST_FUSION_ADAPT_STRUCT(ssexpr::ast::Unary, operator_, operand_)
 BOOST_FUSION_ADAPT_STRUCT(ssexpr::ast::Operation, operator_, operand_)
 BOOST_FUSION_ADAPT_STRUCT(ssexpr::ast::Expression, first, rest)
 BOOST_FUSION_ADAPT_STRUCT(ssexpr::ast::Variable, v)
+BOOST_FUSION_ADAPT_STRUCT(ssexpr::ast::DynamicVariable, v)
 BOOST_FUSION_ADAPT_STRUCT(ssexpr::ast::FuncCall, func, args)
 BOOST_FUSION_ADAPT_STRUCT(ssexpr::ast::CondExpr, lhs, rhs_true, rhs_false)
 
@@ -157,8 +163,8 @@ void add_keywords() {
 
   equality_op.add("==", ast::op_equal)("!=", ast::op_not_equal);
 
-  relational_op.add("<", ast::op_less)("<=", ast::op_less_equal)(
-      ">", ast::op_greater)(">=", ast::op_greater_equal);
+  relational_op.add("<", ast::op_less)("<=", ast::op_less_equal)(">", ast::op_greater)(
+      ">=", ast::op_greater_equal);
 
   additive_op.add("+", ast::op_plus)("-", ast::op_minus);
 
@@ -184,6 +190,7 @@ struct multiplicative_expr_class;
 struct unary_expr_class;
 struct primary_expr_class;
 struct var_class;
+struct dynamic_var_class;
 struct func_class;
 struct cond_expr_class;
 
@@ -195,6 +202,7 @@ typedef x3::rule<multiplicative_expr_class, ast::Expression> multiplicative_expr
 typedef x3::rule<unary_expr_class, ast::Operand> unary_expr_type;
 typedef x3::rule<primary_expr_class, ast::Operand> primary_expr_type;
 typedef x3::rule<var_class, ast::Variable> var_type;
+typedef x3::rule<dynamic_var_class, ast::DynamicVariable> dynamic_var_type;
 typedef x3::rule<func_class, ast::FuncCall> func_type;
 typedef x3::rule<cond_expr_class, ast::Operand> cond_expr_type;
 
@@ -206,11 +214,12 @@ BOOST_SPIRIT_DEFINE(identifier_rule)
 // struct var_class;
 // typedef x3::rule<var_class, std::string> var_type;
 var_type const var = "var";
-// auto const var_def = raw['$' >> lexeme[(alpha | '_') >> *(alnum | '_')]];
-// auto const var_unit = lexeme[(alpha | '_') >> *(alnum | '_' | '.')];
-// auto const var_def = raw['$' >> var_unit];
 auto const var_def = identifier_rule_def % '.';
 BOOST_SPIRIT_DEFINE(var);
+
+dynamic_var_type const dynamic_var = "dynamic_var";
+auto const dynamic_var_def = '$' >> identifier_rule_def % '.';
+BOOST_SPIRIT_DEFINE(dynamic_var);
 
 cond_expr_type const cond_expr = "cond_expr";
 expression_type const expression = "expression";
@@ -256,7 +265,7 @@ boost::spirit::x3::real_parser<double, boost::spirit::x3::strict_real_policies<d
     strict_double_ = {};
 const auto int_or_double = strict_double_ | boost::spirit::x3::int64;
 auto const primary_expr_def =
-    int_or_double | bool_ | quoted_string | func | var | '(' > expression > ')';
+    int_or_double | bool_ | quoted_string | func | dynamic_var | var | '(' > expression > ')';
 
 auto const expression_def = cond_expr;
 
@@ -473,6 +482,12 @@ struct Initializer {
     }
     return 0;
   }
+  int operator()(DynamicVariable& n) const {
+    if (!opt_.dynamic_var_access) {
+      return ERR_EMPTY_DYNAMIC_VAR_VISITOR;
+    }
+    return 0;
+  }
   int operator()(FuncCall& n) const {
     auto found = opt_.functions.find(n.func);
     if (found == opt_.functions.end()) {
@@ -556,6 +571,14 @@ struct Interpreter {
     v = ctx_.struct_vistitor(n.accessor_);
     // printf("####Visit value index %d\n", v.index());
     return v;
+  }
+  Value operator()(DynamicVariable const& n) const {
+    if (!ctx_.dynamic_var_access) {
+      Error e(ERR_EMPTY_STRUCT_VISITOR, "empty struct visitor");
+      Value v = e;
+      return v;
+    }
+    return ctx_.dynamic_var_access(ctx_.dynamic_root, n.v);
   }
   Value operator()(FuncCall const& n) const {
     Value v;
@@ -656,6 +679,7 @@ struct Interpreter {
 
 namespace ssexpr {
 int SpiritExpression::Init(const std::string& expr, const ExprOptions& options) {
+  options_ = options;
   using ssexpr::parser::expression;                            // Our grammar
   ssexpr::ast::Expression* ast = new ssexpr::ast::Expression;  // Our tree
 

@@ -90,3 +90,29 @@ TEST(ExprTest, NoExpr) {
   auto val = expr.Eval(item);
   EXPECT_EQ("world", std::get<std::string_view>(val));
 }
+
+TEST(ExprTest, DynamicVar) {
+  Item4::InitExpr();
+  ExprOptions opt;
+  std::map<std::string, int64_t> dynamic_vars;
+  dynamic_vars["v1"] = 101;
+  opt.dynamic_var_access = [](const void* root,
+                              const std::vector<std::string>& args) -> ssexpr::Value {
+    std::map<std::string, int64_t>& dynamic_vars = *((std::map<std::string, int64_t>*)root);
+    int64_t v = dynamic_vars[args[0]];
+    ssexpr::Value r = v;
+    return r;
+  };
+  opt.functions["func1"] = [](const std::vector<ssexpr::Value>& args) {
+    int64_t v1 = std::get<int64_t>(args[0]);
+    v1 += 100;
+    Value v = v1;
+    return v;
+  };
+  SpiritExpression expr;
+  int rc = expr.Init("func1($v1)", opt);
+  EXPECT_EQ(0, rc);
+
+  auto val = expr.EvalDynamic(dynamic_vars);
+  EXPECT_EQ(201, std::get<int64_t>(val));
+}
