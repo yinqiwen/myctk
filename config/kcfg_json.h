@@ -38,6 +38,7 @@
 #include <vector>
 #include "kcfg_common.h"
 #include "rapidjson/document.h"
+#include "rapidjson/prettywriter.h"
 #include "rapidjson/rapidjson.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
@@ -561,22 +562,27 @@ inline bool ParseFromJsonFile(const std::string &file, T &v) {
 }
 
 template <typename T>
-inline int WriteToJsonString(const T &v, std::string &content) {
+inline int WriteToJsonString(const T &v, std::string &content, bool pretty = false) {
   rapidjson::Value::AllocatorType allocator;
   rapidjson::Value doc(rapidjson::kObjectType);
   // v.WriteToJson(doc, allocator);
   Serialize(doc, allocator, NULL, v);
   rapidjson::StringBuffer buffer;
-  rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-  doc.Accept(writer);
+  if (pretty) {
+    rapidjson::PrettyWriter<StringBuffer> writer(sb);
+    doc.Accept(writer);
+  } else {
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    doc.Accept(writer);
+  }
   content.assign(buffer.GetString(), buffer.GetSize());
   return 0;
 }
 
 template <typename T>
-inline int WriteToJsonFile(const T &v, const std::string &file) {
+inline int WriteToJsonFile(const T &v, const std::string &file, bool pretty = false) {
   std::string content;
-  int ret = WriteToJsonString(v, content);
+  int ret = WriteToJsonString(v, content, pretty);
   if (0 != ret) {
     return ret;
   }
