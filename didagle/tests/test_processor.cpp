@@ -4,10 +4,10 @@
 #include "graph_processor.h"
 using namespace didagle;
 
-GRAPH_PROC_BEGIN(test_phase)
-DEF_IN_FIELD(int, v0)
-DEF_OUT_FIELD(std::string, v1)
-DEF_OUT_FIELD((std::map<std::string, std::string>), v2)
+GRAPH_OP_BEGIN(test_phase)
+GRAPH_OP_INPUT(int, v0)
+GRAPH_OP_OUTPUT(std::string, v1)
+GRAPH_OP_OUTPUT((std::map<std::string, std::string>), v2)
 int OnSetup(const Params& args) override { return 0; }
 int OnExecute(const Params& args) override {
   if (nullptr != v0) {
@@ -20,7 +20,7 @@ int OnExecute(const Params& args) override {
   v2["key2"] = "val2";
   return 0;
 }
-GRAPH_PROC_END
+GRAPH_OP_END
 
 TEST(ProcessorUT, Porcessor) {
   GraphDataContext ctx;

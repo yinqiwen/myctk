@@ -78,7 +78,7 @@ class GraphManager {
   std::shared_ptr<GraphCluster> Load(const std::string& file);
   std::shared_ptr<GraphCluster> FindGraphClusterByName(const std::string& name);
   GraphClusterContext* GetGraphClusterContext(const std::string& cluster);
-  int Execute(std::shared_ptr<GraphDataContext> data_ctx, const std::string& cluster,
-              const std::string& graph, const Params* params, DoneClosure&& done);
+  int Execute(GraphDataContextPtr data_ctx, const std::string& cluster, const std::string& graph,
+              const Params* params, DoneClosure&& done);
 };
 }  // namespace didagle

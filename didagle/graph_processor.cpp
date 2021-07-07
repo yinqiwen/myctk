@@ -18,6 +18,16 @@ CreatorTable& GetCreatorTable() {
   }
   return *g_creator_table;
 }
+DAGEventTracker* GraphDataContext::GetEventTracker() {
+  const DAGEventTracker* tracker = Get<DAGEventTracker>("");
+  return const_cast<DAGEventTracker*>(tracker);
+}
+bool GraphDataContext::SetEventTracker(DAGEventTracker* v) {
+  if (nullptr == v) {
+    return false;
+  }
+  return Set<DAGEventTracker>("", v);
+}
 void GraphDataContext::Reset() {
   _data_table.clear();
   _parent.reset();
@@ -97,7 +107,7 @@ int ProcessorFactory::DumpAllMetas(const std::string& file) {
     delete p;
     all_metas.push_back(meta);
   }
-  return kcfg::WriteToJsonFile(all_metas, file);
+  return kcfg::WriteToJsonFile(all_metas, file, true);
 }
 
 ProcessorRegister::ProcessorRegister(const char* name, const ProcessorCreator& creator) {

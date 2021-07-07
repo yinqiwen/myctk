@@ -4,14 +4,14 @@
 #include "didagle_log.h"
 #include "graph_processor_api.h"
 
-GRAPH_PROC_BEGIN(phase3)
-DEF_IN_FIELD(std::string, v1)
-DEF_IN_FIELD((std::map<std::string, std::string>), v2)
-DEF_IN_FIELD(std::string, v3)
-DEF_IN_FIELD((std::map<std::string, std::string>), v4)
-DEF_IN_FIELD(std::string, v5)
-DEF_IN_FIELD((std::map<std::string, std::string>), v6)
-DEF_OUT_FIELD(std::string, v100)
+GRAPH_OP_BEGIN(phase3)
+GRAPH_OP_INPUT(std::string, v1)
+GRAPH_OP_INPUT((std::map<std::string, std::string>), v2)
+GRAPH_OP_INPUT(std::string, v3)
+GRAPH_OP_INPUT((std::map<std::string, std::string>), v4)
+GRAPH_OP_INPUT(std::string, v5)
+GRAPH_OP_INPUT((std::map<std::string, std::string>), v6)
+GRAPH_OP_OUTPUT(std::string, v100)
 int OnSetup(const Params& args) override { return 0; }
 int OnExecute(const Params& args) override {
   DIDAGLE_DEBUG("Run {}", Name());
@@ -36,4 +36,4 @@ int OnExecute(const Params& args) override {
   v100 = "from phase 4, hello";
   return 0;
 }
-GRAPH_PROC_END
+GRAPH_OP_END

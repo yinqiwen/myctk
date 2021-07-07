@@ -13,7 +13,9 @@
 #include <unordered_map>
 #include <vector>
 #include "di_container.h"
+#include "didagle_event.h"
 #include "graph_data.h"
+
 #include "tbb/concurrent_hash_map.h"
 
 #define ERR_UNIMPLEMENTED -7890
@@ -55,6 +57,9 @@ class GraphDataContext {
   void RegisterData(const DIObjectKey& id);
 
   void DisableEntryCreation() { _disable_entry_creation = true; }
+
+  DAGEventTracker* GetEventTracker();
+  bool SetEventTracker(DAGEventTracker* v);
 
   void Reset();
   template <typename T>
@@ -133,6 +138,8 @@ class GraphDataContext {
   }
 };
 
+typedef std::shared_ptr<GraphDataContext> GraphDataContextPtr;
+
 class VertexContext;
 class GraphClusterContext;
 class Processor {
@@ -147,7 +154,7 @@ class Processor {
   FieldInjectFuncTable _field_inject_table;
   FieldEmitFuncTable _field_emit_table;
   std::vector<ResetFunc> _reset_funcs;
-  std::shared_ptr<GraphDataContext> _data_ctx;
+  GraphDataContextPtr _data_ctx;
 
   template <typename T>
   size_t RegisterInput(const std::string& field, InjectFunc&& inject) {
@@ -171,10 +178,9 @@ class Processor {
   }
   size_t AddResetFunc(ResetFunc&& f);
 
-  void SetDataContext(std::shared_ptr<GraphDataContext> p) { _data_ctx = p; }
   GraphDataContext& GetDataContext() { return *_data_ctx; }
 
-  virtual int OnSetup(const Params& args) = 0;
+  virtual int OnSetup(const Params& args) { return 0; }
   virtual int OnReset() { return 0; }
   virtual int OnExecute(const Params& args) { return ERR_UNIMPLEMENTED; };
   virtual void OnAsyncExecute(const Params& args, DoneClosure&& done) { done(ERR_UNIMPLEMENTED); };
@@ -183,7 +189,8 @@ class Processor {
   friend class GraphClusterContext;
 
  public:
-  virtual const char* Name() = 0;
+  void SetDataContext(GraphDataContextPtr p) { _data_ctx = p; }
+  virtual const std::string& Name() const = 0;
   virtual bool IsAsync() const { return false; }
   const std::vector<DIObjectKey>& GetInputIds() { return _input_ids; }
   const std::vector<DIObjectKey>& GetOutputIds() { return _output_ids; }
@@ -204,21 +211,24 @@ struct ProcessorRegister {
 }  // namespace didagle
 
 using namespace didagle;
-#define GRAPH_PROC_BEGIN(NAME)                              \
+#define GRAPH_OP_BEGIN(NAME)                                \
   namespace {                                               \
   static const char* _local_processor_name = #NAME;         \
   struct GraphProcessor##NAME##Object;                      \
   typedef GraphProcessor##NAME##Object LocalProcessorClass; \
   struct GraphProcessor##NAME##Object : public Processor {  \
-    const char* Name() { return _local_processor_name; }
-#define GRAPH_PROC_END                                                                \
+    const std::string& Name() const {                       \
+      static std::string __name = _local_processor_name;    \
+      return __name;                                        \
+    }
+#define GRAPH_OP_END                                                                  \
   }                                                                                   \
   ;                                                                                   \
   static ProcessorRegister _##NAME##_instance(                                        \
       _local_processor_name, []() -> Processor* { return new LocalProcessorClass; }); \
   }
 
-#define DEF_IN_FIELD(TYPE, NAME)                                                                  \
+#define GRAPH_OP_INPUT(TYPE, NAME)                                                                \
   typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_type NAME = {};                 \
   size_t __input_##NAME##_code = RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>(                     \
       #NAME, [this](GraphDataContext& ctx, const std::string& data, bool move) {                  \
@@ -233,7 +243,7 @@ using namespace didagle;
       });                                                                                         \
   size_t __reset_##NAME##_code = AddResetFunc([this]() { NAME = {}; });
 
-#define DEF_MAP_FIELD(TYPE, NAME)                                                \
+#define GRAPH_OP_MAP_INPUT(TYPE, NAME)                                           \
   std::map<std::string, const BOOST_PP_REMOVE_PARENS(TYPE)*> NAME;               \
   size_t __input_##NAME##_code = RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>(    \
       #NAME, [this](GraphDataContext& ctx, const std::string& data, bool move) { \
@@ -258,7 +268,7 @@ using namespace didagle;
       });                                                                        \
   size_t __reset_##NAME##_code = AddResetFunc([this]() { NAME = {}; });
 
-#define DEF_OUT_FIELD(TYPE, NAME)                                                  \
+#define GRAPH_OP_OUTPUT(TYPE, NAME)                                                \
   typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::write_type NAME = {}; \
   size_t __output_##NAME##_code = RegisterOutput<BOOST_PP_REMOVE_PARENS(TYPE)>(    \
       #NAME, [this](GraphDataContext& ctx, const std::string& data) {              \
@@ -268,7 +278,7 @@ using namespace didagle;
       });                                                                          \
   size_t __reset_##NAME##_code = AddResetFunc([this]() {});
 
-#define DEF_IN_OUT_FIELD(TYPE, NAME)                                                    \
+#define GRAPH_OP_IN_OUT(TYPE, NAME)                                                     \
   typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_write_type NAME = {}; \
   size_t __input_##NAME##_code = RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>(           \
       #NAME, [this](GraphDataContext& ctx, const std::string& data, bool move) {        \

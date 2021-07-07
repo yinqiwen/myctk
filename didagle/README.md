@@ -31,12 +31,12 @@ Dependency Injection Directed Acyclic Graph Lightweight Engine
 ```cpp
 #include "processor_api.h"
 //'phase0'为算子名称
-GRAPH_PROC_BEGIN(phase0) 
-//DEF_IN_FIELD 定义算子输入，如'v0'为算子一个输入数据，为算子类的成员变量 
-DEF_IN_FIELD(int, v0)
-//DEF_OUT_FIELD 定义算子输出， 'v1'为算子一个输出数据，为算子类的成员变量 
-DEF_OUT_FIELD(std::string, v1)
-DEF_OUT_FIELD((std::map<std::string, std::string>), v2)
+GRAPH_OP_BEGIN(phase0) 
+//GRAPH_OP_INPUT 定义算子输入，如'v0'为算子一个输入数据，为算子类的成员变量 
+GRAPH_OP_INPUT(int, v0)
+//GRAPH_OP_OUTPUT 定义算子输出， 'v1'为算子一个输出数据，为算子类的成员变量 
+GRAPH_OP_OUTPUT(std::string, v1)
+GRAPH_OP_OUTPUT((std::map<std::string, std::string>), v2)
 // 初始化OnSetup方法
 int OnSetup(const Params& args) override { return 0; }
 // 重置OnReset方法
@@ -46,7 +46,7 @@ int OnExecute(const Params& args) override {
   // logic code
   return 0;
 }
-GRAPH_PROC_END
+GRAPH_OP_END
 ```
 ## 依赖注入DI
 这里的思想是将算子依赖的数据/资源以input成员变量形式定义在算子中，执行引擎会在算子执行前将各个算子的依赖注入到算子对象中；  
@@ -55,10 +55,10 @@ GRAPH_PROC_END
 如：
 ```cpp
 #include "processor_api.h"
-GRAPH_PROC_BEGIN(phase2)
-DEF_IN_FIELD(std::string, v1)
-DEF_OUT_FIELD(std::string, v5)
-DEF_OUT_FIELD((std::map<std::string, std::string>), v6)
+GRAPH_OP_BEGIN(phase2)
+GRAPH_OP_INPUT(std::string, v1)
+GRAPH_OP_OUTPUT(std::string, v5)
+GRAPH_OP_OUTPUT((std::map<std::string, std::string>), v6)
 int OnSetup(const Params& args) override { return 0; }
 int OnExecute(const Params& args) override {
   if(nullptr != v1){
@@ -69,19 +69,19 @@ int OnExecute(const Params& args) override {
   v6["1"] = "1";
   return 0;
 }
-GRAPH_PROC_END
+GRAPH_OP_END
 
-GRAPH_PROC_BEGIN(phase3)
+GRAPH_OP_BEGIN(phase3)
 // ‘phase2’的输出v5为‘phase3’的输入
-DEF_IN_FIELD(std::string, v5)
+GRAPH_OP_INPUT(std::string, v5)
 // ‘phase2’的输出v6为‘phase3’的输入
-DEF_IN_FIELD((std::map<std::string, std::string>), v6)
-DEF_OUT_FIELD(std::string, v100)
+GRAPH_OP_INPUT((std::map<std::string, std::string>), v6)
+GRAPH_OP_OUTPUT(std::string, v100)
 int OnSetup(const Params& args) override { return 0; }
 int OnExecute(const Params& args) override {
   return 0;
 }
-GRAPH_PROC_END
+GRAPH_OP_END
 ```
 
 ## DAG

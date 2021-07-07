@@ -6,8 +6,8 @@
 #include "graph_processor_api.h"
 #include "spirit_expression.h"
 
-GRAPH_PROC_BEGIN(expr_phase)
-DEF_IN_FIELD(RecmdEnv, env)
+GRAPH_OP_BEGIN(expr_phase)
+GRAPH_OP_INPUT(RecmdEnv, env)
 std::string _cond;
 ssexpr::SpiritExpression _expr;
 int OnSetup(const Params& args) override {
@@ -25,4 +25,4 @@ int OnExecute(const Params& args) override {
   DIDAGLE_DEBUG("cond:{} eval result:{}", _cond, r);
   return r ? 0 : -1;
 }
-GRAPH_PROC_END
+GRAPH_OP_END

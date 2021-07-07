@@ -29,14 +29,21 @@
 
 #pragma once
 #include <stdint.h>
+#include <tbb/concurrent_queue.h>
+
+#include <string>
 #include <string_view>
 #include <vector>
 namespace didagle {
-struct ProcessorEvent {
+struct DAGEvent {
   std::string_view processor;
   std::string_view graph;
   uint64_t start_ustime = 0;
   uint64_t end_ustime = 0;
   int rc = -1;
+};
+
+struct DAGEventTracker {
+  tbb::concurrent_queue<DAGEvent*> events;
 };
 }  // namespace didagle

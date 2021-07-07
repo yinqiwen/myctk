@@ -569,7 +569,7 @@ inline int WriteToJsonString(const T &v, std::string &content, bool pretty = fal
   Serialize(doc, allocator, NULL, v);
   rapidjson::StringBuffer buffer;
   if (pretty) {
-    rapidjson::PrettyWriter<StringBuffer> writer(sb);
+    rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
     doc.Accept(writer);
   } else {
     rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);

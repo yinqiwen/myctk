@@ -5,10 +5,10 @@
 #include "didagle_log.h"
 #include "graph_processor_api.h"
 
-GRAPH_PROC_BEGIN(phase0)
-DEF_IN_FIELD(int, v0)
-DEF_OUT_FIELD(std::string, v1)
-DEF_OUT_FIELD((std::map<std::string, std::string>), v2)
+GRAPH_OP_BEGIN(phase0)
+GRAPH_OP_INPUT(int, v0)
+GRAPH_OP_OUTPUT(std::string, v1)
+GRAPH_OP_OUTPUT((std::map<std::string, std::string>), v2)
 int OnSetup(const Params& args) override { return 0; }
 int OnExecute(const Params& args) override {
   if (nullptr != v0) {
@@ -23,4 +23,4 @@ int OnExecute(const Params& args) override {
   DIDAGLE_DEBUG("Type id1={}", DIContainer::GetTypeId<std::map<std::string, std::string>>());
   return 0;
 }
-GRAPH_PROC_END
+GRAPH_OP_END

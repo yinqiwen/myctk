@@ -4,10 +4,10 @@
 #include "didagle_log.h"
 #include "graph_processor_api.h"
 
-GRAPH_PROC_BEGIN(phase2)
-DEF_IN_FIELD(std::string, v1)
-DEF_OUT_FIELD(std::string, v5)
-DEF_OUT_FIELD((std::map<std::string, std::string>), v6)
+GRAPH_OP_BEGIN(phase2)
+GRAPH_OP_INPUT(std::string, v1)
+GRAPH_OP_OUTPUT(std::string, v5)
+GRAPH_OP_OUTPUT((std::map<std::string, std::string>), v6)
 int OnSetup(const Params& args) override { return 0; }
 int OnExecute(const Params& args) override {
   DIDAGLE_DEBUG("Run {}", Name());
@@ -21,4 +21,4 @@ int OnExecute(const Params& args) override {
   v6["key004"] = "004";
   return 0;
 }
-GRAPH_PROC_END
+GRAPH_OP_END

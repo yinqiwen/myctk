@@ -4,8 +4,8 @@
 #include "didagle_log.h"
 #include "graph_processor_api.h"
 
-GRAPH_PROC_BEGIN(phase4)
-DEF_MAP_FIELD(std::string, v100)
+GRAPH_OP_BEGIN(phase4)
+GRAPH_OP_MAP_INPUT(std::string, v100)
 int OnSetup(const Params& args) override { return 0; }
 int OnExecute(const Params& args) override {
   DIDAGLE_DEBUG("Run {} v100 size = {}", Name(), v100.size());
@@ -14,4 +14,4 @@ int OnExecute(const Params& args) override {
   }
   return 0;
 }
-GRAPH_PROC_END
+GRAPH_OP_END

@@ -15,6 +15,7 @@ cc_library(
     hdrs = [
         "di_container.h",
         "didagle_log.h",
+        "didagle_event.h",
         "graph.h",
         "graph_data.h",
         "graph_executor.h",
@@ -22,6 +23,7 @@ cc_library(
         "graph_processor_api.h",
         "graph_processor_di.h",
         "graph_vertex.h",
+
     ],
     includes = ["./"],
     linkopts = ["-lpthread"],
