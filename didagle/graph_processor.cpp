@@ -19,14 +19,19 @@ CreatorTable& GetCreatorTable() {
   return *g_creator_table;
 }
 DAGEventTracker* GraphDataContext::GetEventTracker() {
-  const DAGEventTracker* tracker = Get<DAGEventTracker>("");
-  return const_cast<DAGEventTracker*>(tracker);
-}
-bool GraphDataContext::SetEventTracker(DAGEventTracker* v) {
-  if (nullptr == v) {
-    return false;
+  if (_event_tracker) {
+    return _event_tracker.get();
   }
-  return Set<DAGEventTracker>("", v);
+  if (_parent) {
+    return _parent->GetEventTracker();
+  }
+  return nullptr;
+}
+bool GraphDataContext::EnableEventTracker() {
+  if (!_event_tracker) {
+    _event_tracker.reset(new DAGEventTracker);
+  }
+  return true;
 }
 void GraphDataContext::Reset() {
   _data_table.clear();

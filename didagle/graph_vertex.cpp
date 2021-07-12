@@ -118,13 +118,18 @@ int Vertex::DumpDotEdge(std::string& s) {
     s.append("    ")
         .append(_graph->name + "__START__")
         .append(" -> ")
-        .append(_graph->name + "_" + expect_config);
+        .append(_graph->name + "_" + expect_config)
+        .append(";\n");
   }
   if (_successor_vertex.empty()) {
-    s.append("    ").append(GetDotId()).append(" -> ").append(_graph->name + "__STOP__");
+    s.append("    ").append(GetDotId()).append(" -> ").append(_graph->name + "__STOP__;\n");
   }
   if (_deps_idx.empty()) {
-    s.append("    ").append(_graph->name + "__START__").append(" -> ").append(GetDotId());
+    s.append("    ")
+        .append(_graph->name + "__START__")
+        .append(" -> ")
+        .append(GetDotId())
+        .append(";\n");
   }
   for (auto& pair : _deps_idx) {
     VertexResult expected = _deps_expected_results[pair.second];
