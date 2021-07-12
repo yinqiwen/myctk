@@ -26,7 +26,7 @@ cc_library(
 
     ],
     includes = ["./"],
-    linkopts = ["-lpthread"],
+    linkopts = ["-lpthread -ltbb"],
     deps = [
         "//config:kcfg",
         "@com_github_spdlog//:spdlog",
