@@ -34,7 +34,11 @@ struct CondExpr;
 
 struct Variable : x3::position_tagged {
   std::vector<std::string> v;
+  ValueAccessor accessor_;
+};
 
+struct DynamicVariable : x3::position_tagged {
+  std::vector<std::string> v;
   ValueAccessor accessor_;
 };
 
@@ -162,8 +166,8 @@ void add_keywords() {
 
   equality_op.add("==", ast::op_equal)("!=", ast::op_not_equal);
 
-  relational_op.add("<", ast::op_less)("<=", ast::op_less_equal)(
-      ">", ast::op_greater)(">=", ast::op_greater_equal);
+  relational_op.add("<", ast::op_less)("<=", ast::op_less_equal)(">", ast::op_greater)(
+      ">=", ast::op_greater_equal);
 
   additive_op.add("+", ast::op_plus)("-", ast::op_minus);
 
@@ -349,7 +353,7 @@ struct Initializer {
 };
 
 static Value notValue(Value v) {
-  if (v.type != V_BOOL_VALUE || v.type != V_BOOL) {
+  if (v.type != V_BOOL_VALUE && v.type != V_BOOL) {
     v.type = 0;
     v.val = ERR_INVALID_OPERAND_TYPE;
     return v;
