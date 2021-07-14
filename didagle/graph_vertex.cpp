@@ -131,7 +131,7 @@ int Vertex::DumpDotEdge(std::string& s) {
         .append(";\n");
   }
   if (_successor_vertex.empty()) {
-    s.append("    ").append(GetDotId()).append(" -> ").append(_graph->name + "__STOP__");
+    s.append("    ").append(GetDotId()).append(" -> ").append(_graph->name + "__STOP__;\n");
   }
   if (_deps_idx.empty()) {
     s.append("    ")

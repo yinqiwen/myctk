@@ -34,7 +34,11 @@ struct CondExpr;
 
 struct Variable : x3::position_tagged {
   std::vector<std::string> v;
+  ValueAccessor accessor_;
+};
 
+struct DynamicVariable : x3::position_tagged {
+  std::vector<std::string> v;
   ValueAccessor accessor_;
 };
 

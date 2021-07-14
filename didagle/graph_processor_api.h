@@ -48,6 +48,7 @@ class GraphDataContext {
       DataTable;
   DataTable _data_table;
   std::shared_ptr<GraphDataContext> _parent;
+  std::unique_ptr<DAGEventTracker> _event_tracker;
   bool _disable_entry_creation = false;
 
  public:
@@ -59,7 +60,7 @@ class GraphDataContext {
   void DisableEntryCreation() { _disable_entry_creation = true; }
 
   DAGEventTracker* GetEventTracker();
-  bool SetEventTracker(DAGEventTracker* v);
+  bool EnableEventTracker();
 
   void Reset();
   template <typename T>

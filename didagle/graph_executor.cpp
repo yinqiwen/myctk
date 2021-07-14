@@ -3,6 +3,7 @@
 #include "graph_executor.h"
 #include <sys/time.h>
 #include <time.h>
+#include "didagle_event.h"
 #include "didagle_log.h"
 #include "graph.h"
 #include "graph_processor.h"
@@ -134,6 +135,20 @@ void VertexContext::FinishVertexProcess(int code) {
     //     // log
     //   }
     // }
+  }
+  DAGEventTracker* tracker = _graph_ctx->GetGraphDataContextRef().GetEventTracker();
+  if (nullptr != tracker) {
+    std::unique_ptr<DAGEvent> event(new DAGEvent);
+    event->start_ustime = _exec_start_ustime;
+    event->end_ustime = ustime();
+    if (nullptr != _processor) {
+      event->processor = _processor->Name();
+    } else {
+      event->graph = _vertex->graph;
+      event->cluster = _vertex->_graph->_cluster->_name;
+    }
+    event->rc = code;
+    tracker->events.push(std::move(event));
   }
   _graph_ctx->OnVertexDone(this);
 }
