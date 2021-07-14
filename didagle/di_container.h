@@ -139,7 +139,7 @@ class DIContainer {
     return 0;
   }
   template <typename T>
-  static typename DIObjectTypeHelper<T>::read_type Get(const std::string& id) {
+  static typename DIObjectTypeHelper<T>::read_type Get(const std::string_view& id) {
     uint32_t type_id = DIContainer::GetTypeId<T>();
     DIObjectKeyView key = {id, type_id};
     DIObjectBuilderTable& builders = GetDIObjectBuilderTable();

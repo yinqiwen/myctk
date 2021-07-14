@@ -71,8 +71,8 @@ input = [
 ]
 output = [{ field = "v100", id = "m1" }]
 [[graph.vertex]]
-expect = 'user_type=="34old"'
-# expect_config = "with_exp_1002"
+#expect = 'user_type=="34old"'
+expect_config = "!with_exp_1002"
 processor = "phase3"
 id = "phase3_2"
 input = [

@@ -103,6 +103,11 @@ class GraphContext {
   void SetGraphDataContext(std::shared_ptr<GraphDataContext> p);
 };
 
+struct ConfigSettingContext {
+  Processor* eval_proc = nullptr;
+  uint8_t result = 0;
+};
+
 class GraphClusterContext {
  private:
   const Params* _exec_params = nullptr;
@@ -110,8 +115,9 @@ class GraphClusterContext {
   std::shared_ptr<GraphCluster> _running_cluster;
   GraphContext* _running_graph = nullptr;
   GraphCluster* _cluster = nullptr;
-  std::vector<Processor*> _config_setting_processors;
-  std::vector<uint8_t> _config_setting_result;
+  // std::vector<Processor*> _config_setting_processors;
+  // std::vector<uint8_t> _config_setting_result;
+  std::vector<ConfigSettingContext> _config_settings;
   tbb::concurrent_queue<GraphClusterContext*> _sub_graphs;
   std::unordered_map<std::string, std::shared_ptr<GraphContext>> _graph_context_table;
   DoneClosure _done;

@@ -32,17 +32,19 @@
 namespace didagle {
 static std::shared_ptr<Logger> g_logger;
 Logger& Logger::GetDidagleLogger() {
-  static Spdlogger default_logger;
   if (g_logger) {
     return *g_logger;
   }
+  static Spdlogger default_logger;
   return default_logger;
 }
 void Logger::SetLogger(std::shared_ptr<Logger> logger) { g_logger = logger; }
 
 Spdlogger::Spdlogger() {
   auto logger = spdlog::default_logger_raw();
-  logger->set_level(spdlog::level::debug);
+  if (nullptr != logger) {
+    logger->set_level(spdlog::level::debug);
+  }
 }
 bool Spdlogger::ShouldLog(spdlog::level::level_enum log_level) {
   auto logger = spdlog::default_logger_raw();

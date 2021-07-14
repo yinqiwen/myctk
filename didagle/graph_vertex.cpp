@@ -113,18 +113,32 @@ int Vertex::DumpDotDefine(std::string& s) {
 }
 int Vertex::DumpDotEdge(std::string& s) {
   if (!expect_config.empty()) {
-    s.append("    ").append(_graph->name + "_" + expect_config).append(" -> ").append(GetDotId());
-    s.append(" [style=bold label=\"ok\"];\n");
+    std::string expect_config_id =
+        _graph->name + "_" + std::regex_replace(expect_config, std::regex("!"), "");
+    // std::string expect_config_name =
+    //     _graph->name + "_" + std::regex_replace(expect_config, std::regex("!"), "NOT_");
+    s.append("    ").append(expect_config_id).append(" -> ").append(GetDotId());
+    if (expect_config[0] == '!') {
+      s.append(" [style=dashed color=red label=\"err\"];\n");
+    } else {
+      s.append(" [style=bold label=\"ok\"];\n");
+    }
+
     s.append("    ")
         .append(_graph->name + "__START__")
         .append(" -> ")
-        .append(_graph->name + "_" + expect_config);
+        .append(expect_config_id)
+        .append(";\n");
   }
   if (_successor_vertex.empty()) {
     s.append("    ").append(GetDotId()).append(" -> ").append(_graph->name + "__STOP__");
   }
   if (_deps_idx.empty()) {
-    s.append("    ").append(_graph->name + "__START__").append(" -> ").append(GetDotId());
+    s.append("    ")
+        .append(_graph->name + "__START__")
+        .append(" -> ")
+        .append(GetDotId())
+        .append(";\n");
   }
   for (auto& pair : _deps_idx) {
     VertexResult expected = _deps_expected_results[pair.second];

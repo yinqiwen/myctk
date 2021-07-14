@@ -29,7 +29,7 @@ enum VertexErrCode {
 
 struct CondParams {
   std::string match;
-  Params args;
+  GraphParams args;
   KCFG_TOML_DEFINE_FIELDS(match, args)
 };
 
@@ -39,7 +39,7 @@ struct Vertex {
 
   // phase node
   std::string processor;
-  Params args;
+  GraphParams args;
   std::vector<CondParams> select_args;
   std::string cond;
   std::string expect;

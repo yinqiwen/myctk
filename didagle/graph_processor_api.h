@@ -63,7 +63,7 @@ class GraphDataContext {
 
   void Reset();
   template <typename T>
-  typename DIObjectTypeHelper<T>::read_type Get(const std::string& name,
+  typename DIObjectTypeHelper<T>::read_type Get(std::string_view name,
                                                 bool with_di_container = true) const {
     typedef typename DIObjectTypeHelper<T>::read_type GetValueType;
     uint32_t id = DIContainer::GetTypeId<T>();

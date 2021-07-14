@@ -243,11 +243,24 @@ int VertexContext::Execute() {
                 match_dep_expected_result);
   if (match_dep_expected_result) {
     if (!_vertex->expect_config.empty()) {
-      const bool* v = _graph_ctx->GetGraphDataContextRef().Get<bool>(_vertex->expect_config);
-      if (nullptr == v || !(*v)) {
+      std::string_view var_name = _vertex->expect_config;
+      bool not_cond = false;
+      if (var_name[0] == '!') {
+        var_name = var_name.substr(1);
+        not_cond = true;
+      }
+      const bool* v = _graph_ctx->GetGraphDataContextRef().Get<bool>(var_name);
+      bool match_result = false;
+      if (nullptr != v) {
+        match_result = *v;
+      }
+      if (not_cond) {
+        match_result = !match_result;
+      }
+      if (!match_result) {
+        match_dep_expected_result = false;
         DIDAGLE_DEBUG("Vertex:{} match expect_config:{} failed.", _vertex->GetDotLable(),
                       _vertex->expect_config);
-        match_dep_expected_result = false;
       } else {
         DIDAGLE_DEBUG("Vertex:{} match expect_config:{} success.", _vertex->GetDotLable(),
                       _vertex->expect_config);
@@ -435,10 +448,10 @@ void GraphClusterContext::Reset() {
     _running_graph->Reset();
     _running_graph = nullptr;
   }
-  for (Processor* p : _config_setting_processors) {
-    p->Reset();
+  for (auto& item : _config_settings) {
+    item.eval_proc->Reset();
+    item.result = 0;
   }
-  _config_setting_result.clear();
   _extern_data_ctx.reset();
   // _exec_options.reset();
   GraphClusterContext* sub_graph = nullptr;
@@ -451,6 +464,7 @@ int GraphClusterContext::Setup(GraphCluster* c) {
   if (!_cluster) {
     return -1;
   }
+
   for (const auto& cfg : c->config_setting) {
     Processor* p = ProcessorFactory::GetProcessor(cfg.processor);
     if (nullptr == p && c->strict_dsl) {
@@ -464,7 +478,9 @@ int GraphClusterContext::Setup(GraphCluster* c) {
         DIDAGLE_ERROR("Failed to setup expr processor", cfg.processor);
         return -1;
       }
-      _config_setting_processors.push_back(p);
+      ConfigSettingContext item;
+      item.eval_proc = p;
+      _config_settings.push_back(item);
     }
   }
   for (auto& graph_cfg : _cluster->graph) {
@@ -486,23 +502,25 @@ int GraphClusterContext::Execute(const std::string& graph, DoneClosure&& done) {
     return -1;
   }
   GraphDataContext& data_ctx = g->GetGraphDataContextRef();
-  _config_setting_result.assign(_config_setting_processors.size(), 0);
-  DIDAGLE_DEBUG("config setting size = {}", _config_setting_processors.size());
-  for (size_t i = 0; i < _config_setting_processors.size(); i++) {
-    Processor* p = _config_setting_processors[i];
+  //_config_setting_result.assign(_config_setting_processors.size(), 0);
+  DIDAGLE_DEBUG("config setting size = {}", _config_settings.size());
+  for (size_t i = 0; i < _config_settings.size(); i++) {
+    Processor* p = _config_settings[i].eval_proc;
     p->SetDataContext(g->GetGraphDataContext());
     for (const auto& input_id : p->GetInputIds()) {
       p->InjectInputField(g->GetGraphDataContextRef(), input_id.name, input_id.name, false);
     }
     Params args;
     if (0 != p->Execute(args)) {
-      _config_setting_result[i] = 0;
+      _config_settings[i].result = 0;
     } else {
-      _config_setting_result[i] = 1;
+      _config_settings[i].result = 1;
     }
-    bool* v = (bool*)(&_config_setting_result[i]);
-    DIDAGLE_DEBUG("Set config setting:{} to {}", _cluster->config_setting[i].name, *v);
-    data_ctx.Set<bool>(_cluster->config_setting[i].name, v);
+    bool* v = (bool*)(&_config_settings[i].result);
+    // DIDAGLE_DEBUG("Set config setting:{} to {}", _cluster->config_setting[i].var, *v);
+    if (*v) {
+      data_ctx.Set<bool>(_cluster->config_setting[i].name, v);
+    }
   }
   /**
    * @brief diable data entry creation since the graph is executing while the creation is not
@@ -513,8 +531,8 @@ int GraphClusterContext::Execute(const std::string& graph, DoneClosure&& done) {
 }
 
 GraphClusterContext::~GraphClusterContext() {
-  for (Processor* p : _config_setting_processors) {
-    delete p;
+  for (auto& item : _config_settings) {
+    delete item.eval_proc;
   }
 }
 

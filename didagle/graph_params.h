@@ -26,52 +26,62 @@
  *ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  *THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "graph_data.h"
+
+#pragma once
+#include <stdint.h>
+#include <map>
+#include <string>
+#include <vector>
+#include "kcfg_toml.h"
 
 namespace didagle {
-bool GraphParams::ParseFromToml(const kcfg::TomlValue& doc) {
-  if (doc.is_table()) {
-    for (const auto& kv : doc.as_table()) {
-      const std::string& name = kv.first;
-      const auto& value = kv.second;
-      GraphParams tmp;
-      if (tmp.ParseFromToml(value)) {
-        params[name] = tmp;
-      } else {
-        return false;
-      }
-    }
-    invalid = false;
-  } else if (doc.is_integer()) {
-    iv = doc.as_integer();
-    str = std::to_string(iv);
-    invalid = false;
-  } else if (doc.is_boolean()) {
-    bv = doc.as_boolean();
-    str = std::to_string(bv);
-    invalid = false;
-  } else if (doc.is_floating()) {
-    dv = doc.as_floating();
-    str = std::to_string(dv);
-    invalid = false;
-  } else if (doc.is_string()) {
-    str = doc.as_string();
-    invalid = false;
-  } else if (doc.is_array()) {
-    for (const auto& item : doc.as_array()) {
-      GraphParams tmp;
-      if (tmp.ParseFromToml(item)) {
-        param_array.push_back(tmp);
-      } else {
-        // v.clear();
-        return false;
-      }
-    }
-    invalid = false;
-  } else {
-    return false;
-  }
-  invalid = false;
-  return true;
-}
+class Params {
+ public:
+  typedef std::map<std::string, Params> ParamValueTable;
+
+ protected:
+  std::string str;
+  int64_t iv;
+  double dv;
+  bool bv;
+  bool invalid;
+
+  typedef std::vector<Params> ParamValueArray;
+  ParamValueTable params;
+  ParamValueArray param_array;
+
+  const Params* parent = nullptr;
+
+ public:
+  Params(bool invalid_ = false);
+  void SetParent(const Params* p);
+  bool Valid() const;
+  const std::string& String() const;
+  int64_t Int() const;
+  bool Bool() const;
+  double Double() const;
+  void SetString(const std::string& v);
+  void SetInt(int64_t v);
+  void SetDouble(double d);
+  void SetBool(bool v);
+  size_t Size() const;
+  const ParamValueTable& Members() const;
+
+  const Params& operator[](const std::string& name) const;
+  Params& operator[](const std::string& name);
+  const Params& operator[](size_t idx) const;
+  Params& operator[](size_t idx);
+
+  Params& Add();
+  Params& Put(const std::string& name, const char* value);
+  Params& Put(const std::string& name, const std::string& value);
+  Params& Put(const std::string& name, int64_t value);
+  Params& Put(const std::string& name, double value);
+  Params& Put(const std::string& name, bool value);
+  bool Contains(const std::string& name) const;
+  void Insert(const Params& other);
+  void BuildFromString(const std::string& v);
+  void ParseFromString(const std::string& v);
+  const char* GetVar(const char* v);
+};
 }  // namespace didagle

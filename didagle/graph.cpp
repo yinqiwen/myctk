@@ -2,6 +2,7 @@
 // All rights reserved.
 #include "graph.h"
 #include <iostream>
+#include <regex>
 #include "didagle_log.h"
 
 namespace didagle {
@@ -171,13 +172,15 @@ int Graph::DumpDot(std::string& s) {
     Vertex* v = pair.second;
     v->DumpDotDefine(s);
   }
+  std::set<std::string> cfg_setting_vars;
   for (auto& config_setting : _cluster->config_setting) {
-    s.append("    ")
-        .append(name + "_" + config_setting.name)
-        .append(" [label=\"")
-        .append(config_setting.name)
-        .append("\"");
-    s.append(" shape=diamond color=black fillcolor=aquamarine style=filled];\n");
+    const std::string& var_name = config_setting.name;
+    if (cfg_setting_vars.insert(var_name).second) {
+      std::string dot_var_name = name + "_" + std::regex_replace(var_name, std::regex("!"), "NOT_");
+      std::string label_name = std::regex_replace(var_name, std::regex("!"), "NOT_");
+      s.append("    ").append(dot_var_name).append(" [label=\"").append(label_name).append("\"");
+      s.append(" shape=diamond color=black fillcolor=aquamarine style=filled];\n");
+    }
   }
   for (auto& pair : _nodes) {
     Vertex* v = pair.second;
@@ -191,13 +194,23 @@ Graph::~Graph() {}
 
 bool GraphCluster::ContainsConfigSetting(const std::string& name) {
   for (ConfigSetting& cfg : config_setting) {
-    if (cfg.name == name) {
-      return true;
+    if (!name.empty() && name[0] == '!') {
+      if (cfg.name == name.substr(1)) {
+        return true;
+      }
+    } else {
+      if (cfg.name == name) {
+        return true;
+      }
     }
   }
   return false;
 }
 int GraphCluster::Build() {
+  if (!_graph_cluster_context_pool.empty()) {
+    // already builded
+    return 0;
+  }
   for (auto& f : graph) {
     f._cluster = this;
     _graphs[f.name] = &f;
@@ -285,12 +298,16 @@ std::shared_ptr<GraphCluster> GraphManager::Load(const std::string& file) {
   std::shared_ptr<GraphCluster> g(new GraphCluster);
   bool v = kcfg::ParseFromTomlFile(file, *g);
   if (!v) {
-    DIDAGLE_ERROR("Failed to parse toml");
+    DIDAGLE_ERROR("Failed to parse didagle toml script:{}", file);
     return nullptr;
   }
   std::string name = get_basename(file);
   g->_name = name;
   g->_graph_manager = this;
+  if (0 != g->Build()) {
+    DIDAGLE_ERROR("Failed to build toml script:{}", file);
+    return nullptr;
+  }
   ClusterGraphTable::accessor accessor;
   _graphs.insert(accessor, name);
   accessor->second = g;
