@@ -176,8 +176,8 @@ int Graph::DumpDot(std::string& s) {
   for (auto& config_setting : _cluster->config_setting) {
     const std::string& var_name = config_setting.name;
     if (cfg_setting_vars.insert(var_name).second) {
-      std::string dot_var_name = name + "_" + std::regex_replace(var_name, std::regex("!"), "NOT_");
-      std::string label_name = std::regex_replace(var_name, std::regex("!"), "NOT_");
+      std::string dot_var_name = var_name;
+      std::string label_name = var_name;
       s.append("    ").append(dot_var_name).append(" [label=\"").append(label_name).append("\"");
       s.append(" shape=diamond color=black fillcolor=aquamarine style=filled];\n");
     }

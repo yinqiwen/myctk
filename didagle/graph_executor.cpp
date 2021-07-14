@@ -227,10 +227,6 @@ int VertexContext::ExecuteProcessor() {
   return 0;
 }
 int VertexContext::ExecuteSubGraph() {
-  if (_vertex->_graph->_cluster->_graph_manager) {
-    _subgraph_cluster =
-        _vertex->_graph->_cluster->_graph_manager->GetGraphClusterContext(_vertex->cluster);
-  }
   if (!_subgraph_cluster) {
     DIDAGLE_ERROR("No subgraph cluster found for {}", _vertex->cluster);
     return -1;
@@ -243,8 +239,15 @@ int VertexContext::ExecuteSubGraph() {
 int VertexContext::Execute() {
   _exec_start_ustime = ustime();
   bool match_dep_expected_result = true;
+  if (!_vertex->cluster.empty() && nullptr != _vertex->_graph->_cluster->_graph_manager &&
+      nullptr == _subgraph_cluster) {
+    _subgraph_cluster =
+        _vertex->_graph->_cluster->_graph_manager->GetGraphClusterContext(_vertex->cluster);
+  }
   if (nullptr == _processor && nullptr == _subgraph_cluster) {
     match_dep_expected_result = false;
+    DIDAGLE_DEBUG("Vertex:{} has empty processor and empty subgraph context.",
+                  _vertex->GetDotLable());
   } else {
     for (size_t i = 0; i < _deps_results.size(); i++) {
       if (V_RESULT_INVALID == _deps_results[i] ||
