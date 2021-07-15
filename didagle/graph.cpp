@@ -142,14 +142,14 @@ int Graph::Build() {
   }
 
   for (auto& n : vertex) {
-    if (n.IsSuccessorsEmpty() && n.IsDepsEmpty()) {
-      DIDAGLE_ERROR("Vertex:{} has no deps and successors", n.id);
+    if (!n.Verify()) {
+      // DIDAGLE_ERROR("Vertex:{} has no deps and successors", n.id);
       return -1;
     }
   }
   for (auto& n : _gen_vertex) {
-    if (n->IsSuccessorsEmpty() && n->IsDepsEmpty()) {
-      DIDAGLE_ERROR("Generated Vertex:{} has no deps and successors", n->id);
+    if (!n->Verify()) {
+      // DIDAGLE_ERROR("Generated Vertex:{} has no deps and successors", n->id);
       return -1;
     }
   }

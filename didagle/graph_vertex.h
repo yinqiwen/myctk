@@ -44,6 +44,7 @@ struct Vertex {
   std::string cond;
   std::string expect;
   std::string expect_config;
+  bool is_start = false;
 
   // sub graph node
   std::string cluster;
@@ -67,17 +68,19 @@ struct Vertex {
   Graph* _vertex_graph = nullptr;
   bool _is_id_generated = false;
 
-  KCFG_TOML_DEFINE_FIELD_MAPPING(({"successor_on_ok", "if"}, {"successor_on_err", "else"}))
+  KCFG_TOML_DEFINE_FIELD_MAPPING(({"successor_on_ok", "if"}, {"successor_on_err", "else"},
+                                  {"is_start", "start"}))
 
-  KCFG_TOML_DEFINE_FIELDS(id, processor, args, cond, expect, expect_config, select_args, cluster,
-                          graph, successor, successor_on_ok, successor_on_err, deps, deps_on_ok,
-                          deps_on_err, input, output)
+  KCFG_TOML_DEFINE_FIELDS(id, processor, args, cond, expect, expect_config, is_start, select_args,
+                          cluster, graph, successor, successor_on_ok, successor_on_err, deps,
+                          deps_on_ok, deps_on_err, input, output)
   Vertex();
   bool FindVertexInSuccessors(Vertex* v) const;
   int FillInputOutput();
   void SetGeneratedId(const std::string& id);
   bool IsSuccessorsEmpty();
   bool IsDepsEmpty();
+  bool Verify();
   void Depend(Vertex* v, VertexResult expected);
   int BuildDeps(const std::set<std::string>& dependency, VertexResult expected);
   int BuildSuccessors(const std::set<std::string>& sucessor, VertexResult expected);

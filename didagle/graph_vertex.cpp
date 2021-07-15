@@ -72,6 +72,20 @@ void Vertex::SetGeneratedId(const std::string& v) {
 }
 bool Vertex::IsSuccessorsEmpty() { return _successor_vertex.empty(); }
 bool Vertex::IsDepsEmpty() { return _deps_idx.empty(); }
+bool Vertex::Verify() {
+  if (is_start) {
+    if (!deps.empty() || !deps_on_ok.empty() || !deps_on_err.empty()) {
+      DIDAGLE_ERROR("Vertex:{} is marked as start vertex, but got deps configured.", GetDotLable());
+      return false;
+    }
+  } else {
+    if (IsSuccessorsEmpty() && IsDepsEmpty()) {
+      DIDAGLE_ERROR("Vertex:{} has no deps and successors", id);
+      return false;
+    }
+  }
+  return true;
+}
 std::string Vertex::GetDotId() const { return _graph->name + "_" + id; }
 std::string Vertex::GetDotLable() const {
   if (!cond.empty()) {
@@ -242,6 +256,7 @@ int Vertex::Build() {
   if (0 != BuildSuccessors(successor_on_err, V_RESULT_ERR)) {
     return -1;
   }
+
   return 0;
 }
 int Vertex::GetDependencyIndex(Vertex* v) {
