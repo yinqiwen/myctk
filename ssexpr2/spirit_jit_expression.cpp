@@ -393,6 +393,12 @@ static inline Value normValue(Value v) {
       v.val = c;
       break;
     }
+    case V_BOOL: {
+      bool c = v.Get<bool>();
+      v.type = V_BOOL_VALUE;
+      v.val = c;
+      break;
+    }
     case V_UINT8:
     case V_UINT8_VALUE: {
       uint8_t c = v.Get<uint8_t>();
