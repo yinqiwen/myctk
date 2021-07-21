@@ -17,6 +17,7 @@ Vertex* Graph::geneatedCondVertex(const std::string& cond) {
   v->processor = _cluster->default_expr_processor;
   v->cond = cond;
   v->_graph = this;
+  v->MergeSuccessor();
   Vertex* r = v.get();
   _nodes[v->id] = r;
   _gen_vertex.push_back(v);
@@ -86,6 +87,7 @@ int Graph::Build() {
       return -1;
     }
     n._graph = this;
+    n.MergeSuccessor();
     _nodes[n.id] = &n;
 
     if (_cluster->strict_dsl) {

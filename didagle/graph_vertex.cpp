@@ -206,6 +206,10 @@ int Vertex::BuildDeps(const std::set<std::string>& dependency, VertexResult expe
   }
   return 0;
 }
+void Vertex::MergeSuccessor() {
+  successor_on_ok.insert(consequent.begin(), consequent.end());
+  successor_on_err.insert(alternative.begin(), alternative.end());
+}
 int Vertex::Build() {
   for (const auto& select : select_args) {
     if (!_graph->_cluster->ContainsConfigSetting(select.match)) {

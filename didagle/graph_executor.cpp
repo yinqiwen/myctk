@@ -184,45 +184,14 @@ int VertexContext::ExecuteProcessor() {
     FinishVertexProcess(V_CODE_SKIP);
     return 0;
   }
-  // for (const auto& pair : _input_ids) {
-  //   const std::string& field = pair.first;
-  //   const DIObjectKey& data = pair.second.first;
-  //   const GraphData* graph_data = pair.second.second;
-  //   bool required = false;
-  //   if (nullptr != graph_data) {
-  //     required = graph_data->required;
-  //   }
-  //   int rc = 0;
-  //   if (nullptr != graph_data && !graph_data->aggregate.empty()) {
-  //     for (const std::string& aggregate_id : graph_data->aggregate) {
-  //       rc = _processor->InjectInputField(_graph_ctx->GetGraphDataContextRef(), field,
-  //       aggregate_id,
-  //                                         graph_data->move);
-  //       if (0 != rc && required) {
-  //         break;
-  //       }
-  //     }
-  //   } else {
-  //     if (nullptr != graph_data) {
-  //       rc = _processor->InjectInputField(_graph_ctx->GetGraphDataContextRef(), field, data.name,
-  //                                         graph_data->move);
-  //     } else {
-  //       rc = _processor->InjectInputField(_graph_ctx->GetGraphDataContextRef(), field, data.name,
-  //                                         false);
-  //     }
-  //   }
-  //   if (0 != rc && required) {
-  //     _result = V_RESULT_ERR;
-  //     _code = V_CODE_SKIP;
-  //     break;
-  //   }
-  // }
 
   if (_processor->IsAsync()) {
-    _processor->AsyncExecute(*exec_params, [this](int code) { FinishVertexProcess(code); });
+    _processor->AsyncExecute(*exec_params, [this](int code) {
+      FinishVertexProcess(_vertex->ignore_processor_execute_error ? 0 : code);
+    });
   } else {
     int rc = _processor->Execute(*exec_params);
-    FinishVertexProcess(rc);
+    FinishVertexProcess(_vertex->ignore_processor_execute_error ? 0 : rc);
   }
   return 0;
 }

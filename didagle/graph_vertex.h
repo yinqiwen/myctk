@@ -54,12 +54,16 @@ struct Vertex {
   std::set<std::string> successor;
   std::set<std::string> successor_on_ok;
   std::set<std::string> successor_on_err;
+  std::set<std::string> consequent;
+  std::set<std::string> alternative;
   std::set<std::string> deps;
   std::set<std::string> deps_on_ok;
   std::set<std::string> deps_on_err;
 
   std::vector<GraphData> input;
   std::vector<GraphData> output;
+
+  bool ignore_processor_execute_error = true;
 
   std::unordered_set<Vertex*> _successor_vertex;
   std::vector<VertexResult> _deps_expected_results;
@@ -68,13 +72,15 @@ struct Vertex {
   Graph* _vertex_graph = nullptr;
   bool _is_id_generated = false;
 
-  KCFG_TOML_DEFINE_FIELD_MAPPING(({"successor_on_ok", "if"}, {"successor_on_err", "else"},
+  KCFG_TOML_DEFINE_FIELD_MAPPING(({"consequent", "if"}, {"alternative", "else"},
                                   {"is_start", "start"}))
 
   KCFG_TOML_DEFINE_FIELDS(id, processor, args, cond, expect, expect_config, is_start, select_args,
-                          cluster, graph, successor, successor_on_ok, successor_on_err, deps,
-                          deps_on_ok, deps_on_err, input, output)
+                          cluster, graph, successor, successor_on_ok, successor_on_err, consequent,
+                          alternative, deps, deps_on_ok, deps_on_err, input, output,
+                          ignore_processor_execute_error)
   Vertex();
+  void MergeSuccessor();
   bool FindVertexInSuccessors(Vertex* v) const;
   int FillInputOutput();
   void SetGeneratedId(const std::string& id);

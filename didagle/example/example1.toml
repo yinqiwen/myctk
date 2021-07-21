@@ -10,6 +10,7 @@ cond = "expid==1001"
 [[config_setting]]
 name = "with_exp_1002"
 cond = "expid==1002"
+
 [[graph]]
 name = "sub_graph1"
 [[graph.vertex]]
@@ -79,3 +80,21 @@ deps = ["sub_graph2"]
 [[graph.vertex]]
 processor = "phase3"
 deps = ["phase2"]
+
+
+[[graph]]
+name = "sub_graph4"
+[[graph.vertex]]
+processor = "phase0"
+start = true
+[[graph.vertex]]
+id = "sub_graph2"
+cluster = "eample1.toml"
+graph = "sub_graph2"
+start = true
+[[graph.vertex]]
+processor = "phase2"
+start = true
+[[graph.vertex]]
+processor = "phase3"
+start = true
