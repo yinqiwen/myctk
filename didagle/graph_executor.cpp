@@ -184,14 +184,15 @@ int VertexContext::ExecuteProcessor() {
     FinishVertexProcess(V_CODE_SKIP);
     return 0;
   }
-
   if (_processor->IsAsync()) {
     _processor->AsyncExecute(*exec_params, [this](int code) {
-      FinishVertexProcess(_vertex->ignore_processor_execute_error ? 0 : code);
+      FinishVertexProcess(
+          (_vertex->ignore_processor_execute_error && !_vertex->IsCondVertex()) ? 0 : code);
     });
   } else {
     int rc = _processor->Execute(*exec_params);
-    FinishVertexProcess(_vertex->ignore_processor_execute_error ? 0 : rc);
+    FinishVertexProcess((_vertex->ignore_processor_execute_error && !_vertex->IsCondVertex()) ? 0
+                                                                                              : rc);
   }
   return 0;
 }

@@ -71,6 +71,7 @@ struct Vertex {
   Graph* _graph = nullptr;
   Graph* _vertex_graph = nullptr;
   bool _is_id_generated = false;
+  bool _is_cond_processor = false;
 
   KCFG_TOML_DEFINE_FIELD_MAPPING(({"consequent", "if"}, {"alternative", "else"},
                                   {"is_start", "start"}))
@@ -80,6 +81,7 @@ struct Vertex {
                           alternative, deps, deps_on_ok, deps_on_err, input, output,
                           ignore_processor_execute_error)
   Vertex();
+  bool IsCondVertex() const;
   void MergeSuccessor();
   bool FindVertexInSuccessors(Vertex* v) const;
   int FillInputOutput();
