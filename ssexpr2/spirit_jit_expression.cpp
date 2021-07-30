@@ -1256,10 +1256,10 @@ static Value calcPairValue(Value left, Value right, size_t op) {
   err.val = ERR_INVALID_OPERATOR;
   return err;
 }
-static Value printValue(Value v) {
-  printf("##print value: %llu %llu\n", v.type, v.val);
-  return v;
-}
+// static Value printValue(Value v) {
+//   printf("##print value: %llu %llu\n", v.type, v.val);
+//   return v;
+// }
 
 struct CodeGenerator {
   const ExprOptions& opt_;
@@ -1429,12 +1429,12 @@ struct CodeGenerator {
       jit_.mov(jit_.edx, V_BOOL_VALUE);
       jit_.mov(jit_.rax, jit_.ptr[jit_.rax]);
       DEBUG_ASM_OP((jit_.L(".and_or" + std::to_string(current_cursor))));
+      jit_.cmp(jit_.rax, 0);
       if (x.operator_ == op_and) {
-        jit_.cmp(jit_.rax, 0);
         jit_.je(".fast_ret" + std::to_string(current_cursor), jit_.T_NEAR);
       } else {
-        jit_.cmp(jit_.rax, 1);
-        jit_.je(".fast_ret" + std::to_string(current_cursor), jit_.T_NEAR);
+        // jit_.cmp(jit_.rax, 1);
+        jit_.jne(".fast_ret" + std::to_string(current_cursor), jit_.T_NEAR);
       }
     }
     // rhs
