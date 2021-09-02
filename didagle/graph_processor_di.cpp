@@ -4,7 +4,7 @@
 
 namespace didagle {
 ProcessorDI::ProcessorDI(Processor* proc, bool strict_dsl) : _proc(proc), _strict_dsl(strict_dsl) {}
-int ProcessorDI::SetupInputOutputIds(const std::vector<DIObjectKey>& fields,
+int ProcessorDI::SetupInputOutputIds(const std::vector<FieldInfo>& fields,
                                      const std::vector<GraphData>& config_fields,
                                      FieldDataTable& ids) {
   for (const DIObjectKey& id : fields) {

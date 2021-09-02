@@ -354,7 +354,8 @@ int GraphManager::Execute(std::shared_ptr<GraphDataContext> data_ctx, const std:
     done(code);
     ctx->GetCluster()->ReleaseContext(ctx);
   };
+  GraphContext* graph_ctx = nullptr;
   // ctx->SetExecuteOptions(&_exec_opt);
-  return ctx->Execute(graph, graph_done);
+  return ctx->Execute(graph, graph_done, graph_ctx);
 }
 }  // namespace didagle

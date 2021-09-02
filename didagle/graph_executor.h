@@ -40,24 +40,17 @@ class VertexContext {
   Processor* _processor = nullptr;
   ProcessorDI* _processor_di = nullptr;
   GraphClusterContext* _subgraph_cluster = nullptr;
+  GraphContext* _subgraph_ctx = nullptr;
   Params _params;
   std::vector<CondParams> _select_params;
   uint64_t _exec_start_ustime = 0;
-  // typedef std::pair<DIObjectKey, const GraphData*> FieldData;
-  // typedef std::map<std::string, FieldData> FieldDataTable;
-  // FieldDataTable _input_ids;
-  // FieldDataTable _output_ids;
-
-  // int SetupInputOutputIds(const std::vector<DIObjectKey>& fields,
-  //                         const std::vector<GraphData>& config_fields, FieldDataTable&
-  //                         field_ids);
+  size_t _child_idx = (size_t)-1;
 
  public:
   VertexContext();
+  void SetChildIdx(size_t idx) { _child_idx = idx; }
   Vertex* GetVertex() { return _vertex; }
   ProcessorDI* GetProcessorDI() { return _processor_di; }
-  // const FieldDataTable& GetInputIds() { return _input_ids; }
-  // const FieldDataTable& GetOutputIds() { return _output_ids; }
   VertexResult GetResult() { return _result; };
   void FinishVertexProcess(int code);
   int ExecuteProcessor();
@@ -83,6 +76,7 @@ class GraphContext {
   std::vector<uint8_t> _config_setting_result;
   std::set<DIObjectKey> _all_input_ids;
   std::set<DIObjectKey> _all_output_ids;
+  size_t _children_count;
 
  public:
   GraphContext();
@@ -134,7 +128,7 @@ class GraphClusterContext {
   void SetRunningCluster(std::shared_ptr<GraphCluster> c) { _running_cluster = c; }
   int Setup(GraphCluster* c);
   void Reset();
-  int Execute(const std::string& graph, DoneClosure&& done);
+  int Execute(const std::string& graph, DoneClosure&& done, GraphContext*& graph_ctx);
   void Execute(GraphDataContext& session_ctx, std::vector<uint8_t>& eval_results);
   ~GraphClusterContext();
 };

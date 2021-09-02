@@ -14,7 +14,7 @@ class ProcessorDI {
   typedef std::map<std::string, FieldData> FieldDataTable;
   FieldDataTable _input_ids;
   FieldDataTable _output_ids;
-  int SetupInputOutputIds(const std::vector<DIObjectKey>& fields,
+  int SetupInputOutputIds(const std::vector<FieldInfo>& fields,
                           const std::vector<GraphData>& config_fields, FieldDataTable& field_ids);
 
  public:

@@ -3,6 +3,7 @@
 // Created on 2021/05/26
 // Authors: qiyingwang (qiyingwang@tencent.com)
 #pragma once
+#include <google/protobuf/service.h>
 #include <atomic>
 #include <boost/preprocessor/library.hpp>
 #include <memory>
@@ -14,27 +15,38 @@
 
 namespace didagle {
 
+struct ServiceTag {
+  virtual ~ServiceTag() {}
+};
+
 class DIObject;
-template <typename T>
+template <typename T, bool = std::is_base_of<::google::protobuf::Service, T>::value ||
+                             std::is_base_of<ServiceTag, T>::value>
 struct DIObjectTypeHelper {
   typedef const T* read_type;
   typedef T write_type;
   typedef T* read_write_type;
   static constexpr bool is_di_object = std::is_base_of<DIObject, T>::value;
-  // static constexpr bool is_unique_ptr = false;
 };
 
 template <typename T>
-struct DIObjectTypeHelper<std::shared_ptr<T>> {
+struct DIObjectTypeHelper<T, true> {
+  typedef T* read_type;
+  typedef T write_type;
+  typedef T* read_write_type;
+  static constexpr bool is_di_object = std::is_base_of<DIObject, T>::value;
+};
+
+template <typename T>
+struct DIObjectTypeHelper<std::shared_ptr<T>, false> {
   typedef std::shared_ptr<T> read_type;
   typedef std::shared_ptr<T> write_type;
   typedef std::shared_ptr<T> read_write_type;
   static constexpr bool is_di_object = std::is_base_of<DIObject, T>::value;
-  // static constexpr bool is_unique_ptr = false;
 };
 
 template <typename T>
-struct DIObjectTypeHelper<std::unique_ptr<T>> {
+struct DIObjectTypeHelper<std::unique_ptr<T>, false> {
   typedef std::unique_ptr<T> read_type;
   typedef std::unique_ptr<T> write_type;
   typedef std::unique_ptr<T> read_write_type;
@@ -123,6 +135,7 @@ class DIContainer {
     static uint32_t id = nextTypeId();
     return id;
   }
+
   template <typename T>
   static int RegisterBuilder(const std::string& id, std::unique_ptr<DIObjectBuilder<T>> builder) {
     DIObjectBuilderValue dv;

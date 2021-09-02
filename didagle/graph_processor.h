@@ -14,8 +14,8 @@ namespace didagle {
 
 struct ProcessorMeta {
   std::string name;
-  std::vector<DIObjectKey> input;
-  std::vector<DIObjectKey> output;
+  std::vector<FieldInfo> input;
+  std::vector<FieldInfo> output;
   KCFG_DEFINE_FIELDS(name, input, output)
 };
 

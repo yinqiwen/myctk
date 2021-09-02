@@ -36,7 +36,16 @@ bool GraphDataContext::EnableEventTracker() {
 void GraphDataContext::Reset() {
   _data_table.clear();
   _parent.reset();
+  // std::fill_n(_executed_childrens.begin(), _executed_childrens.end(), nullptr);
+  _executed_childrens.clear();
   _disable_entry_creation = false;
+}
+void GraphDataContext::ReserveChildCapacity(size_t n) { _executed_childrens.resize(n); }
+void GraphDataContext::SetChild(const GraphDataContext* c, size_t idx) {
+  if (idx >= _executed_childrens.size()) {
+    return;
+  }
+  _executed_childrens[idx] = c;
 }
 void GraphDataContext::RegisterData(const DIObjectKey& id) {
   DataValue dv;

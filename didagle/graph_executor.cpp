@@ -23,27 +23,7 @@ VertexContext::~VertexContext() {
   delete _processor_di;
   // delete _subgraph;
 }
-// int VertexContext::SetupInputOutputIds(const std::vector<DIObjectKey>& fields,
-//                                        const std::vector<GraphData>& config_fields,
-//                                        FieldDataTable& ids) {
-//   for (const DIObjectKey& id : fields) {
-//     ids[id.name] = std::make_pair(id, (const GraphData*)nullptr);
-//   }
-//   for (const GraphData& data : config_fields) {
-//     auto found = ids.find(data.field);
-//     if (found == ids.end()) {
-//       if (!_graph_ctx->GetGraphCluster()->strict_dsl) {
-//         continue;
-//       }
-//       DIDAGLE_ERROR("No field:{} found in processor:{}", data.field, _processor->Name());
-//       return -1;
-//     }
-//     const DIObjectKey& exist_key = found->second.first;
-//     DIObjectKey new_key{data.id, exist_key.id};
-//     ids[data.field] = std::make_pair(new_key, &data);
-//   }
-//   return 0;
-// }
+
 int VertexContext::Setup(GraphContext* g, Vertex* v) {
   _graph_ctx = g;
   _vertex = v;
@@ -70,12 +50,6 @@ int VertexContext::Setup(GraphContext* g, Vertex* v) {
     if (0 != _processor_di->PrepareOutputs(_vertex->output)) {
       return -1;
     }
-    // if (0 != SetupInputOutputIds(_processor->GetInputIds(), _vertex->input, _input_ids)) {
-    //   return -1;
-    // }
-    // if (0 != SetupInputOutputIds(_processor->GetOutputIds(), _vertex->output, _output_ids)) {
-    //   return -1;
-    // }
   }
   Reset();
   if (nullptr != _processor) {
@@ -96,11 +70,13 @@ void VertexContext::Reset() {
   if (nullptr != _processor) {
     _processor->Reset();
   }
+  _subgraph_ctx = nullptr;
   if (nullptr != _subgraph_cluster) {
     _subgraph_cluster->Reset();
     _subgraph_cluster->GetCluster()->ReleaseContext(_subgraph_cluster);
     _subgraph_cluster = nullptr;
   }
+
   for (auto& args : _select_params) {
     args.args.SetParent(nullptr);
   }
@@ -127,14 +103,6 @@ void VertexContext::FinishVertexProcess(int code) {
     if (nullptr != _processor_di) {
       _processor_di->CollectOutputs(_graph_ctx->GetGraphDataContextRef());
     }
-    // for (const auto& pair : _output_ids) {
-    //   const std::string& field = pair.first;
-    //   const DIObjectKey& data = pair.second.first;
-    //   int rc = _processor->EmitOutputField(_graph_ctx->GetGraphDataContextRef(), field,
-    //   data.name); if (0 != rc) {
-    //     // log
-    //   }
-    // }
   }
   DAGEventTracker* tracker = _graph_ctx->GetGraphDataContextRef().GetEventTracker();
   if (nullptr != tracker) {
@@ -149,6 +117,10 @@ void VertexContext::FinishVertexProcess(int code) {
     }
     event->rc = code;
     tracker->events.push(std::move(event));
+  }
+  if (nullptr != _subgraph_ctx) {
+    _graph_ctx->GetGraphDataContextRef().SetChild(_subgraph_ctx->GetGraphDataContext().get(),
+                                                  _child_idx);
   }
   _graph_ctx->OnVertexDone(this);
 }
@@ -203,7 +175,8 @@ int VertexContext::ExecuteSubGraph() {
   }
   _subgraph_cluster->SetGraphDataContext(_graph_ctx->GetGraphDataContext());
   _subgraph_cluster->SetExecuteParams(_graph_ctx->GetGraphClusterContext()->GetExecuteParams());
-  _subgraph_cluster->Execute(_vertex->graph, [this](int code) { FinishVertexProcess(code); });
+  _subgraph_cluster->Execute(
+      _vertex->graph, [this](int code) { FinishVertexProcess(code); }, _subgraph_ctx);
   return 0;
 }
 int VertexContext::Execute() {
@@ -271,7 +244,7 @@ int VertexContext::Execute() {
   return 0;
 }
 
-GraphContext::GraphContext() : _cluster(nullptr), _graph(nullptr) {
+GraphContext::GraphContext() : _cluster(nullptr), _graph(nullptr), _children_count(0) {
   _join_vertex_num = 0;
   _data_ctx.reset(new GraphDataContext);
 }
@@ -280,12 +253,18 @@ int GraphContext::Setup(GraphClusterContext* c, Graph* g) {
   _cluster = c;
   _graph = g;
 
+  size_t child_idx = 0;
   for (auto& pair : g->_nodes) {
     Vertex* v = pair.second;
     std::shared_ptr<VertexContext> c(new VertexContext);
     if (0 != c->Setup(this, v)) {
       DIDAGLE_ERROR("Graph:{} setup vertex:{} failed.", g->name, v->GetDotLable());
       return -1;
+    }
+    if (!v->cluster.empty()) {
+      c->SetChildIdx(child_idx);
+      _children_count++;
+      child_idx++;
     }
     _vertex_context_table[v] = c;
     ProcessorDI* di = c->GetProcessorDI();
@@ -300,6 +279,7 @@ int GraphContext::Setup(GraphClusterContext* c, Graph* g) {
       }
     }
   }
+  _data_ctx->ReserveChildCapacity(_children_count);
   std::set<DIObjectKey> move_ids;
   for (auto& pair : _vertex_context_table) {
     std::shared_ptr<VertexContext> c = pair.second;
@@ -481,7 +461,9 @@ int GraphClusterContext::Setup(GraphCluster* c) {
   }
   return 0;
 }
-int GraphClusterContext::Execute(const std::string& graph, DoneClosure&& done) {
+int GraphClusterContext::Execute(const std::string& graph, DoneClosure&& done,
+                                 GraphContext*& graph_ctx) {
+  graph_ctx = nullptr;
   GraphContext* g = GetRunGraph(graph);
   if (nullptr == g) {
     if (done) {
@@ -489,6 +471,7 @@ int GraphClusterContext::Execute(const std::string& graph, DoneClosure&& done) {
     }
     return -1;
   }
+  graph_ctx = g;
   GraphDataContext& data_ctx = g->GetGraphDataContextRef();
   //_config_setting_result.assign(_config_setting_processors.size(), 0);
   DIDAGLE_DEBUG("config setting size = {}", _config_settings.size());

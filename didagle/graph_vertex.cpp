@@ -45,6 +45,8 @@ int Vertex::FillInputOutput() {
       GraphData field;
       field.id = input_id.name;
       field.field = input_id.name;
+      field.is_extern = input_id.flags.is_extern;
+      field._is_in_out = input_id.flags.is_in_out;
       input.push_back(field);
     }
   }
@@ -226,6 +228,9 @@ int Vertex::Build() {
         return -1;
       }
       if (nullptr == dep_vertex) {
+        continue;
+      }
+      if (data._is_in_out && (dep_vertex == this)) {
         continue;
       }
       Depend(dep_vertex, data.required ? V_RESULT_OK : V_RESULT_ALL);

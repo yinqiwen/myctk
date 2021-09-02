@@ -33,6 +33,7 @@ cc_library(
     deps = [
         "//config:kcfg",
         "@com_github_spdlog//:spdlog",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 

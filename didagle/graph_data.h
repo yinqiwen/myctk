@@ -21,6 +21,7 @@ struct GraphData {
   bool required = false;
   bool move = false;
   bool is_extern = false;
+  bool _is_in_out = false;
 
   KCFG_TOML_DEFINE_FIELD_MAPPING(({"is_extern", "extern"}))
   KCFG_TOML_DEFINE_FIELDS(id, field, required, move, is_extern, aggregate)
