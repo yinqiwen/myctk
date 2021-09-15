@@ -10,16 +10,19 @@ Vertex::Vertex() {
   // Params empty(true);
   // args = empty;
 }
-bool Vertex::FindVertexInSuccessors(Vertex* v) const {
+bool Vertex::FindVertexInSuccessors(Vertex *v, std::unordered_set<std::string> &exclude) const {
   if (_successor_vertex.empty()) {
     return false;
   }
   if (_successor_vertex.count(v) > 0) {
     return true;
   }
-  for (Vertex* succeed : _successor_vertex) {
-    if (succeed->FindVertexInSuccessors(v)) {
-      return true;
+  exclude.insert(id);
+  for (Vertex *succeed : _successor_vertex) {
+    if (exclude.count(succeed->id) == 0) {
+      if (succeed->FindVertexInSuccessors(v, exclude)) {
+        return true;
+      }
     }
   }
   return false;
@@ -33,9 +36,9 @@ int Vertex::FillInputOutput() {
     DIDAGLE_ERROR("No processor found for {}", processor);
     return -1;
   }
-  for (const auto& input_id : p->GetInputIds()) {
+  for (const auto &input_id : p->GetInputIds()) {
     bool match = false;
-    for (const auto& in : input) {
+    for (const auto &in : input) {
       if (in.field == input_id.name) {
         match = true;
         break;
@@ -47,12 +50,13 @@ int Vertex::FillInputOutput() {
       field.field = input_id.name;
       field.is_extern = input_id.flags.is_extern;
       field._is_in_out = input_id.flags.is_in_out;
+      field.move = field._is_in_out ? true : false;
       input.push_back(field);
     }
   }
-  for (const auto& output_id : p->GetOutputIds()) {
+  for (const auto &output_id : p->GetOutputIds()) {
     bool match = false;
-    for (const auto& out : output) {
+    for (const auto &out : output) {
       if (out.field == output_id.name) {
         match = true;
         break;
@@ -68,7 +72,7 @@ int Vertex::FillInputOutput() {
   delete p;
   return 0;
 }
-void Vertex::SetGeneratedId(const std::string& v) {
+void Vertex::SetGeneratedId(const std::string &v) {
   id = v;
   _is_id_generated = true;
 }
@@ -101,7 +105,7 @@ std::string Vertex::GetDotLable() const {
     if (!select_args.empty()) {
       std::string s = processor;
       s.append("[");
-      for (const auto& cond_args : select_args) {
+      for (const auto &cond_args : select_args) {
         s.append(cond_args.match).append(",");
       }
       s.append("]");
@@ -115,7 +119,7 @@ std::string Vertex::GetDotLable() const {
   }
   return "unknown";
 }
-int Vertex::DumpDotDefine(std::string& s) {
+int Vertex::DumpDotDefine(std::string &s) {
   s.append("    ").append(GetDotId()).append(" [label=\"").append(GetDotLable()).append("\"");
   if (!cond.empty()) {
     s.append(" shape=diamond color=black fillcolor=aquamarine style=filled");
@@ -127,12 +131,13 @@ int Vertex::DumpDotDefine(std::string& s) {
   s.append("];\n");
   return 0;
 }
-int Vertex::DumpDotEdge(std::string& s) {
+int Vertex::DumpDotEdge(std::string &s) {
   if (!expect_config.empty()) {
     std::string expect_config_id =
         _graph->name + "_" + std::regex_replace(expect_config, std::regex("!"), "");
     // std::string expect_config_name =
-    //     _graph->name + "_" + std::regex_replace(expect_config, std::regex("!"), "NOT_");
+    //     _graph->name + "_" + std::regex_replace(expect_config,
+    //     std::regex("!"), "NOT_");
     s.append("    ").append(expect_config_id).append(" -> ").append(GetDotId());
     if (expect_config[0] == '!') {
       s.append(" [style=dashed color=red label=\"err\"];\n");
@@ -156,9 +161,9 @@ int Vertex::DumpDotEdge(std::string& s) {
         .append(GetDotId())
         .append(";\n");
   }
-  for (auto& pair : _deps_idx) {
+  for (auto &pair : _deps_idx) {
     VertexResult expected = _deps_expected_results[pair.second];
-    const Vertex* dep = pair.first;
+    const Vertex *dep = pair.first;
     s.append("    ").append(dep->GetDotId()).append(" -> ").append(GetDotId());
     switch (expected) {
       case V_RESULT_OK: {
@@ -177,7 +182,7 @@ int Vertex::DumpDotEdge(std::string& s) {
   }
   return 0;
 }
-void Vertex::Depend(Vertex* v, VertexResult expected) {
+void Vertex::Depend(Vertex *v, VertexResult expected) {
   v->_successor_vertex.insert(this);
   if (_deps_idx.count(v) == 0) {
     int idx = _deps_idx.size();
@@ -186,9 +191,9 @@ void Vertex::Depend(Vertex* v, VertexResult expected) {
     _deps_expected_results[idx] = expected;
   }
 }
-int Vertex::BuildSuccessors(const std::set<std::string>& sucessor, VertexResult expected) {
-  for (const std::string& id : sucessor) {
-    Vertex* successor_vertex = _graph->FindVertexById(id);
+int Vertex::BuildSuccessors(const std::set<std::string> &sucessor, VertexResult expected) {
+  for (const std::string &id : sucessor) {
+    Vertex *successor_vertex = _graph->FindVertexById(id);
     if (nullptr == successor_vertex) {
       DIDAGLE_ERROR("No successor id:{}", id);
       return -1;
@@ -197,9 +202,9 @@ int Vertex::BuildSuccessors(const std::set<std::string>& sucessor, VertexResult 
   }
   return 0;
 }
-int Vertex::BuildDeps(const std::set<std::string>& dependency, VertexResult expected) {
-  for (const std::string& dep : dependency) {
-    Vertex* dep_vertex = _graph->FindVertexById(dep);
+int Vertex::BuildDeps(const std::set<std::string> &dependency, VertexResult expected) {
+  for (const std::string &dep : dependency) {
+    Vertex *dep_vertex = _graph->FindVertexById(dep);
     if (nullptr == dep_vertex) {
       DIDAGLE_ERROR("No dep  id:{}", dep);
       return -1;
@@ -214,15 +219,15 @@ void Vertex::MergeSuccessor() {
 }
 bool Vertex::IsCondVertex() const { return !cond.empty(); }
 int Vertex::Build() {
-  for (const auto& select : select_args) {
+  for (const auto &select : select_args) {
     if (!_graph->_cluster->ContainsConfigSetting(select.match)) {
       DIDAGLE_ERROR("No config_setting with name:{} defined.", select.match);
       return -1;
     }
   }
-  for (auto& data : input) {
+  for (auto &data : input) {
     if (data.aggregate.empty()) {
-      Vertex* dep_vertex = _graph->FindVertexByData(data.id);
+      Vertex *dep_vertex = _graph->FindVertexByData(data.id);
       if (nullptr == dep_vertex && !data.is_extern) {
         DIDAGLE_ERROR("[{}]No dep input id:{}", GetDotLable(), data.id);
         return -1;
@@ -233,10 +238,13 @@ int Vertex::Build() {
       if (data._is_in_out && (dep_vertex == this)) {
         continue;
       }
+      if (dep_vertex == this) {
+        DIDAGLE_ERROR("[{}] unexpected:{}", GetDotLable(), data.id);
+      }
       Depend(dep_vertex, data.required ? V_RESULT_OK : V_RESULT_ALL);
     } else {
-      for (const std::string& aggregate_id : data.aggregate) {
-        Vertex* dep_vertex = _graph->FindVertexByData(aggregate_id);
+      for (const std::string &aggregate_id : data.aggregate) {
+        Vertex *dep_vertex = _graph->FindVertexByData(aggregate_id);
         if (nullptr == dep_vertex && !data.is_extern) {
           DIDAGLE_ERROR("No dep input id:{}", aggregate_id);
           return -1;
@@ -269,7 +277,7 @@ int Vertex::Build() {
 
   return 0;
 }
-int Vertex::GetDependencyIndex(Vertex* v) {
+int Vertex::GetDependencyIndex(Vertex *v) {
   auto found = _deps_idx.find(v);
   if (found == _deps_idx.end()) {
     return -1;

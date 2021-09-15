@@ -163,7 +163,7 @@ class DIContainer {
       auto val = builder->Get();
       if (val) {
         if constexpr (DIObjectTypeHelper<T>::is_di_object) {
-          ((typename DIObjectTypeHelper<T>::read_write_type)(val))->Init();
+          ((typename DIObjectTypeHelper<T>::read_write_type)(val))->InitDIFields();
         }
       }
       return val;
@@ -179,7 +179,7 @@ class DIObject {
   typedef std::unordered_map<std::string, InjectFunc> FieldInjectFuncTable;
   std::vector<DIObjectKey> _input_ids;
   FieldInjectFuncTable _field_inject_table;
-  bool _inited = false;
+  bool _di_fields_inited = false;
 
  protected:
   template <typename T>
@@ -192,7 +192,7 @@ class DIObject {
   void DoInjectInputFields();
 
  public:
-  int Init();
+  int InitDIFields();
   virtual ~DIObject() {}
 };
 

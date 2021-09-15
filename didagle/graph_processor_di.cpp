@@ -56,6 +56,10 @@ int ProcessorDI::InjectInputs(GraphDataContext& ctx) {
       } else {
         rc = _proc->InjectInputField(ctx, field, data.name, false);
       }
+      if (0 != rc) {
+        DIDAGLE_ERROR("inject {}:{} failed with move:{}, null data:{}", field, data.name,
+                      graph_data->move, nullptr == graph_data);
+      }
     }
     if (0 != rc && required) {
       return -1;

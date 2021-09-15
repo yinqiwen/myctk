@@ -1,0 +1,42 @@
+strict_dsl = false #aaa
+default_expr_processor = "expr_phase"
+
+
+[[graph]]
+# 若processor的member名能自动关联，则配置无需定义input/output, 能自动关联
+name = "recall_main"
+[[graph.vertex]]
+id = "recall_1"
+cluster = "recall_test.toml"
+graph = "recall_1"
+[[graph.vertex]]
+id = "recall_2"
+cluster = "recall_test.toml"
+graph = "recall_2"
+[[graph.vertex]]
+id = "recall_merge"
+cluster = "recall_test.toml"
+graph = "recall_merge"
+deps = ["recall_1", "recall_2"] 
+
+[[graph]]
+name = "recall_1"
+[[graph.vertex]]
+start = true
+processor = "recall_1"
+
+[[graph]]
+name = "recall_2"
+[[graph.vertex]]
+start = true
+processor = "recall_2"
+
+[[graph]]
+name = "recall_merge"
+[[graph.vertex]]
+start = true
+processor = "recall_merge"
+input=[{field="r1", extern = true}, {field="r2", extern = true},{field="r3", extern = true}]
+
+
+

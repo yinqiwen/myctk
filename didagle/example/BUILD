@@ -11,6 +11,9 @@ cc_library(
         "processor_5.cpp",
         "processor_6.cpp",
         "processor_expr.cpp",
+        "recall_1.cpp",
+        "recall_2.cpp",
+        "recall_merge.cpp",
     ],
     hdrs = ["expr.h"],
     deps = [

@@ -83,7 +83,7 @@ struct Vertex {
   Vertex();
   bool IsCondVertex() const;
   void MergeSuccessor();
-  bool FindVertexInSuccessors(Vertex* v) const;
+  bool FindVertexInSuccessors(Vertex* v, std::unordered_set<std::string>& exclude) const;
   int FillInputOutput();
   void SetGeneratedId(const std::string& id);
   bool IsSuccessorsEmpty();

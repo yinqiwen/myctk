@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
   }
 
   exec_opt.params.reset(new Params);
-  std::shared_ptr<GraphDataContext> root(new GraphDataContext);
+  GraphDataContextPtr root(new GraphDataContext);
   std::string cluster_name = get_basename(config);
   // set extern data value for dsl
   int v = 101;
@@ -61,6 +61,15 @@ int main(int argc, char** argv) {
   RecmdEnv env;
   env.expid = 1001;
   root->Set<RecmdEnv>("env", &env);
+  std::string vx = "hello";
+  root->Set<std::string>("vx", &vx);
+
+  std::string r99 = "hello";
+  std::string r100 = "world";
+  const std::string* r99_ptr = &r99;
+  std::string* r100_ptr = &r100;
+  root->Set("r99", r99_ptr);
+  root->Set("r100", r100_ptr);
   graphs.Execute(root, cluster_name, graph, nullptr,
                  [](int c) { DIDAGLE_ERROR("Graph done with {}", c); });
 

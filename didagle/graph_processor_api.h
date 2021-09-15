@@ -11,6 +11,7 @@
 #include <string_view>
 #include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include "di_container.h"
 #include "didagle_event.h"
@@ -32,14 +33,15 @@ struct FieldFlags {
   uint8_t is_extern;
   uint8_t is_aggregate;
   uint8_t is_in_out;
-  KCFG_DEFINE_FIELDS(is_extern, is_aggregate)
+  KCFG_DEFINE_FIELDS(is_extern, is_aggregate, is_in_out)
   FieldFlags(uint8_t v0 = 0, uint8_t v1 = 0, uint8_t v2 = 0)
       : is_extern(v0), is_aggregate(v1), is_in_out(v2) {}
 };
 
 struct FieldInfo : public DIObjectKey {
+  std::string type;
   FieldFlags flags;
-  KCFG_DEFINE_FIELDS(name, id, flags)
+  KCFG_DEFINE_FIELDS(type, name, id, flags)
 };
 
 struct DataValue {
@@ -64,19 +66,22 @@ struct GraphDataGetOptions {
 };
 
 class GraphDataContext {
+ public:
+  typedef std::unordered_set<const GraphDataContext*> ExcludeGraphDataContextSet;
+
  private:
   typedef std::unordered_map<DIObjectKeyView, DataValue, DIObjectKeyViewHash, DIObjectKeyViewEqual>
       DataTable;
   DataTable _data_table;
-  std::shared_ptr<GraphDataContext> _parent;
+  const GraphDataContext* _parent = nullptr;
   std::unique_ptr<DAGEventTracker> _event_tracker;
   std::vector<const GraphDataContext*> _executed_childrens;
   bool _disable_entry_creation = false;
 
  public:
   GraphDataContext() {}
-  void SetParent(std::shared_ptr<GraphDataContext> p) { _parent = p; }
-  std::shared_ptr<GraphDataContext> GetParent() { return _parent; }
+  void SetParent(const GraphDataContext* p) { _parent = p; }
+  const GraphDataContext* GetParent() { return _parent; }
   void ReserveChildCapacity(size_t n);
   void SetChild(const GraphDataContext* c, size_t idx);
 
@@ -84,32 +89,49 @@ class GraphDataContext {
 
   void DisableEntryCreation() { _disable_entry_creation = true; }
 
-  DAGEventTracker* GetEventTracker();
+  DAGEventTracker* GetEventTracker() const;
   bool EnableEventTracker();
 
   void Reset();
   template <typename T>
-  typename DIObjectTypeHelper<T>::read_type Get(std::string_view name,
-                                                GraphDataGetOptions opt = {}) const {
+  typename DIObjectTypeHelper<T>::read_type Get(
+      std::string_view name, GraphDataGetOptions opt = {},
+      ExcludeGraphDataContextSet* excludes = nullptr) const {
     typedef typename DIObjectTypeHelper<T>::read_type GetValueType;
     uint32_t id = DIContainer::GetTypeId<T>();
     DIObjectKeyView key = {name, id};
-    if constexpr (std::is_pointer<GetValueType>::value) {
-      auto found = _data_table.find(key);
-      if (found != _data_table.end()) {
+    auto found = _data_table.find(key);
+    if (found != _data_table.end()) {
+      if constexpr (std::is_pointer<GetValueType>::value) {
         GetValueType val = (GetValueType)(found->second.val.load());
         if (nullptr != val) {
           return val;
         }
+      } else {
+        GetValueType* val = (GetValueType*)(found->second.val.load());
+        if (nullptr != val) {
+          return *val;
+        }
       }
     }
+    std::unique_ptr<ExcludeGraphDataContextSet> empty_execludes(new ExcludeGraphDataContextSet);
+    ExcludeGraphDataContextSet* new_excludes = excludes;
+    if (nullptr == new_excludes) {
+      new_excludes = empty_execludes.get();
+    }
+    new_excludes->insert(this);
     GetValueType r = {};
     if (opt.with_parent && _parent) {
       GraphDataGetOptions parent_opt;
       parent_opt.with_parent = 1;
-      parent_opt.with_children = 0;
+      parent_opt.with_children = opt.with_children;
       parent_opt.with_di_container = 0;
-      r = _parent->Get<T>(name, parent_opt);
+      if (new_excludes->count(_parent) == 0) {
+        r = _parent->Get<T>(name, parent_opt, new_excludes);
+      }
+      if (nullptr == new_excludes) {
+        delete new_excludes;
+      }
       if (r) {
         return r;
       }
@@ -125,9 +147,10 @@ class GraphDataContext {
       child_opt.with_children = 1;
       opt.with_parent = 0;
       opt.with_di_container = 0;
+
       for (const GraphDataContext* child_ctx : _executed_childrens) {
-        if (nullptr != child_ctx) {
-          r = child_ctx->Get<T>(name, child_opt);
+        if (nullptr != child_ctx && new_excludes->count(child_ctx) == 0) {
+          r = child_ctx->Get<T>(name, child_opt, new_excludes);
           if (r) {
             return r;
           }
@@ -137,16 +160,62 @@ class GraphDataContext {
     return r;
   }
   template <typename T>
-  typename DIObjectTypeHelper<T>::read_write_type Move(const std::string& name) {
+  typename DIObjectTypeHelper<T>::read_write_type Move(
+      const std::string& name, GraphDataGetOptions opt = {},
+      ExcludeGraphDataContextSet* excludes = nullptr) {
     typedef typename DIObjectTypeHelper<T>::read_write_type MoveValueType;
     uint32_t id = DIContainer::GetTypeId<T>();
     DIObjectKeyView key = {name, id};
+    DIDAGLE_DEBUG("Enter move, name: {}, id: {}", name, id);
     auto found = _data_table.find(key);
     if (found != _data_table.end()) {
+      // DIDAGLE_DEBUG("Enter move for {}", name);
       if constexpr (std::is_pointer<MoveValueType>::value) {
         void* empty = nullptr;
+        // if (nullptr == found->second.val.load()) {
+        //   DIDAGLE_DEBUG("move empty for {}", name);
+        // } else {
+        //   DIDAGLE_DEBUG("move not empty for {}", name);
+        // }
         MoveValueType val = (MoveValueType)(found->second.val.exchange(empty));
-        return val;
+        if (val) {
+          return val;
+        }
+      }
+    }
+    std::unique_ptr<ExcludeGraphDataContextSet> empty_execludes(new ExcludeGraphDataContextSet);
+    ExcludeGraphDataContextSet* new_excludes = excludes;
+    if (nullptr == new_excludes) {
+      new_excludes = empty_execludes.get();
+    }
+    new_excludes->insert(this);
+    if (opt.with_parent && _parent) {
+      GraphDataGetOptions parent_opt;
+      parent_opt.with_parent = 1;
+      parent_opt.with_children = opt.with_children;
+      parent_opt.with_di_container = 0;
+
+      if (new_excludes->count(_parent) == 0) {
+        MoveValueType r =
+            const_cast<GraphDataContext*>(_parent)->Move<T>(name, parent_opt, new_excludes);
+        if (r) {
+          return r;
+        }
+      }
+    }
+    if (opt.with_children) {
+      GraphDataGetOptions child_opt;
+      child_opt.with_children = 1;
+      opt.with_parent = 0;
+      opt.with_di_container = 0;
+      for (const GraphDataContext* child_ctx : _executed_childrens) {
+        if (nullptr != child_ctx && new_excludes->count(child_ctx) == 0) {
+          MoveValueType r =
+              const_cast<GraphDataContext*>(child_ctx)->Move<T>(name, child_opt, new_excludes);
+          if (r) {
+            return r;
+          }
+        }
       }
     }
     MoveValueType empty;
@@ -185,7 +254,7 @@ class GraphDataContext {
   }
 };
 
-typedef std::shared_ptr<GraphDataContext> GraphDataContextPtr;
+typedef std::unique_ptr<GraphDataContext> GraphDataContextPtr;
 
 class VertexContext;
 class GraphClusterContext;
@@ -201,13 +270,15 @@ class Processor {
   FieldInjectFuncTable _field_inject_table;
   FieldEmitFuncTable _field_emit_table;
   std::vector<ResetFunc> _reset_funcs;
-  GraphDataContextPtr _data_ctx;
+  GraphDataContext* _data_ctx = nullptr;
 
   template <typename T>
-  size_t RegisterInput(const std::string& field, InjectFunc&& inject, FieldFlags flags) {
+  size_t RegisterInput(const std::string& field, const std::string& type, InjectFunc&& inject,
+                       FieldFlags flags) {
     FieldInfo info;
     info.flags = flags;
     info.name = field;
+    info.type = type;
     info.id = DIContainer::GetTypeId<T>();
     _input_ids.push_back(info);
     // DIDAGLE_DEBUG("[{}]RegisterInput field:{}/{}", Name(), field, id.id);
@@ -215,9 +286,10 @@ class Processor {
     return _field_inject_table.size();
   }
   template <typename T>
-  size_t RegisterOutput(const std::string& field, EmitFunc&& emit) {
+  size_t RegisterOutput(const std::string& field, const std::string& type, EmitFunc&& emit) {
     FieldInfo info;
     info.name = field;
+    info.type = type;
     info.id = DIContainer::GetTypeId<T>();
     // DIDAGLE_DEBUG("[{}]RegisterOutput field:{}/{}", Name(), field, id.id);
     _output_ids.push_back(info);
@@ -237,7 +309,7 @@ class Processor {
   friend class GraphClusterContext;
 
  public:
-  void SetDataContext(GraphDataContextPtr p) { _data_ctx = p; }
+  void SetDataContext(GraphDataContext* p) { _data_ctx = p; }
   virtual const std::string& Name() const = 0;
   virtual bool IsAsync() const { return false; }
   const std::vector<FieldInfo>& GetInputIds() { return _input_ids; }
@@ -279,7 +351,7 @@ using namespace didagle;
 #define __GRAPH_OP_INPUT(TYPE, NAME, FLAGS)                                                       \
   typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_type NAME = {};                 \
   size_t __input_##NAME##_code = RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>(                     \
-      #NAME,                                                                                      \
+      #NAME, BOOST_PP_STRINGIZE(BOOST_PP_REMOVE_PARENS(TYPE)),                                    \
       [this](GraphDataContext& ctx, const std::string& data, bool move) {                         \
         using FIELD_TYPE =                                                                        \
             typename std::remove_const<typename std::remove_pointer<decltype(NAME)>::type>::type; \
@@ -299,7 +371,7 @@ using namespace didagle;
 #define GRAPH_OP_MAP_INPUT(TYPE, NAME)                                        \
   std::map<std::string, const BOOST_PP_REMOVE_PARENS(TYPE)*> NAME;            \
   size_t __input_##NAME##_code = RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>( \
-      #NAME,                                                                  \
+      #NAME, BOOST_PP_STRINGIZE(BOOST_PP_REMOVE_PARENS(TYPE)),                \
       [this](GraphDataContext& ctx, const std::string& data, bool move) {     \
         using FIELD_TYPE = BOOST_PP_REMOVE_PARENS(TYPE);                      \
         const FIELD_TYPE* tmp = nullptr;                                      \
@@ -315,18 +387,13 @@ using namespace didagle;
         return 0;                                                             \
       },                                                                      \
       {0, 1, 0});                                                             \
-  size_t __output_##NAME##_code = RegisterOutput<decltype(NAME)>(             \
-      #NAME, [this](GraphDataContext& ctx, const std::string& data) {         \
-        using FIELD_TYPE = decltype(NAME);                                    \
-        ctx.Set<FIELD_TYPE>(data, &(this->NAME));                             \
-        return 0;                                                             \
-      });                                                                     \
   size_t __reset_##NAME##_code = AddResetFunc([this]() { NAME = {}; });
 
 #define GRAPH_OP_OUTPUT(TYPE, NAME)                                                \
   typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::write_type NAME = {}; \
   size_t __output_##NAME##_code = RegisterOutput<BOOST_PP_REMOVE_PARENS(TYPE)>(    \
-      #NAME, [this](GraphDataContext& ctx, const std::string& data) {              \
+      #NAME, BOOST_PP_STRINGIZE(BOOST_PP_REMOVE_PARENS(TYPE)),                     \
+      [this](GraphDataContext& ctx, const std::string& data) {                     \
         using FIELD_TYPE = decltype(NAME);                                         \
         ctx.Set<FIELD_TYPE>(data, &(this->NAME));                                  \
         return 0;                                                                  \
@@ -336,7 +403,7 @@ using namespace didagle;
 #define __GRAPH_OP_IN_OUT(TYPE, NAME, FLAGS)                                            \
   typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_write_type NAME = {}; \
   size_t __input_##NAME##_code = RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>(           \
-      #NAME,                                                                            \
+      #NAME, BOOST_PP_STRINGIZE(BOOST_PP_REMOVE_PARENS(TYPE)),                          \
       [this](GraphDataContext& ctx, const std::string& data, bool move) {               \
         if (!move) {                                                                    \
           return -1;                                                                    \
@@ -347,7 +414,8 @@ using namespace didagle;
       },                                                                                \
       BOOST_PP_REMOVE_PARENS(FLAGS));                                                   \
   size_t __output_##NAME##_code = RegisterOutput<BOOST_PP_REMOVE_PARENS(TYPE)>(         \
-      #NAME, [this](GraphDataContext& ctx, const std::string& data) {                   \
+      #NAME, BOOST_PP_STRINGIZE(BOOST_PP_REMOVE_PARENS(TYPE)),                          \
+      [this](GraphDataContext& ctx, const std::string& data) {                          \
         using FIELD_TYPE = typename std::remove_pointer<decltype(NAME)>::type;          \
         ctx.Set<FIELD_TYPE>(data, NAME);                                                \
         return 0;                                                                       \

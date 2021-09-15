@@ -33,9 +33,9 @@ void DIObject::DoInjectInputFields() {
     pair.second();
   }
 }
-int DIObject::Init() {
-  if (!_inited) {
-    _inited = true;
+int DIObject::InitDIFields() {
+  if (!_di_fields_inited) {
+    _di_fields_inited = true;
     DoInjectInputFields();
   }
   return 0;
