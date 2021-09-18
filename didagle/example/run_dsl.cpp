@@ -70,6 +70,15 @@ int main(int argc, char** argv) {
   std::string* r100_ptr = &r100;
   root->Set("r99", r99_ptr);
   root->Set("r100", r100_ptr);
+  {
+    std::shared_ptr<std::string> sss(new std::string("hello, shread!"));
+    root->Set("tstr", &sss);
+  }
+  {
+    std::unique_ptr<std::string> uuu(new std::string("hello, unique!"));
+    root->Set("ustr", &uuu);
+  }
+
   graphs.Execute(root, cluster_name, graph, nullptr,
                  [](int c) { DIDAGLE_ERROR("Graph done with {}", c); });
 

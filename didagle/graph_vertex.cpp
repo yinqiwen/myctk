@@ -10,19 +10,16 @@ Vertex::Vertex() {
   // Params empty(true);
   // args = empty;
 }
-bool Vertex::FindVertexInSuccessors(Vertex *v, std::unordered_set<std::string> &exclude) const {
+bool Vertex::FindVertexInSuccessors(Vertex *v) const {
   if (_successor_vertex.empty()) {
     return false;
   }
   if (_successor_vertex.count(v) > 0) {
     return true;
   }
-  exclude.insert(id);
   for (Vertex *succeed : _successor_vertex) {
-    if (exclude.count(succeed->id) == 0) {
-      if (succeed->FindVertexInSuccessors(v, exclude)) {
-        return true;
-      }
+    if (succeed->FindVertexInSuccessors(v)) {
+      return true;
     }
   }
   return false;
@@ -38,9 +35,11 @@ int Vertex::FillInputOutput() {
   }
   for (const auto &input_id : p->GetInputIds()) {
     bool match = false;
-    for (const auto &in : input) {
+    GraphData *matched_input = nullptr;
+    for (auto &in : input) {
       if (in.field == input_id.name) {
         match = true;
+        matched_input = &in;
         break;
       }
     }
@@ -52,6 +51,14 @@ int Vertex::FillInputOutput() {
       field._is_in_out = input_id.flags.is_in_out;
       field.move = field._is_in_out ? true : false;
       input.push_back(field);
+    } else {
+      if (input_id.flags.is_in_out) {
+        matched_input->move = true;
+        matched_input->_is_in_out = true;
+        if (input_id.flags.is_extern) {
+          matched_input->is_extern = true;
+        }
+      }
     }
   }
   for (const auto &output_id : p->GetOutputIds()) {

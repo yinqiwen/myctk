@@ -3,7 +3,6 @@
 #include "graph.h"
 #include <iostream>
 #include <regex>
-#include <unordered_set>
 #include "didagle_log.h"
 
 namespace didagle {
@@ -41,10 +40,9 @@ Vertex *Graph::FindVertexById(const std::string &id) {
   return found->second;
 }
 bool Graph::TestCircle() {
-  std::unordered_set<std::string> exclude_vertexs;
   for (auto &pair : _nodes) {
     Vertex *v = pair.second;
-    if (v->FindVertexInSuccessors(v, exclude_vertexs)) {
+    if (v->FindVertexInSuccessors(v)) {
       DIDAGLE_ERROR("[{}]Found vertex:{} has circle", name, v->GetDotLable());
       return true;
     }

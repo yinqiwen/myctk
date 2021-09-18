@@ -9,11 +9,24 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <unordered_map>
 #include "didagle_log.h"
 #include "kcfg_json.h"
 
 namespace didagle {
+
+template <class T>
+struct is_shared_ptr : std::false_type {};
+
+template <class T>
+struct is_shared_ptr<std::shared_ptr<T>> : std::true_type {};
+
+template <class T>
+struct is_unique_ptr : std::false_type {};
+
+template <class T>
+struct is_unique_ptr<std::unique_ptr<T>> : std::true_type {};
 
 struct ServiceTag {
   virtual ~ServiceTag() {}

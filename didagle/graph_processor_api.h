@@ -47,9 +47,11 @@ struct FieldInfo : public DIObjectKey {
 struct DataValue {
   std::atomic<void*> val = nullptr;
   std::shared_ptr<std::string> name;
+  std::shared_ptr<void> _sval;  // store shared_ptr
   DataValue& operator=(const DataValue& other) {
     val.store(other.val.load());
     name = other.name;
+    _sval = other._sval;
     return *this;
   }
 };
@@ -104,6 +106,12 @@ class GraphDataContext {
     if (found != _data_table.end()) {
       if constexpr (std::is_pointer<GetValueType>::value) {
         GetValueType val = (GetValueType)(found->second.val.load());
+        if (nullptr != val) {
+          return val;
+        }
+      } else if constexpr (is_shared_ptr<GetValueType>::value) {
+        GetValueType val =
+            std::static_pointer_cast<typename GetValueType::element_type>(found->second._sval);
         if (nullptr != val) {
           return val;
         }
@@ -238,14 +246,24 @@ class GraphDataContext {
     DIObjectKeyView key = {name, id};
     auto found = _data_table.find(key);
     if (found != _data_table.end()) {
-      found->second.val = (void*)v;
+      if constexpr (is_shared_ptr<T>::value) {
+        found->second._sval = *v;
+        found->second.val = found->second._sval.get();
+      } else {
+        found->second.val = (void*)v;
+      }
       return true;
     } else {
       if (_disable_entry_creation) {
         return false;
       }
       DataValue dv;
-      dv.val = (void*)v;
+      if constexpr (is_shared_ptr<T>::value) {
+        dv._sval = *v;
+        dv.val = dv._sval.get();
+      } else {
+        dv.val = (void*)v;
+      }
       dv.name.reset(new std::string(name));
       DIObjectKeyView key = {*(dv.name), id};
       _data_table[key] = dv;

@@ -13,6 +13,7 @@ cc_library(
         "processor_expr.cpp",
         "recall_1.cpp",
         "recall_2.cpp",
+        "recall_filter.cpp",
         "recall_merge.cpp",
     ],
     hdrs = ["expr.h"],

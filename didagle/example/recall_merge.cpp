@@ -5,6 +5,7 @@ GRAPH_OP_BEGIN(recall_merge)
 GRAPH_OP_INPUT((std::string), r2)
 GRAPH_OP_INPUT((std::string), r1)
 GRAPH_OP_MAP_INPUT(std::string, r3)
+GRAPH_OP_OUTPUT((std::string), merge_out)
 int OnSetup(const Params& args) override { return 0; }
 int OnExecute(const Params& args) override {
   if (nullptr == r1) {
@@ -17,6 +18,7 @@ int OnExecute(const Params& args) override {
   } else {
     DIDAGLE_DEBUG("r2:{}", *r2);
   }
+  merge_out = "merge_out";
   return 0;
 }
 GRAPH_OP_END

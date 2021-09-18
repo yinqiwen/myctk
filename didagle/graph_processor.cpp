@@ -64,10 +64,9 @@ int Processor::Setup(const Params &args) { return OnSetup(args); }
 void Processor::Reset() {
   //_data_ctx.reset();
   _data_ctx = nullptr;
-  if (ERR_UNIMPLEMENTED == OnReset()) {
-    for (auto &reset : _reset_funcs) {
-      reset();
-    }
+  OnReset();
+  for (auto &reset : _reset_funcs) {
+    reset();
   }
 }
 int Processor::Execute(const Params &args) { return OnExecute(args); };

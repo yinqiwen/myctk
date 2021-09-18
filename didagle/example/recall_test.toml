@@ -18,6 +18,11 @@ id = "recall_merge"
 cluster = "recall_test.toml"
 graph = "recall_merge"
 deps = ["recall_1", "recall_2"] 
+[[graph.vertex]]
+id = "recall_filter"
+cluster = "recall_test.toml"
+graph = "recall_filter"
+deps = ["recall_merge"] 
 
 [[graph]]
 name = "recall_1"
@@ -37,6 +42,13 @@ name = "recall_merge"
 start = true
 processor = "recall_merge"
 input=[{field="r1", extern = true}, {field="r2", extern = true},{field="r3", extern = true}]
+
+[[graph]]
+name = "recall_filter"
+[[graph.vertex]]
+start = true
+processor = "recall_filter"
+input=[{field="merge_out", id="merge_out", extern = true}]
 
 
 
