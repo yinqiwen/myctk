@@ -17,6 +17,7 @@ cc_library(
     ],
     hdrs = [
         "di_container.h",
+        "di_reset.h",
         "didagle_event.h",
         "didagle_log.h",
         "graph.h",

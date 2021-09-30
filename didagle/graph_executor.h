@@ -46,11 +46,13 @@ class VertexContext {
   std::vector<CondParams> _select_params;
   uint64_t _exec_start_ustime = 0;
   size_t _child_idx = (size_t)-1;
+  const Params *_exec_params = nullptr;
 
  public:
   VertexContext();
   void SetChildIdx(size_t idx) { _child_idx = idx; }
   Vertex *GetVertex() { return _vertex; }
+  const Params *GetExecParams();
   ProcessorDI *GetProcessorDI() { return _processor_di; }
   VertexResult GetResult() { return _result; };
   void FinishVertexProcess(int code);

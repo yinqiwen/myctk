@@ -52,6 +52,10 @@ bool Graph::TestCircle() {
 int Graph::Build() {
   VertexTable generated_cond_nodes;
   for (auto &n : vertex) {
+    if (n.processor.empty() && !n.cond.empty()) {
+      // use default expr processor
+      n.processor = _cluster->default_expr_processor;
+    }
     if (n.id.empty()) {
       // generate unique id for node without id
       if (n.processor.empty()) {
@@ -109,7 +113,7 @@ int Graph::Build() {
       }
       auto found = _data_mapping_table.find(data.id);
       if (found != _data_mapping_table.end()) {
-        DIDAGLE_ERROR("Duplicate data name:{}", data.id);
+        DIDAGLE_ERROR("Duplicate data name:{} in node:{}", data.id, n.id);
         return -1;
       }
       _data_mapping_table[data.id] = &n;

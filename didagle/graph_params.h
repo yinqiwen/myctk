@@ -32,15 +32,17 @@
 #include <map>
 #include <string>
 #include <vector>
+#include "folly/FBString.h"
 #include "kcfg_toml.h"
 
 namespace didagle {
+typedef folly::fbstring ParamsString;
 class Params {
  public:
-  typedef std::map<std::string, Params> ParamValueTable;
+  typedef std::map<ParamsString, Params> ParamValueTable;
 
  protected:
-  std::string str;
+  ParamsString str;
   int64_t iv;
   double dv;
   bool bv;
@@ -56,32 +58,34 @@ class Params {
   Params(bool invalid_ = false);
   void SetParent(const Params* p);
   bool Valid() const;
-  const std::string& String() const;
+  const ParamsString& String() const;
   int64_t Int() const;
   bool Bool() const;
   double Double() const;
-  void SetString(const std::string& v);
+  void SetString(const ParamsString& v);
   void SetInt(int64_t v);
   void SetDouble(double d);
   void SetBool(bool v);
   size_t Size() const;
   const ParamValueTable& Members() const;
 
-  const Params& operator[](const std::string& name) const;
-  Params& operator[](const std::string& name);
+  const Params& operator[](const ParamsString& name) const;
+  Params& operator[](const ParamsString& name);
   const Params& operator[](size_t idx) const;
   Params& operator[](size_t idx);
 
   Params& Add();
-  Params& Put(const std::string& name, const char* value);
-  Params& Put(const std::string& name, const std::string& value);
-  Params& Put(const std::string& name, int64_t value);
-  Params& Put(const std::string& name, double value);
-  Params& Put(const std::string& name, bool value);
-  bool Contains(const std::string& name) const;
+  const Params& Get(const ParamsString& name) const;
+  Params& Put(const ParamsString& name, const char* value);
+  Params& Put(const ParamsString& name, const ParamsString& value);
+  Params& Put(const ParamsString& name, int64_t value);
+  Params& Put(const ParamsString& name, double value);
+  Params& Put(const ParamsString& name, bool value);
+  bool Contains(const ParamsString& name) const;
   void Insert(const Params& other);
   void BuildFromString(const std::string& v);
   void ParseFromString(const std::string& v);
-  const char* GetVar(const char* v);
+  const Params& GetVar(const ParamsString& name) const;
 };
+
 }  // namespace didagle

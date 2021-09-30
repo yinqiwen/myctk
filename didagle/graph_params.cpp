@@ -26,6 +26,8 @@
  *ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  *THE POSSIBILITY OF SUCH DAMAGE.
  */
+#include <boost/algorithm/string.hpp>
+
 #include "graph_params.h"
 #include "kcfg_toml.h"
 
@@ -50,11 +52,11 @@ void Params::SetParent(const Params* p) {
   }
 }
 bool Params::Valid() const { return !invalid; }
-const std::string& Params::String() const { return str; }
+const ParamsString& Params::String() const { return str; }
 int64_t Params::Int() const { return iv; }
 bool Params::Bool() const { return bv; }
 double Params::Double() const { return dv; }
-void Params::SetString(const std::string& v) {
+void Params::SetString(const ParamsString& v) {
   if (invalid) {
     return;
   }
@@ -118,27 +120,22 @@ void Params::BuildFromString(const std::string& v) {
   // }
   str = v;
 }
-const Params& Params::operator[](const std::string& name) const {
+const Params& Params::Get(const ParamsString& name) const {
   ParamValueTable::const_iterator it = params.find(name);
   if (it != params.end()) {
     return it->second;
   }
   if (NULL != parent) {
-    return (*parent)[name];
+    return parent->Get(name);
   }
   static Params default_value(true);
   return default_value;
 }
-Params& Params::operator[](const std::string& name) {
-  ParamValueTable::iterator it = params.find(name);
-  if (it != params.end()) {
-    return it->second;
-  }
-  if (NULL != parent) {
-    ParamValueTable::const_iterator cit = parent->params.find(name);
-    if (cit != parent->params.end()) {
-      return const_cast<Params&>(cit->second);
-    }
+const Params& Params::operator[](const ParamsString& name) const { return Get(name); }
+Params& Params::operator[](const ParamsString& name) {
+  const Params& p = Get(name);
+  if (p.Valid()) {
+    return const_cast<Params&>(p);
   }
   return params[name];
 }
@@ -153,23 +150,23 @@ Params& Params::Add() {
   param_array.resize(param_array.size() + 1);
   return param_array[param_array.size() - 1];
 }
-Params& Params::Put(const std::string& name, const char* value) {
+Params& Params::Put(const ParamsString& name, const char* value) {
   params[name].SetString(value);
   return *this;
 }
-Params& Params::Put(const std::string& name, const std::string& value) {
+Params& Params::Put(const ParamsString& name, const ParamsString& value) {
   params[name].SetString(value);
   return *this;
 }
-Params& Params::Put(const std::string& name, int64_t value) {
+Params& Params::Put(const ParamsString& name, int64_t value) {
   params[name].SetInt(value);
   return *this;
 }
-Params& Params::Put(const std::string& name, double value) {
+Params& Params::Put(const ParamsString& name, double value) {
   params[name].SetDouble(value);
   return *this;
 }
-Params& Params::Put(const std::string& name, bool value) {
+Params& Params::Put(const ParamsString& name, bool value) {
   params[name].SetBool(value);
   return *this;
 }
@@ -180,7 +177,7 @@ Params& Params::operator[](size_t idx) {
   param_array.resize(idx + 1);
   return param_array[idx];
 }
-bool Params::Contains(const std::string& name) const { return params.count(name) > 0; }
+bool Params::Contains(const ParamsString& name) const { return params.count(name) > 0; }
 void Params::Insert(const Params& other) {
   for (auto& kv : other.Members()) {
     params[kv.first] = kv.second;
@@ -190,24 +187,33 @@ void Params::Insert(const Params& other) {
   }
 }
 void Params::ParseFromString(const std::string& v) {
-  // std::vector<std::string> sf;
-  // butil::SplitString(v, ',', &sf);
-  // for (uint32_t i = 0; i < sf.size(); i++) {
-  //   std::vector<std::string> kv;
-  //   butil::SplitString(sf[i], '=', &kv);
-  //   if (kv.size() == 2) {
-  //     std::string new_key, new_value;
-  //     butil::TrimWhitespace(kv[0], butil::TRIM_ALL, &new_key);
-  //     butil::TrimWhitespace(kv[1], butil::TRIM_ALL, &new_value);
-  //     params[new_key].BuildFromString(new_value);
-  //   }
-  // }
-}
-const char* Params::GetVar(const char* v) {
-  if (v[0] != '$') {
-    return v;
+  std::vector<std::string> sf;
+  boost::split(sf, v, boost::is_any_of(","));
+  for (uint32_t i = 0; i < sf.size(); i++) {
+    std::vector<std::string> kv;
+    boost::split(kv, sf[i], boost::is_any_of("="));
+    if (kv.size() == 2) {
+      boost::algorithm::trim(kv[0]);
+      boost::algorithm::trim(kv[1]);
+      params[kv[0]].BuildFromString(kv[1]);
+    }
   }
-  return "";
+}
+const Params& Params::GetVar(const ParamsString& name) const {
+  ParamsString var_name = name;
+  const Params* var_params = this;
+  while (true) {
+    auto pos = var_name.find('.');
+    if (pos == ParamsString::npos) {
+      var_params = &(var_params->Get(var_name));
+      break;
+    } else {
+      auto part = var_name.substr(0, pos);
+      var_params = &(var_params->Get(part));
+      var_name = var_name.substr(pos);
+    }
+  }
+  return *var_params;
 }
 
 }  // namespace didagle

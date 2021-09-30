@@ -69,17 +69,38 @@ void Processor::Reset() {
     reset();
   }
 }
-int Processor::Execute(const Params &args) { return OnExecute(args); };
+int Processor::Execute(const Params &args) {
+  for (auto &f : _params_settings) {
+    f(args);
+  }
+  return OnExecute(args);
+};
 void Processor::AsyncExecute(const Params &args, DoneClosure &&done) {
+  for (auto &f : _params_settings) {
+    f(args);
+  }
   OnAsyncExecute(args, std::move(done));
 };
+
+size_t Processor::RegisterParam(const std::string &name, const std::string &type,
+                                const std::string &deafult_value, const std::string &desc,
+                                ParamSetFunc &&f) {
+  ParamInfo info;
+  info.name = name;
+  info.type = type;
+  info.default_value = deafult_value;
+  info.desc = desc;
+  _params.emplace_back(info);
+  _params_settings.emplace_back(f);
+  return _params.size();
+}
 
 size_t Processor::AddResetFunc(ResetFunc &&f) {
   _reset_funcs.emplace_back(f);
   return _reset_funcs.size();
 }
 int Processor::InjectInputField(GraphDataContext &ctx, const std::string &field_name,
-                                const std::string &data_name, bool move) {
+                                const std::string_view &data_name, bool move) {
   auto found = _field_inject_table.find(field_name);
   if (found == _field_inject_table.end()) {
     DIDAGLE_DEBUG("[{}]InjectInputField field:{} not found", Name(), field_name);
@@ -91,7 +112,7 @@ int Processor::InjectInputField(GraphDataContext &ctx, const std::string &field_
   return rc;
 }
 int Processor::EmitOutputField(GraphDataContext &ctx, const std::string &field_name,
-                               const std::string &data_name) {
+                               const std::string_view &data_name) {
   auto found = _field_emit_table.find(field_name);
   if (found == _field_emit_table.end()) {
     DIDAGLE_DEBUG("[{}]EmitOutputField field:{} not found", Name(), field_name);
@@ -120,6 +141,7 @@ void ProcessorFactory::GetAllMetas(std::vector<ProcessorMeta> &all_metas) {
     Processor *p = pair.second();
     meta.input = p->GetInputIds();
     meta.output = p->GetOutputIds();
+    meta.params = p->GetParams();
     delete p;
     all_metas.push_back(meta);
   }
@@ -146,10 +168,10 @@ ProcessorRunResult run_processor(GraphDataContext &ctx, const std::string &proc,
   ProcessorDI di(p);
   di.PrepareInputs();
   di.PrepareOutputs();
-  di.InjectInputs(ctx);
+  di.InjectInputs(ctx, params);
   Params empty;
   result.rc = p->Execute(nullptr == params ? empty : *params);
-  di.CollectOutputs(ctx);
+  di.CollectOutputs(ctx, params);
   return result;
 }
 }  // namespace didagle

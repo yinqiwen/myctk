@@ -10,7 +10,7 @@ class ProcessorDI {
  private:
   Processor* _proc;
   bool _strict_dsl;
-  typedef std::pair<DIObjectKey, const GraphData*> FieldData;
+  typedef std::pair<FieldInfo, const GraphData*> FieldData;
   typedef std::map<std::string, FieldData> FieldDataTable;
   FieldDataTable _input_ids;
   FieldDataTable _output_ids;
@@ -23,8 +23,8 @@ class ProcessorDI {
   const FieldDataTable& GetOutputIds() { return _output_ids; }
   int PrepareInputs(const std::vector<GraphData>& config_inputs = {});
   int PrepareOutputs(const std::vector<GraphData>& config_outputs = {});
-  int InjectInputs(GraphDataContext& ctx);
-  int CollectOutputs(GraphDataContext& ctx);
+  int InjectInputs(GraphDataContext& ctx, const Params* params);
+  int CollectOutputs(GraphDataContext& ctx, const Params* params);
 };
 
 }  // namespace didagle

@@ -26,53 +26,20 @@
  *ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  *THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "graph_data.h"
 
+#pragma once
+#include <map>
+#include <unordered_map>
+#include <vector>
 namespace didagle {
-bool GraphParams::ParseFromToml(const kcfg::TomlValue& doc) {
-  if (doc.is_table()) {
-    for (const auto& kv : doc.as_table()) {
-      const std::string& name = kv.first;
-      const auto& value = kv.second;
-      GraphParams tmp;
-      if (tmp.ParseFromToml(value)) {
-        params[name] = tmp;
-      } else {
-        return false;
-      }
-    }
-    invalid = false;
-  } else if (doc.is_integer()) {
-    iv = doc.as_integer();
-    str = std::to_string(iv);
-    invalid = false;
-  } else if (doc.is_boolean()) {
-    bv = doc.as_boolean();
-    str = std::to_string(bv);
-    invalid = false;
-  } else if (doc.is_floating()) {
-    dv = doc.as_floating();
-    str = std::to_string(dv);
-    invalid = false;
-  } else if (doc.is_string()) {
-    std::string tmp = doc.as_string();
-    str = tmp;
-    invalid = false;
-  } else if (doc.is_array()) {
-    for (const auto& item : doc.as_array()) {
-      GraphParams tmp;
-      if (tmp.ParseFromToml(item)) {
-        param_array.push_back(tmp);
-      } else {
-        // v.clear();
-        return false;
-      }
-    }
-    invalid = false;
-  } else {
-    return false;
-  }
-  invalid = false;
-  return true;
-}
+template <typename T>
+struct Reset {
+  void operator()(T& t) { t = {}; }
+};
+
+template <typename T>
+struct Reset<std::vector<T>> {
+  void operator()(std::vector<T>& t) { t.clear(); }
+};
+
 }  // namespace didagle
