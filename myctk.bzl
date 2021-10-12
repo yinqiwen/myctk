@@ -27,11 +27,17 @@ def myctk_workspace(path_prefix = "", tf_repo_name = "", **kwargs):
         url = "https://github.com/bazelbuild/rules_python/releases/download/0.2.0/rules_python-0.2.0.tar.gz",
         sha256 = "778197e26c5fbeb07ac2a2c5ae405b30f6cb7ad1f5510ea6fdac03bded96cc6f",
     )
+    http_archive(
+        name = "rules_foreign_cc",
+        strip_prefix = "rules_foreign_cc-0.6.0",
+        url = "https://github.com/bazelbuild/rules_foreign_cc/archive/0.6.0.zip",
+    )
     git_repository(
         name = "rules_cc",
         commit = "40548a2974f1aea06215272d9c2b47a14a24e556",
         remote = "https://github.com/bazelbuild/rules_cc.git",
     )
+
     _TOML11_BUILD_FILE = """
 cc_library(
     name = "toml",
@@ -178,6 +184,76 @@ cc_library(
         urls = [
             "https://mirrors.tencent.com/github.com/protocolbuffers/protobuf/archive/v{ver}.tar.gz".format(ver = protobuf_ver),
             "https://github.com/protocolbuffers/protobuf/archive/v{ver}.tar.gz".format(ver = protobuf_ver),
+        ],
+    )
+
+    roaring_bitmap_ver = kwargs.get("roaring_bitmap_ver", "0.3.4")
+    roaring_bitmap_name = "CRoaring-{ver}".format(ver = roaring_bitmap_ver)
+    http_archive(
+        name = "com_github_roaringbitmap_croaring",
+        strip_prefix = roaring_bitmap_name,
+        build_file = clean_dep("//:roaring_bitmap.BUILD"),
+        urls = [
+            "https://mirrors.tencent.com/github.com/RoaringBitmap/CRoaring/archive/v{ver}.tar.gz".format(ver = roaring_bitmap_ver),
+            "https://github.com/RoaringBitmap/CRoaring/archive/refs/tags/v{ver}.tar.gz".format(ver = roaring_bitmap_ver),
+        ],
+    )
+
+    _CQ_BUILD_FILE = """
+cc_library(
+    name = "concurrentqueue",
+    hdrs = glob([
+        "**/*.h",
+    ]),
+    includes=["./"],
+    visibility = [ "//visibility:public" ],
+)
+"""
+    concurrentqueue_ver = kwargs.get("concurrentqueue_ver", "1.0.3")
+    concurrentqueue_name = "concurrentqueue-{ver}".format(ver = concurrentqueue_ver)
+    http_archive(
+        name = "com_github_cameron314_concurrentqueue",
+        strip_prefix = concurrentqueue_name,
+        build_file_content = _CQ_BUILD_FILE,
+        urls = [
+            "https://mirrors.tencent.com/github.com/cameron314/concurrentqueue/archive/v{ver}.tar.gz".format(ver = concurrentqueue_ver),
+            "https://github.com/cameron314/concurrentqueue/archive/refs/tags/v{ver}.tar.gz".format(ver = concurrentqueue_ver),
+        ],
+    )
+
+    _SIMD_JSON_BUILD_FILE = """
+cc_library(
+    name = "simdjson",
+    hdrs = glob([
+        "singleheader/simdjson.h",
+    ]),
+    srcs= glob([
+        "singleheader/simdjson.cpp",
+    ]),
+    includes = ["singleheader"],
+    visibility = ["//visibility:public"],
+)
+"""
+    simd_json_ver = kwargs.get("simd_json_ver", "0.9.7")
+    simdjson_name = "simdjson-{ver}".format(ver = simd_json_ver)
+    http_archive(
+        name = "com_github_simdjson_simdjson",
+        strip_prefix = simdjson_name,
+        build_file_content = _SIMD_JSON_BUILD_FILE,
+        urls = [
+            "https://mirrors.tencent.com/github.com/simdjson/simdjson/archive/v{ver}.tar.gz".format(ver = simd_json_ver),
+            "https://github.com/simdjson/simdjson/archive/refs/tags/v{ver}.tar.gz".format(ver = simd_json_ver),
+        ],
+    )
+
+    abseil_ver = kwargs.get("abseil_ver", "20210324.2")
+    abseil_name = "abseil-cpp-{ver}".format(ver = abseil_ver)
+    http_archive(
+        name = "com_google_absl",
+        strip_prefix = abseil_name,
+        urls = [
+            "https://mirrors.tencent.com/github.com/abseil/abseil-cpp/archive/{ver}.tar.gz".format(ver = abseil_ver),
+            "https://github.com/abseil/abseil-cpp/archive/refs/tags/{ver}.tar.gz".format(ver = abseil_ver),
         ],
     )
 

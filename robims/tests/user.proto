@@ -1,0 +1,14 @@
+syntax = "proto3";
+package robims.test;
+
+
+message User {
+    int64 id = 1;
+    string name = 2;
+    int32 age = 3;
+    float score = 4;
+    repeated string city = 5;
+    repeated string tag = 6;
+    string gender = 7;
+    bool is_child = 8;
+}

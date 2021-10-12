@@ -1,0 +1,41 @@
+syntax = "proto3";
+package robims;
+
+enum FieldIndexType{
+    UNKNOWN_INDEX     = 0;
+    SET_INDEX         = 1;
+    WEIGHT_SET_INDEX  = 2;
+    MUTEX_INDEX       = 3;
+    INT_INDEX         = 4;
+    FLOAT_INDEX       = 5;
+    BOOL_INDEX        = 6;
+}
+
+message FieldMeta {
+    string name = 1;
+    FieldIndexType index_type = 2;
+    double min = 3;
+    double max = 4;
+    int64  topk_limit = 5;  //only used for 'INT/FLOAT'
+    int64  max_set_num = 6; //used for 'SET/WEIGHT_SET'
+}
+
+message TableSchema {
+    string name = 1;
+    string id_field = 2;
+    repeated FieldMeta index_field = 3;
+    bool disable_local_id_creation = 4;
+}
+
+enum FieldOperator{
+    FIELD_OP_EQ = 0;
+    FIELD_OP_NEQ = 1;
+    FIELD_OP_GT = 2;
+    FIELD_OP_GTE = 3;
+    FIELD_OP_LT = 4;
+    FIELD_OP_LTE = 5;
+    FIELD_OP_BETWEEN = 6;
+    FIELD_OP_ALL = 100;
+}
+
+
