@@ -6,6 +6,8 @@
 #include <functional>
 #include <memory>
 #include <unordered_set>
+#include "folly/concurrency/AtomicSharedPtr.h"
+#include "folly/concurrency/ConcurrentHashMap.h"
 #include "graph_executor.h"
 #include "graph_vertex.h"
 #include "kcfg_toml.h"
@@ -69,7 +71,9 @@ struct GraphCluster {
 class GraphContext;
 class GraphManager {
  private:
-  typedef tbb::concurrent_hash_map<std::string, std::shared_ptr<GraphCluster>> ClusterGraphTable;
+  // typedef tbb::concurrent_hash_map<std::string, std::shared_ptr<GraphCluster>> ClusterGraphTable;
+  typedef folly::ConcurrentHashMap<std::string, folly::atomic_shared_ptr<GraphCluster>>
+      ClusterGraphTable;
   ClusterGraphTable _graphs;
   GraphExecuteOptions _exec_options;
 

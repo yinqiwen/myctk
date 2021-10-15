@@ -340,7 +340,7 @@ VertexContext *GraphContext::FindVertexContext(Vertex *v) {
 void GraphContext::Reset() {
   _join_vertex_num = _vertex_context_table.size();
   for (auto &pair : _vertex_context_table) {
-    std::shared_ptr<VertexContext> ctx = pair.second;
+    std::shared_ptr<VertexContext> &ctx = pair.second;
     ctx->Reset();
   }
   _data_ctx->Reset();
@@ -366,6 +366,7 @@ void GraphContext::OnVertexDone(VertexContext *vertex) {
     if (_done) {
       _done(0);
       _done = 0;
+      _cluster->GetCluster()->ReleaseContext(_cluster);
     }
     return;
   }
@@ -417,7 +418,7 @@ int GraphContext::Execute(DoneClosure &&done) {
   }
   std::vector<VertexContext *> ready_successors;
   for (auto &pair : _vertex_context_table) {
-    std::shared_ptr<VertexContext> ctx = pair.second;
+    std::shared_ptr<VertexContext> &ctx = pair.second;
     if (ctx->Ready()) {
       ready_successors.push_back(ctx.get());
     }

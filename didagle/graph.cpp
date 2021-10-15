@@ -317,18 +317,20 @@ std::shared_ptr<GraphCluster> GraphManager::Load(const std::string &file) {
     DIDAGLE_ERROR("Failed to build toml script:{}", file);
     return nullptr;
   }
-  ClusterGraphTable::accessor accessor;
-  _graphs.insert(accessor, name);
-  accessor->second = g;
+  auto &&[itr, success] = _graphs.emplace(std::move(name), g);
+  if (!success) {
+    const auto &graph_ptr = itr->second;
+    const_cast<folly::atomic_shared_ptr<GraphCluster> &>(graph_ptr).store(g);
+  }
   return g;
 }
 std::shared_ptr<GraphCluster> GraphManager::FindGraphClusterByName(const std::string &name) {
-  std::shared_ptr<GraphCluster> ret;
-  ClusterGraphTable::const_accessor accessor;
-  if (_graphs.find(accessor, name)) {
-    ret = accessor->second;
+  // std::shared_ptr<GraphCluster> ret;
+  auto found = _graphs.find(name);
+  if (found != _graphs.end()) {
+    return found->second.load();
   }
-  return ret;
+  return nullptr;
 }
 GraphClusterContext *GraphManager::GetGraphClusterContext(const std::string &cluster) {
   std::shared_ptr<GraphCluster> c = FindGraphClusterByName(cluster);
@@ -365,9 +367,9 @@ int GraphManager::Execute(GraphDataContextPtr &data_ctx, const std::string &clus
   }
   ctx->SetExternGraphDataContext(data_ctx.get());
   ctx->SetExecuteParams(params);
-  auto graph_done = [ctx, done](int code) {
+  auto graph_done = [done](int code) {
     done(code);
-    ctx->GetCluster()->ReleaseContext(ctx);
+    //ctx->GetCluster()->ReleaseContext(ctx);
   };
   GraphContext *graph_ctx = nullptr;
   // ctx->SetExecuteOptions(&_exec_opt);
