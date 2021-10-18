@@ -61,8 +61,14 @@ bitmap index lib
   // 表达式中使用 <table>.<field>代表索引字段， 类sql中用法
   // BOOL_INDEX的比较用1/0表示， 如 test.is_child==1
   std::string query = "test.age>50 && test.score>60 && test.city == \"sz\"";
-  std::vector<std::string> ids;
-  int rc = db.Select(query, ids);
+  SelectResult result;
+  int rc = db.Select(query, 0, 100, result); // top100
+  if (0 != rc) {
+    ROBIMS_ERROR("Failed to select with rc:{}", rc);
+    return;
+  }
+
+  rc = db.Select(query, result.offset + 1, 100, result);  // next 100
   if (0 != rc) {
     ROBIMS_ERROR("Failed to select with rc:{}", rc);
     return;
@@ -88,4 +94,12 @@ bitmap index lib
     ROBIMS_ERROR("Failed to load robims", rc);
     return;
   }
+```
+
+### 线程安全
+默认的读写方法都不是线程安全的， 若需要开启线程安全， 需要在初始化db后调用：
+```cpp
+RobimsDB db;
+//....
+db.EnableThreadSafe();
 ```

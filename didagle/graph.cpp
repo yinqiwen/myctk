@@ -367,9 +367,10 @@ int GraphManager::Execute(GraphDataContextPtr &data_ctx, const std::string &clus
   }
   ctx->SetExternGraphDataContext(data_ctx.get());
   ctx->SetExecuteParams(params);
-  auto graph_done = [done](int code) {
+  auto graph_done = [ctx, done](int code) {
     done(code);
-    //ctx->GetCluster()->ReleaseContext(ctx);
+    ctx->GetCluster()->ReleaseContext(ctx);
+    // DIDAGLE_DEBUG("#####0  {}", (uintptr_t)ctx);
   };
   GraphContext *graph_ctx = nullptr;
   // ctx->SetExecuteOptions(&_exec_opt);

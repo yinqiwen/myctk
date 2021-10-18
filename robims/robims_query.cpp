@@ -929,7 +929,7 @@ struct QueryInterpreter {
     RobimsQueryValue rhs = boost::apply_visitor(*this, x.operand_);
     QueryCalc visitor;
     visitor.op = x.operator_;
-    ROBIMS_ERROR("visit op:{}, left:{}, right:{}", visitor.op, lhs.index(), rhs.index());
+    // ROBIMS_ERROR("visit op:{}, left:{}, right:{}", visitor.op, lhs.index(), rhs.index());
     RobimsQueryValue result = std::visit(visitor, lhs, rhs);
     return result;
   }

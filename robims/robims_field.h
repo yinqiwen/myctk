@@ -44,7 +44,7 @@
 #include "robims_db.h"
 
 namespace robims {
-
+typedef std::variant<std::string_view, int64_t, double> FieldArg;
 typedef std::pair<uint32_t, float> IDWeight;
 
 class RobimsTable;

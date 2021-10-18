@@ -54,6 +54,7 @@ typedef std::unique_ptr<roaring_bitmap_t, CRoaringBitmapDeleter> CRoaringBitmapP
 struct RoaringBitmap {
   CRoaringBitmapPtr bitmap;
   char* _underly_buf = nullptr;
+  bool _readonly = false;
   RoaringBitmap() = default;
   RoaringBitmap(const RoaringBitmap&) = delete;
   RoaringBitmap& operator=(const RoaringBitmap&) = delete;
@@ -64,6 +65,7 @@ struct RoaringBitmap {
   int Load(FILE* fp);
   bool Put(uint32_t id);
   bool Remove(uint32_t id);
+  bool IsReadonly() const { return _readonly; }
   ~RoaringBitmap();
 };
 typedef std::unique_ptr<RoaringBitmap> RoaringBitmapPtr;

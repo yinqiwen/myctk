@@ -38,7 +38,12 @@
 #include "robims_id_mapping.h"
 
 namespace robims {
-typedef std::variant<std::string_view, int64_t, double> FieldArg;
+
+struct SelectResult {
+  std::vector<std::string> ids;
+  int64_t total = 0;
+  int64_t offset = 0;
+};
 class RobimsDBImpl;
 class RobimsDB {
  private:
@@ -51,11 +56,13 @@ class RobimsDB {
   int Load(const std::string& file);
   int Save(const std::string& file, bool readonly);
   int SaveTable(const std::string& file, const std::string& table, bool readonly);
+  void DisableThreadSafe();
+  void EnableThreadSafe();
   int CreateTable(const std::string& schema);
   int CreateTable(const TableSchema& schema);
   int Put(const std::string& table, const std::string& json);
   int Remove(const std::string& table, const std::string& json);
-  int Select(const std::string& query, std::vector<std::string>& ids);
+  int Select(const std::string& query, int64_t offset, int64_t limit, SelectResult& result);
   ~RobimsDB();
 };
 }  // namespace robims

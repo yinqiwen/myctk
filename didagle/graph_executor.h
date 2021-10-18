@@ -115,12 +115,15 @@ class GraphClusterContext {
   // std::vector<Processor*> _config_setting_processors;
   // std::vector<uint8_t> _config_setting_result;
   std::vector<ConfigSettingContext> _config_settings;
-  tbb::concurrent_queue<GraphClusterContext *> _sub_graphs;
+  // tbb::concurrent_queue<GraphClusterContext *> _sub_graphs;
   std::unordered_map<std::string, std::shared_ptr<GraphContext>> _graph_context_table;
   DoneClosure _done;
   GraphDataContext *_extern_data_ctx = nullptr;
+  // bool _is_subgraph = false;
 
  public:
+  // bool IsSubgraph() const { return _is_subgraph; }
+  // void SetSubgraphFlag(bool b) { _is_subgraph = b; }
   void SetExternGraphDataContext(GraphDataContext *p) { _extern_data_ctx = p; }
   // void SetExecuteOptions(const GraphExecuteOptions* opt) { _exec_options =
   // opt; } const GraphExecuteOptions& GetExecuteOptions() { return

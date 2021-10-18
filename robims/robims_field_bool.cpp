@@ -40,7 +40,7 @@ int RobimsBoolField::OnInit() {
 int RobimsBoolField::DoSave(FILE* fp, bool readonly) { return _bitmap.Save(fp, readonly); }
 int RobimsBoolField::DoLoad(FILE* fp) { return _bitmap.Load(fp); }
 int RobimsBoolField::Put(uint32_t id, int64_t val) {
-  ROBIMS_DEBUG("Bool put val:{}", val);
+  // ROBIMS_DEBUG("Bool put val:{}", val);
   _bitmap.Remove(id);
   if (val == 1) {
     _bitmap.Put(id);
@@ -67,8 +67,8 @@ int RobimsBoolField::Select(FieldOperator op, FieldArg arg, CRoaringBitmapPtr& o
         return ROBIMS_ERR_INVALID_ARGS;
       }
       out.reset(acquire_bitmap());
-      ROBIMS_DEBUG("RobimsBoolField EQ before size={}",
-                   roaring_bitmap_get_cardinality(_bitmap.bitmap.get()));
+      // ROBIMS_DEBUG("RobimsBoolField EQ before size={}",
+      //            roaring_bitmap_get_cardinality(_bitmap.bitmap.get()));
       if (FIELD_OP_EQ == op) {
         if (*iv == 0) {
           roaring_bitmap_overwrite(out.get(), _table->GetTableBitmap().bitmap.get());
@@ -84,7 +84,8 @@ int RobimsBoolField::Select(FieldOperator op, FieldArg arg, CRoaringBitmapPtr& o
           roaring_bitmap_andnot_inplace(out.get(), _bitmap.bitmap.get());
         }
       }
-      ROBIMS_DEBUG("RobimsBoolField EQ return size={}", roaring_bitmap_get_cardinality(out.get()));
+      // ROBIMS_DEBUG("RobimsBoolField EQ return size={}",
+      // roaring_bitmap_get_cardinality(out.get()));
       break;
     }
     default: {

@@ -34,6 +34,7 @@
 #include <unordered_map>
 #include <vector>
 #include "folly/FBString.h"
+#include "folly/SharedMutex.h"
 #include "folly/Synchronized.h"
 #include "folly/concurrency/AtomicSharedPtr.h"
 #include "folly/container/EvictingCacheMap.h"
@@ -62,12 +63,15 @@ class RobimsDBImpl {
   // folly::F14FastMap<std::string_view, std::unique_ptr<RobimsTable>> tables_;
   // folly::EvictingCacheMap<folly::fbstring, RobimsQuery> query_table_;
   RobimsDBDataPtr db_data_;
+  folly::SharedMutex* shared_mutex_;
 
   void GetRealIDs(const std::vector<uint32_t>& local_ids, std::vector<std::string>& ids);
   std::shared_ptr<RobimsTable> CreateTableInstance(const TableSchema& schema);
 
  public:
   RobimsDBImpl();
+  void DisableThreadSafe();
+  void EnableThreadSafe();
   int Load(const std::string& file);
   int Save(const std::string& file, bool readonly);
   int SaveTable(const std::string& file, const std::string& table, bool readonly);
@@ -75,7 +79,7 @@ class RobimsDBImpl {
   int CreateTable(const TableSchema& schema);
   int Put(const std::string& table, const std::string& json);
   int Remove(const std::string& table, const std::string& json);
-  int Select(const std::string& query, std::vector<std::string>& ids);
+  int Select(const std::string& query, int64_t offset, int64_t limit, SelectResult& result);
   RobimsTable* GetTable(const std::string& name);
   ~RobimsDBImpl();
 };

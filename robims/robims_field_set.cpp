@@ -121,7 +121,7 @@ int RobimsSetField::Select(FieldOperator op, FieldArg arg, CRoaringBitmapPtr& ou
         roaring_bitmap_overwrite(out.get(), _table->GetTableBitmap().bitmap.get());
         roaring_bitmap_andnot_inplace(out.get(), matched_bitmap.bitmap.get());
       }
-      ROBIMS_DEBUG("RobimsSetField EQ return siz={}", roaring_bitmap_get_cardinality(out.get()));
+      // ROBIMS_DEBUG("RobimsSetField EQ return siz={}", roaring_bitmap_get_cardinality(out.get()));
       break;
     }
     default: {

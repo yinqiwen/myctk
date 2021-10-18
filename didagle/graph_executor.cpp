@@ -3,6 +3,7 @@
 #include "graph_executor.h"
 #include <sys/time.h>
 #include <time.h>
+#include <cstdint>
 #include <regex>
 #include "didagle_event.h"
 #include "didagle_log.h"
@@ -300,7 +301,7 @@ int GraphContext::Setup(GraphClusterContext *c, Graph *g) {
   _data_ctx->ReserveChildCapacity(_children_count);
   // std::set<DIObjectKey> move_ids;
   for (auto &pair : _vertex_context_table) {
-    std::shared_ptr<VertexContext> c = pair.second;
+    std::shared_ptr<VertexContext> &c = pair.second;
     ProcessorDI *di = c->GetProcessorDI();
     if (nullptr != di) {
       for (const auto &pair : di->GetInputIds()) {
@@ -365,8 +366,12 @@ void GraphContext::OnVertexDone(VertexContext *vertex) {
   if (1 == _join_vertex_num.fetch_sub(1)) {  // last vertex
     if (_done) {
       _done(0);
-      _done = 0;
-      _cluster->GetCluster()->ReleaseContext(_cluster);
+      //_done = 0;
+      // DIDAGLE_DEBUG("#####1{}", (uintptr_t)_cluster);
+      // if (!_cluster->IsSubgraph()) {
+      //   DIDAGLE_DEBUG("#####1  {}", (uintptr_t)_cluster);
+      //   _cluster->GetCluster()->ReleaseContext(_cluster);
+      // }
     }
     return;
   }
@@ -453,10 +458,11 @@ void GraphClusterContext::Reset() {
   //_extern_data_ctx.reset();
   _extern_data_ctx = nullptr;
   // _exec_options.reset();
-  GraphClusterContext *sub_graph = nullptr;
-  while (_sub_graphs.try_pop(sub_graph)) {
-    sub_graph->Reset();
-  }
+  // GraphClusterContext *sub_graph = nullptr;
+  // while (_sub_graphs.try_pop(sub_graph)) {
+  //   sub_graph->Reset();
+  // }
+  //_done = 0;
 }
 int GraphClusterContext::Setup(GraphCluster *c) {
   _cluster = c;
@@ -500,7 +506,7 @@ int GraphClusterContext::Execute(const std::string &graph, DoneClosure &&done,
     if (done) {
       done(-1);
     }
-    return -1;
+    return 0;
   }
   graph_ctx = g;
   GraphDataContext &data_ctx = g->GetGraphDataContextRef();

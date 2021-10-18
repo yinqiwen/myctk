@@ -58,6 +58,7 @@ class RobimsTable {
 
  public:
   RobimsTable(IDMapping* id_mapping);
+  bool IsReadonly() const { return _id_bitmap.IsReadonly(); }
   const TableSchema& GetSchema();
   RoaringBitmap& GetTableBitmap();
   IDMapping* GetIDMapping();

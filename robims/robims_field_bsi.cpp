@@ -157,7 +157,7 @@ int RobimsFloatField::Select(FieldOperator op, FieldArg arg, CRoaringBitmapPtr& 
       return ROBIMS_ERR_INVALID_OPERATOR;
     }
   }
-  ROBIMS_ERROR("Float return siz={}", roaring_bitmap_get_cardinality(out.get()));
+  // ROBIMS_ERROR("Float return siz={}", roaring_bitmap_get_cardinality(out.get()));
   return 0;
 }
 }  // namespace robims

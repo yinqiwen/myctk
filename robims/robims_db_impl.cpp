@@ -57,18 +57,32 @@ int RobimsDB::Save(const std::string& file, bool readonly) {
 int RobimsDB::SaveTable(const std::string& file, const std::string& table, bool readonly) {
   return db_impl_->SaveTable(file, table, readonly);
 }
-int RobimsDB::Select(const std::string& query, std::vector<std::string>& ids) {
-  return db_impl_->Select(query, ids);
+int RobimsDB::Select(const std::string& query, int64_t offset, int64_t limit,
+                     SelectResult& result) {
+  return db_impl_->Select(query, offset, limit, result);
 }
+void RobimsDB::DisableThreadSafe() { db_impl_->DisableThreadSafe(); }
+void RobimsDB::EnableThreadSafe() { db_impl_->EnableThreadSafe(); }
 
 RobimsDB::~RobimsDB() { delete db_impl_; }
 RobimsDBData::RobimsDBData() : id_mapping(new SimpleIDMapping), query_cache(1024) {}
 RobimsDBData::~RobimsDBData() { delete id_mapping; }
-RobimsDBImpl::RobimsDBImpl() {
+RobimsDBImpl::RobimsDBImpl() : shared_mutex_(nullptr) {
   std::shared_ptr<RobimsDBData> p(new RobimsDBData);
   db_data_.store(p);
 }
-RobimsDBImpl::~RobimsDBImpl() {}
+RobimsDBImpl::~RobimsDBImpl() { DisableThreadSafe(); }
+
+void RobimsDBImpl::DisableThreadSafe() {
+  if (nullptr != shared_mutex_) {
+    delete shared_mutex_;
+    shared_mutex_ = nullptr;
+  }
+}
+void RobimsDBImpl::EnableThreadSafe() {
+  DisableThreadSafe();
+  shared_mutex_ = new folly::SharedMutex;
+}
 
 int RobimsDBImpl::Load(const std::string& file) {
   FILE* fp = fopen(file.c_str(), "r");
@@ -255,6 +269,7 @@ RobimsTable* RobimsDBImpl::GetTable(const std::string& table) {
   return found->second.load().get();
 }
 int RobimsDBImpl::Put(const std::string& table, const std::string& json) {
+  folly::SharedMutex::WriteHolder lock(shared_mutex_);
   std::shared_ptr<RobimsDBData> db = db_data_.load();
   auto found = db->tables.find(table);
   if (found == db->tables.end()) {
@@ -264,6 +279,7 @@ int RobimsDBImpl::Put(const std::string& table, const std::string& json) {
   return found->second.load()->Put(json);
 }
 int RobimsDBImpl::Remove(const std::string& table, const std::string& json) {
+  folly::SharedMutex::WriteHolder lock(shared_mutex_);
   std::shared_ptr<RobimsDBData> db = db_data_.load();
   auto found = db->tables.find(table);
   if (found == db->tables.end()) {
@@ -272,7 +288,18 @@ int RobimsDBImpl::Remove(const std::string& table, const std::string& json) {
   }
   return found->second.load()->Remove(json);
 }
-int RobimsDBImpl::Select(const std::string& query, std::vector<std::string>& ids) {
+int RobimsDBImpl::Select(const std::string& query, int64_t offset, int64_t limit,
+                         SelectResult& result) {
+  if (limit <= 0) {
+    limit = 100;
+  }
+  if (offset < 0) {
+    offset = 0;
+  }
+  result.ids.clear();
+  result.offset = 0;
+  result.total = 0;
+  folly::SharedMutex::ReadHolder lock(shared_mutex_);
   std::shared_ptr<RobimsDBData> db = db_data_.load();
   RobimsQueryPtr query_obj;
   {
@@ -294,8 +321,34 @@ int RobimsDBImpl::Select(const std::string& query, std::vector<std::string>& ids
   CRoaringBitmapPtr* bitmap = std::get_if<CRoaringBitmapPtr>(&val);
   if (nullptr != bitmap) {
     std::vector<uint32_t> local_ids;
-    bitmap_extract_ids(bitmap->get(), local_ids);
-    GetRealIDs(local_ids, ids);
+    local_ids.resize(limit);
+    if (!roaring_bitmap_range_uint32_array(bitmap->get(), offset, limit, &local_ids[0])) {
+      ROBIMS_ERROR("Failed to extract ids");
+      return -1;
+    }
+    result.total = roaring_bitmap_get_cardinality(bitmap->get());
+    for (size_t i = 0; i < local_ids.size(); i++) {
+      if (0 == local_ids[i]) {
+        if (i > 0) {
+          break;
+        }
+        if (offset > 0) {
+          break;
+        }
+        if (!roaring_bitmap_contains(bitmap->get(), 0)) {
+          break;
+        }
+      }
+      std::string id;
+      std::string_view id_view;
+      if (0 == db->id_mapping->GetID(local_ids[i], id_view)) {
+        id.assign(id_view.data(), id_view.size());
+        result.ids.emplace_back(std::move(id));
+      } else {
+        result.ids.push_back(id);
+      }
+      result.offset = local_ids[i];
+    }
     return 0;
   } else {
     switch (val.index()) {

@@ -128,6 +128,7 @@ int RoaringBitmap::Load(FILE* fp) {
     ROBIMS_ERROR("Failed to read bitmap readonly flag");
     return -1;
   }
+  _readonly = readonly;
   char* mbuf = (char*)(std::aligned_alloc(32, n));
   rc = fread(mbuf, n, 1, fp);
   if (rc != 1) {

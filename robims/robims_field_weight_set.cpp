@@ -133,6 +133,15 @@ int RobimsWeightSetField::Put(uint32_t id, const std::string_view& val, float we
 }
 int RobimsWeightSetField::Remove(uint32_t id) {
   for (auto& pair : _bitmaps) {
+    auto found = pair.second->id_weights.find(id);
+    if (found == pair.second->id_weights.end()) {
+      return -1;
+    }
+    float weight = found->second;
+    uint64_t weight_id = float_to_uint32(weight);
+    weight_id = (weight_id << 32) + id;
+    pair.second->id_weights.erase(found);
+    pair.second->weight_ids.erase(weight_id);
     pair.second->bitmap.Remove(id);
   }
   return 0;
