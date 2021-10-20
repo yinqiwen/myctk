@@ -6,6 +6,7 @@ default_expr_processor = "expr_phase"
 # 若processor的member名能自动关联，则配置无需定义input/output, 能自动关联
 name = "recall_main"
 [[graph.vertex]]
+expect="$x==1"
 id = "recall_1"
 cluster = "recall_test.toml"
 graph = "recall_1"

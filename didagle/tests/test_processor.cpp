@@ -25,7 +25,7 @@ GRAPH_OP_END
 TEST(ProcessorUT, Porcessor) {
   GraphDataContext ctx;
   int tmp = 101;
-  ctx.Set<int>("v0", &tmp);
+  ctx.Set("v0", &tmp);
   ProcessorRunResult result = run_processor(ctx, "test_phase");
   EXPECT_EQ(result.rc, 0);
   EXPECT_EQ("val101", *(ctx.Get<std::string>("v1")));

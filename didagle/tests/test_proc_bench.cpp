@@ -24,7 +24,7 @@ GRAPH_OP_END
 static void BM_test_proc_run(benchmark::State& state) {
   GraphDataContext ctx;
   int tmp = 101;
-  ctx.Set<int>("v0", &tmp);
+  ctx.Set("v0", &tmp);
   for (auto _ : state) {
     run_processor(ctx, "test_phase");
   }

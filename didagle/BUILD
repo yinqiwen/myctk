@@ -30,7 +30,7 @@ cc_library(
         "graph_vertex.h",
     ],
     includes = ["./"],
-    linkopts = ["-lpthread -ltbb"],
+    linkopts = ["-lpthread -ltbb -lglog -lfolly"],
     deps = [
         "//config:kcfg",
         "@com_github_spdlog//:spdlog",

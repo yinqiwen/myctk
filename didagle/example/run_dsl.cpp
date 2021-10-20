@@ -57,12 +57,12 @@ int main(int argc, char** argv) {
   std::string cluster_name = get_basename(config);
   // set extern data value for dsl
   int v = 101;
-  root->Set<int>("v0", &v);
+  root->Set("v0", &v);
   RecmdEnv env;
   env.expid = 1001;
-  root->Set<RecmdEnv>("env", &env);
+  root->Set("env", &env);
   std::string vx = "hello";
-  root->Set<std::string>("vx", &vx);
+  root->Set("vx", &vx);
 
   std::string r99 = "hello";
   std::string r100 = "world";
@@ -70,17 +70,20 @@ int main(int argc, char** argv) {
   std::string* r100_ptr = &r100;
   root->Set("r99", r99_ptr);
   root->Set("r100", r100_ptr);
-  {
-    std::shared_ptr<std::string> sss(new std::string("hello, shread!"));
-    root->Set("tstr", &sss);
-  }
+  std::shared_ptr<std::string> sss(new std::string("hello, shread!"));
+  root->Set("tstr", &sss);
   {
     std::unique_ptr<std::string> uuu(new std::string("hello, unique!"));
     root->Set("ustr", &uuu);
   }
-
-  graphs.Execute(root, cluster_name, graph, nullptr,
-                 [](int c) { DIDAGLE_ERROR("Graph done with {}", c); });
+  Params paras;
+  paras["x"].SetInt(1);
+  paras["y"].SetInt(1);
+  for (int i = 0; i < 1; i++) {
+    graphs.Execute(root, cluster_name, graph, &paras,
+                   [](int c) { DIDAGLE_ERROR("Graph done with {}", c); });
+    sleep(1);
+  }
 
   pool.join();
   return 0;

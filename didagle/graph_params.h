@@ -42,6 +42,16 @@ class Params {
   typedef std::map<ParamsString, Params> ParamValueTable;
 
  protected:
+  enum ParamValueType {
+    PARAM_INVALID = 0,
+    PARAM_STRING,
+    PARAM_INT,
+    PARAM_DOUBLE,
+    PARAM_BOOL,
+    PARAM_OBJECT,
+    PARAM_ARRAY,
+  };
+  ParamValueType _param_type = PARAM_INVALID;
   ParamsString str;
   int64_t iv;
   double dv;
@@ -58,6 +68,12 @@ class Params {
   Params(bool invalid_ = false);
   void SetParent(const Params* p);
   bool Valid() const;
+  bool IsBool() const;
+  bool IsString() const;
+  bool IsDouble() const;
+  bool IsInt() const;
+  bool IsObject() const;
+  bool IsArray() const;
   const ParamsString& String() const;
   int64_t Int() const;
   bool Bool() const;

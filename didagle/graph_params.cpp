@@ -52,6 +52,42 @@ void Params::SetParent(const Params* p) {
   }
 }
 bool Params::Valid() const { return !invalid; }
+bool Params::IsBool() const {
+  if (!invalid) {
+    return false;
+  }
+  return _param_type == PARAM_BOOL;
+}
+bool Params::IsString() const {
+  if (!invalid) {
+    return false;
+  }
+  return _param_type == PARAM_STRING;
+}
+bool Params::IsDouble() const {
+  if (!invalid) {
+    return false;
+  }
+  return _param_type == PARAM_DOUBLE;
+}
+bool Params::IsInt() const {
+  if (!invalid) {
+    return false;
+  }
+  return _param_type == PARAM_INT;
+}
+bool Params::IsObject() const {
+  if (!invalid) {
+    return false;
+  }
+  return _param_type == PARAM_OBJECT;
+}
+bool Params::IsArray() const {
+  if (!invalid) {
+    return false;
+  }
+  return _param_type == PARAM_ARRAY;
+}
 const ParamsString& Params::String() const { return str; }
 int64_t Params::Int() const { return iv; }
 bool Params::Bool() const { return bv; }
@@ -61,24 +97,28 @@ void Params::SetString(const ParamsString& v) {
     return;
   }
   str = v;
+  _param_type = PARAM_STRING;
 }
 void Params::SetInt(int64_t v) {
   if (invalid) {
     return;
   }
   iv = v;
+  _param_type = PARAM_INT;
 }
 void Params::SetDouble(double d) {
   if (invalid) {
     return;
   }
   dv = d;
+  _param_type = PARAM_DOUBLE;
 }
 void Params::SetBool(bool v) {
   if (invalid) {
     return;
   }
   bv = v;
+  _param_type = PARAM_BOOL;
 }
 size_t Params::Size() const {
   if (params.size() > 0) {
@@ -137,6 +177,7 @@ Params& Params::operator[](const ParamsString& name) {
   if (p.Valid()) {
     return const_cast<Params&>(p);
   }
+  _param_type = PARAM_OBJECT;
   return params[name];
 }
 const Params& Params::operator[](size_t idx) const {
@@ -148,25 +189,31 @@ const Params& Params::operator[](size_t idx) const {
 }
 Params& Params::Add() {
   param_array.resize(param_array.size() + 1);
+  _param_type = PARAM_ARRAY;
   return param_array[param_array.size() - 1];
 }
 Params& Params::Put(const ParamsString& name, const char* value) {
+  _param_type = PARAM_OBJECT;
   params[name].SetString(value);
   return *this;
 }
 Params& Params::Put(const ParamsString& name, const ParamsString& value) {
+  _param_type = PARAM_OBJECT;
   params[name].SetString(value);
   return *this;
 }
 Params& Params::Put(const ParamsString& name, int64_t value) {
+  _param_type = PARAM_OBJECT;
   params[name].SetInt(value);
   return *this;
 }
 Params& Params::Put(const ParamsString& name, double value) {
+  _param_type = PARAM_OBJECT;
   params[name].SetDouble(value);
   return *this;
 }
 Params& Params::Put(const ParamsString& name, bool value) {
+  _param_type = PARAM_OBJECT;
   params[name].SetBool(value);
   return *this;
 }
@@ -174,11 +221,13 @@ Params& Params::operator[](size_t idx) {
   if (param_array.size() > idx) {
     return param_array[idx];
   }
+  _param_type = PARAM_ARRAY;
   param_array.resize(idx + 1);
   return param_array[idx];
 }
 bool Params::Contains(const ParamsString& name) const { return params.count(name) > 0; }
 void Params::Insert(const Params& other) {
+  _param_type = PARAM_OBJECT;
   for (auto& kv : other.Members()) {
     params[kv.first] = kv.second;
   }
@@ -195,6 +244,7 @@ void Params::ParseFromString(const std::string& v) {
     if (kv.size() == 2) {
       boost::algorithm::trim(kv[0]);
       boost::algorithm::trim(kv[1]);
+      _param_type = PARAM_OBJECT;
       params[kv[0]].BuildFromString(kv[1]);
     }
   }

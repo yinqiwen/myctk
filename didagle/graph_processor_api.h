@@ -18,7 +18,8 @@
 #include "didagle_event.h"
 #include "graph_data.h"
 
-#include "tbb/concurrent_hash_map.h"
+//#include "folly/Demangle.h"
+//#include "tbb/concurrent_hash_map.h"
 
 #define ERR_UNIMPLEMENTED -7890
 
@@ -110,6 +111,7 @@ class GraphDataContext {
       ExcludeGraphDataContextSet* excludes = nullptr) const {
     typedef typename DIObjectTypeHelper<T>::read_type GetValueType;
     uint32_t id = DIContainer::GetTypeId<T>();
+    // DIDAGLE_DEBUG("1Get:{} {} {}", name, id, folly::demangle(typeid(T)).c_str());
     DIObjectKeyView key = {name, id};
     auto found = _data_table.find(key);
     if (found != _data_table.end()) {
@@ -183,7 +185,7 @@ class GraphDataContext {
     typedef typename DIObjectTypeHelper<T>::read_write_type MoveValueType;
     uint32_t id = DIContainer::GetTypeId<T>();
     DIObjectKeyView key = {name, id};
-    DIDAGLE_DEBUG("Enter move, name: {}, id: {}", name, id);
+    // DIDAGLE_DEBUG("1Get:{} {} {}", name, id, folly::demangle(typeid(T)).c_str());
     auto found = _data_table.find(key);
     if (found != _data_table.end()) {
       // DIDAGLE_DEBUG("Enter move for {}", name);
@@ -249,17 +251,57 @@ class GraphDataContext {
    * @return true
    * @return false
    */
+  // template <typename T>
+  // bool Set(const std::string_view& name, const T* v) {
+  //   uint32_t id = DIContainer::GetTypeId<T>();
+  //   DIDAGLE_DEBUG("1Set:{} {} {}", name, id, folly::demangle(typeid(T)).c_str());
+  //   DIObjectKeyView key = {name, id};
+  //   auto found = _data_table.find(key);
+  //   if (found != _data_table.end()) {
+  //     if constexpr (is_shared_ptr<T>::value) {
+  //       found->second._sval = *v;
+  //       found->second.val = found->second._sval.get();
+  //     } else {
+  //       found->second.val = (void*)v;
+  //     }
+  //     return true;
+  //   } else {
+  //     if (_disable_entry_creation) {
+  //       return false;
+  //     }
+  //     DataValue dv;
+  //     if constexpr (is_shared_ptr<T>::value) {
+  //       dv._sval = *v;
+  //       dv.val = dv._sval.get();
+  //     } else {
+  //       dv.val = (void*)v;
+  //     }
+  //     dv.name.reset(new std::string(name.data(), name.size()));
+  //     DIObjectKeyView key = {*(dv.name), id};
+  //     _data_table[key] = dv;
+  //     return true;
+  //   }
+  // }
+
   template <typename T>
-  bool Set(const std::string_view& name, const T* v) {
-    uint32_t id = DIContainer::GetTypeId<T>();
+  bool Set(const std::string_view& name, const T& v) {
+    using RT = typename std::remove_const<typename std::remove_pointer<T>::type>::type;
+    // using RT = typename std::remove_pointer<T>::type;
+    uint32_t id = DIContainer::GetTypeId<RT>();
+    // DIDAGLE_DEBUG("1Set:{} {} {}", name, id, folly::demangle(typeid(RT)).c_str());
     DIObjectKeyView key = {name, id};
     auto found = _data_table.find(key);
     if (found != _data_table.end()) {
       if constexpr (is_shared_ptr<T>::value) {
+        found->second._sval = v;
+        found->second.val = found->second._sval.get();
+      } else if constexpr (is_shared_ptr<RT>::value && std::is_pointer_v<T>) {
         found->second._sval = *v;
         found->second.val = found->second._sval.get();
+      } else if constexpr (std::is_pointer_v<T>) {
+        found->second.val = (void*)(v);
       } else {
-        found->second.val = (void*)v;
+        found->second.val = (void*)(v);
       }
       return true;
     } else {
@@ -268,10 +310,19 @@ class GraphDataContext {
       }
       DataValue dv;
       if constexpr (is_shared_ptr<T>::value) {
+        dv._sval = v;
+        dv.val = dv._sval.get();
+        // DIDAGLE_DEBUG("Set sharedPtr:{} {} {}", name, id, folly::demangle(typeid(RT)).c_str());
+      } else if constexpr (is_shared_ptr<RT>::value && std::is_pointer_v<T>) {
         dv._sval = *v;
         dv.val = dv._sval.get();
+        // DIDAGLE_DEBUG("Set pointer:{} {} {}", name, id, folly::demangle(typeid(RT)).c_str());
+      } else if constexpr (std::is_pointer_v<T>) {
+        dv.val = (void*)(v);
+        // DIDAGLE_DEBUG("Set pointer:{} {} {}", name, id, folly::demangle(typeid(RT)).c_str());
       } else {
-        dv.val = (void*)v;
+        dv.val = (void*)(v);
+        // DIDAGLE_DEBUG("Set object:{} {} {}", name, id, folly::demangle(typeid(RT)).c_str());
       }
       dv.name.reset(new std::string(name.data(), name.size()));
       DIObjectKeyView key = {*(dv.name), id};
@@ -402,26 +453,27 @@ using namespace didagle;
 #define GRAPH_OP_INPUT(TYPE, NAME) __GRAPH_OP_INPUT(TYPE, NAME, ({0, 0, 0}))
 #define GRAPH_OP_EXTERN_INPUT(TYPE, NAME) __GRAPH_OP_INPUT(TYPE, NAME, ({1, 0, 0}))
 
-#define GRAPH_OP_MAP_INPUT(TYPE, NAME)                                         \
-  std::map<std::string, const BOOST_PP_REMOVE_PARENS(TYPE)*> NAME;             \
-  size_t __input_##NAME##_code = RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>(  \
-      #NAME, BOOST_PP_STRINGIZE(BOOST_PP_REMOVE_PARENS(TYPE)),                 \
-      [this](GraphDataContext& ctx, const std::string_view& data, bool move) { \
-        using FIELD_TYPE = BOOST_PP_REMOVE_PARENS(TYPE);                       \
-        const FIELD_TYPE* tmp = nullptr;                                       \
-        if (move) {                                                            \
-          tmp = ctx.Move<FIELD_TYPE>(data);                                    \
-        } else {                                                               \
-          tmp = ctx.Get<FIELD_TYPE>(data);                                     \
-        }                                                                      \
-        if (nullptr == tmp) {                                                  \
-          return -1;                                                           \
-        }                                                                      \
-        std::string name_key(data.data(), data.size());                        \
-        NAME[name_key] = tmp;                                                  \
-        return 0;                                                              \
-      },                                                                       \
-      {0, 1, 0});                                                              \
+#define GRAPH_OP_MAP_INPUT(TYPE, NAME)                                                        \
+  std::map<std::string, typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_type> \
+      NAME;                                                                                   \
+  size_t __input_##NAME##_code = RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>(                 \
+      #NAME, BOOST_PP_STRINGIZE(BOOST_PP_REMOVE_PARENS(TYPE)),                                \
+      [this](GraphDataContext& ctx, const std::string_view& data, bool move) {                \
+        using FIELD_TYPE = BOOST_PP_REMOVE_PARENS(TYPE);                                      \
+        typename DIObjectTypeHelper<FIELD_TYPE>::read_type tmp = {};                          \
+        if (move) {                                                                           \
+          tmp = ctx.Move<FIELD_TYPE>(data);                                                   \
+        } else {                                                                              \
+          tmp = ctx.Get<FIELD_TYPE>(data);                                                    \
+        }                                                                                     \
+        if (!tmp) {                                                                           \
+          return -1;                                                                          \
+        }                                                                                     \
+        std::string name_key(data.data(), data.size());                                       \
+        NAME[name_key] = tmp;                                                                 \
+        return 0;                                                                             \
+      },                                                                                      \
+      {0, 1, 0});                                                                             \
   size_t __reset_##NAME##_code = AddResetFunc([this]() { NAME = {}; });
 
 #define GRAPH_OP_OUTPUT(TYPE, NAME)                                                \
@@ -430,7 +482,7 @@ using namespace didagle;
       #NAME, BOOST_PP_STRINGIZE(BOOST_PP_REMOVE_PARENS(TYPE)),                     \
       [this](GraphDataContext& ctx, const std::string_view& data) {                \
         using FIELD_TYPE = decltype(NAME);                                         \
-        ctx.Set<FIELD_TYPE>(data, &(this->NAME));                                  \
+        ctx.Set(data, &(this->NAME));                                              \
         return 0;                                                                  \
       });                                                                          \
   size_t __reset_##NAME##_code = AddResetFunc([this]() {                           \
@@ -455,7 +507,7 @@ using namespace didagle;
       #NAME, BOOST_PP_STRINGIZE(BOOST_PP_REMOVE_PARENS(TYPE)),                          \
       [this](GraphDataContext& ctx, const std::string_view& data) {                     \
         using FIELD_TYPE = typename std::remove_pointer<decltype(NAME)>::type;          \
-        ctx.Set<FIELD_TYPE>(data, NAME);                                                \
+        ctx.Set(data, NAME);                                                            \
         return 0;                                                                       \
       });                                                                               \
   size_t __reset_##NAME##_code = AddResetFunc([this]() { NAME = {}; });
