@@ -27,41 +27,37 @@
  *THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
-#include <functional>
-#include <string>
-#include <string_view>
-#include <variant>
-#include <vector>
-#include "roaring/roaring.h"
-#include "robims.pb.h"
-#include "robims_id_mapping.h"
+#include "ecache_types.h"
 
-namespace robims {
-
-struct SelectResult {
-  std::vector<std::string> ids;
-  int64_t total = 0;
-};
-class RobimsDBImpl;
-class RobimsDB {
- private:
-  RobimsDB(const RobimsDB&) = delete;
-  RobimsDB& operator=(const RobimsDB&) = delete;
-  RobimsDBImpl* db_impl_;
-
- public:
-  RobimsDB();
-  int Load(const std::string& file);
-  int Save(const std::string& file, bool readonly);
-  int SaveTable(const std::string& file, const std::string& table, bool readonly);
-  void DisableThreadSafe();
-  void EnableThreadSafe();
-  int CreateTable(const std::string& schema);
-  int CreateTable(const TableSchema& schema);
-  int Put(const std::string& table, const std::string& json);
-  int Remove(const std::string& table, const std::string& json);
-  int Select(const std::string& query, int64_t offset, int64_t limit, SelectResult& result);
-  ~RobimsDB();
-};
-}  // namespace robims
+namespace ecache {
+void MapValueDeleter::operator()(MapValue* ptr) const {
+  if (nullptr != ptr) {
+    free(ptr);
+  }
+}
+folly::fbstring getActualKey(uint8_t pool_id, CacheKeyType type, std::string_view key,
+                             size_t field_size) {
+  folly::fbstring s;
+  s.push_back((char)pool_id);
+  switch (type) {
+    case CACHE_KEY_STRING:
+    case CACHE_KEY_RANGE_MAP:
+    case CACHE_KEY_HASH_MAP: {
+      break;
+    }
+    default: {
+      return s;
+    }
+  }
+  s.push_back((char)type);
+  if (CACHE_KEY_RANGE_MAP == type || CACHE_KEY_HASH_MAP == type) {
+    if (field_size > UINT16_MAX) {
+      throw std::invalid_argument("Invalid field size.");
+    }
+    uint16_t n = (uint16_t)field_size;
+    s.append((const char*)&n, 2);
+  }
+  s.append(key.data(), key.size());
+  return s;
+}
+}  // namespace ecache

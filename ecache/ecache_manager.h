@@ -28,40 +28,36 @@
  */
 
 #pragma once
-#include <functional>
-#include <string>
+#include <memory>
 #include <string_view>
-#include <variant>
-#include <vector>
-#include "roaring/roaring.h"
-#include "robims.pb.h"
-#include "robims_id_mapping.h"
+#include "cachelib/allocator/CacheStats.h"
+#include "ecache.h"
+#include "ecache.pb.h"
+#include "folly/container/F14Map.h"
+namespace ecache {
 
-namespace robims {
-
-struct SelectResult {
-  std::vector<std::string> ids;
-  int64_t total = 0;
-};
-class RobimsDBImpl;
-class RobimsDB {
+class ECacheManager {
  private:
-  RobimsDB(const RobimsDB&) = delete;
-  RobimsDB& operator=(const RobimsDB&) = delete;
-  RobimsDBImpl* db_impl_;
+  ECacheManagerConfig config_;
+  std::vector<ECacheConfig> pool_configs_;
+  void* cache_ = nullptr;
+  folly::F14FastMap<std::string, uint8_t> pool_id_mapping_;
 
  public:
-  RobimsDB();
+  int Init(const ECacheManagerConfig& config);
   int Load(const std::string& file);
-  int Save(const std::string& file, bool readonly);
-  int SaveTable(const std::string& file, const std::string& table, bool readonly);
-  void DisableThreadSafe();
-  void EnableThreadSafe();
-  int CreateTable(const std::string& schema);
-  int CreateTable(const TableSchema& schema);
-  int Put(const std::string& table, const std::string& json);
-  int Remove(const std::string& table, const std::string& json);
-  int Select(const std::string& query, int64_t offset, int64_t limit, SelectResult& result);
-  ~RobimsDB();
+  int Save(const std::string& file);
+  std::unique_ptr<ECache> NewCache(const ECacheConfig& config);
+  std::unique_ptr<ECache> GetCache(const std::string& name);
+
+  // return the overall cache stats
+  facebook::cachelib::GlobalCacheStats getGlobalCacheStats() const;
+
+  // return cache's memory usage stats
+  facebook::cachelib::CacheMemoryStats getCacheMemoryStats() const;
+
+  // pool stats by pool name
+  facebook::cachelib::PoolStats getPoolStats(const std::string& name) const;
+  ~ECacheManager();
 };
-}  // namespace robims
+}  // namespace ecache

@@ -1,7 +1,7 @@
 # Libs
 
-## wrdk_config
-A simple toml/struct mapping helper
+## kcfg_config
+A simple toml/struct & json/struct mapping helper library
 
 ## didagle
 Dependency Injection Directed Acyclic Graph Lightweight Engine
@@ -14,6 +14,9 @@ A jit expression library built on boost spirit x3 & xbyak (linux x86-64 only), i
 
 ## robims
 A bitmap index lib.
+
+## ecache
+A simple cache lib built on facebook's CacheLib
 
 
 

@@ -28,40 +28,23 @@
  */
 
 #pragma once
+#include <stdint.h>
+#include <stdio.h>
 #include <functional>
-#include <string>
+#include <memory>
 #include <string_view>
-#include <variant>
 #include <vector>
-#include "roaring/roaring.h"
-#include "robims.pb.h"
-#include "robims_id_mapping.h"
+#include "folly/Range.h"
 
-namespace robims {
+namespace ecache {
+int file_write_string(FILE* fp, folly::StringPiece s);
+int file_read_string(FILE* fp, std::string& s);
+int file_write_uint32(FILE* fp, uint32_t n);
+int file_read_uint32(FILE* fp, uint32_t& n);
+int file_write_uint64(FILE* fp, uint64_t n);
+int file_read_uint64(FILE* fp, uint64_t& n);
+int64_t gettimeofday_us();
+int64_t gettimeofday_ms();
+int64_t gettimeofday_s();
 
-struct SelectResult {
-  std::vector<std::string> ids;
-  int64_t total = 0;
-};
-class RobimsDBImpl;
-class RobimsDB {
- private:
-  RobimsDB(const RobimsDB&) = delete;
-  RobimsDB& operator=(const RobimsDB&) = delete;
-  RobimsDBImpl* db_impl_;
-
- public:
-  RobimsDB();
-  int Load(const std::string& file);
-  int Save(const std::string& file, bool readonly);
-  int SaveTable(const std::string& file, const std::string& table, bool readonly);
-  void DisableThreadSafe();
-  void EnableThreadSafe();
-  int CreateTable(const std::string& schema);
-  int CreateTable(const TableSchema& schema);
-  int Put(const std::string& table, const std::string& json);
-  int Remove(const std::string& table, const std::string& json);
-  int Select(const std::string& query, int64_t offset, int64_t limit, SelectResult& result);
-  ~RobimsDB();
-};
-}  // namespace robims
+}  // namespace ecache

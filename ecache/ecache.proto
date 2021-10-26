@@ -1,0 +1,39 @@
+syntax = "proto3";
+package ecache;
+
+enum CacheType{
+    UNKNOWN_CACHE_TYPE     = 0;
+    CACHE_LRU              = 1;
+    CACHE_LRU2Q            = 2;
+    CACHE_TINYLFU          = 3;
+    CACHE_LRU_SPIN_BUCKET  = 4;
+}
+
+enum CacheKeyType{
+    CACHE_KEY_INVALID = 0;
+    CACHE_KEY_STRING  = 1;
+    CACHE_KEY_RANGE_MAP   = 2;
+    CACHE_KEY_HASH_MAP    = 3;
+}
+
+message ECacheConfig{
+    string name = 1;
+    int64  size = 2;
+}
+
+message ECacheManagerConfig{
+    string name = 1;
+    CacheType type = 2;
+    int64  size = 3;
+    uint32 buckets_power = 4;
+    uint32 locks_power = 5;
+    bool enable_tail_hits_racking = 6;
+    uint32 background_reaper_interval_ms = 7;
+    uint32 memory_monitor_interval_ms = 8;
+}
+
+message ECacheBackupHeader{
+    int32 version = 1;
+    ECacheManagerConfig config = 2;
+    repeated ECacheConfig pools = 3;
+}

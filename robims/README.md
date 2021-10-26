@@ -68,7 +68,7 @@ bitmap index lib
     return;
   }
 
-  rc = db.Select(query, result.offset + 1, 100, result);  // next 100
+  rc = db.Select(query, 100, 100, result);  // next 100
   if (0 != rc) {
     ROBIMS_ERROR("Failed to select with rc:{}", rc);
     return;

@@ -42,32 +42,14 @@
 
 using namespace robims;
 
-static std::vector<test::User> g_test_users(128);
+static std::vector<test::User> g_test_users(512);
 static std::unordered_map<std::string, test::User*> g_user_table;
 static void testSave() {
   RobimsDB db;
-  TableSchema table0;
-  table0.set_name("test");
-  table0.set_id_field("id");
-  auto field0 = table0.add_index_field();
-  field0->set_name("age");
-  field0->set_index_type(INT_INDEX);
-  auto field1 = table0.add_index_field();
-  field1->set_name("city");
-  field1->set_index_type(SET_INDEX);
-  // auto field2 = table0.add_index_field();
-  // field2->set_name("f2");
-  // field2->set_index_type(WEIGHT_SET);
-  auto field3 = table0.add_index_field();
-  field3->set_name("score");
-  field3->set_index_type(robims::FLOAT_INDEX);
-  auto field4 = table0.add_index_field();
-  field4->set_name("gender");
-  field4->set_index_type(robims::MUTEX_INDEX);
-  auto field5 = table0.add_index_field();
-  field5->set_name("is_child");
-  field5->set_index_type(robims::BOOL_INDEX);
-  int rc = db.CreateTable(table0);
+
+  std::string table_creation =
+      "test(id id, age int[1,150], city set, score float, gender mutex, is_child bool)";
+  int rc = db.CreateTable(table_creation);
   if (0 != rc) {
     ROBIMS_ERROR("Failed to create table:{}", rc);
   }
@@ -95,15 +77,14 @@ static void testSave() {
       ROBIMS_ERROR("Failed to put json with rc:{}", rc);
     }
   }
-  std::string query = "test.age>50 && test.score>60 && test.city == \"sz\"";
+  std::string query = "test.age>1 && test.score>1 && test.city == \"sz\"";
   SelectResult result;
   rc = db.Select(query, 0, 100, result);
   if (0 != rc) {
     ROBIMS_ERROR("Failed to select with rc:{}", rc);
     return;
   }
-  ROBIMS_INFO("Result total:{}, offset:{},  size:{}", result.total, result.offset,
-              result.ids.size());
+  ROBIMS_INFO("Result total:{},  size:{}", result.total, result.ids.size());
   for (const auto& id : result.ids) {
     auto found = g_user_table.find(id);
     if (found == g_user_table.end()) {
@@ -126,15 +107,18 @@ static void testLoad() {
     ROBIMS_ERROR("Failed to load robims", rc);
     return;
   }
-  std::string query = "test.age>50 && test.score>60 && test.city == \"sz\"";
+  std::string query = "test.age>1 && test.score>1 && test.city == \"sz\"";
   SelectResult result;
   rc = db.Select(query, 0, 100, result);
   if (0 != rc) {
-    ROBIMS_ERROR("Failed to select with rc:{}", rc);
+    ROBIMS_ERROR("Failed to select with rc:{}s", rc);
     return;
   }
-  ROBIMS_INFO("Result total:{}, offset:{},  size:{}", result.total, result.offset,
-              result.ids.size());
+  ROBIMS_INFO("[0-100]Result total:{},   size:{}", result.total, result.ids.size());
+  db.Select(query, 100, 100, result);
+  ROBIMS_INFO("[100-200]Result total:{},  size:{}", result.total, result.ids.size());
+  db.Select(query, 200, 100, result);
+  ROBIMS_INFO("[200-300]Result total:{},  size:{}", result.total, result.ids.size());
   for (const auto& id : result.ids) {
     auto found = g_user_table.find(id);
     if (found == g_user_table.end()) {
@@ -159,8 +143,11 @@ static void testQuery() {
     ROBIMS_ERROR("Failed to select with rc:{}", rc);
     return;
   }
-  ROBIMS_INFO("Result total:{}, offset:{},  size:{}", result.total, result.offset,
-              result.ids.size());
+  ROBIMS_INFO("[0-100]Result total:{},   size:{}", result.total, result.ids.size());
+  db.Select(query, 100, 100, result);
+  ROBIMS_INFO("[100-200]Result total:{},  size:{}", result.total, result.ids.size());
+  db.Select(query, 200, 100, result);
+  ROBIMS_INFO("[200-300]Result total:{},  size:{}", result.total, result.ids.size());
   for (const auto& id : result.ids) {
     auto found = g_user_table.find(id);
     if (found == g_user_table.end()) {
@@ -257,19 +244,26 @@ static void bench_query() {
       return;
     }
   }
-  ROBIMS_INFO("Result total:{}, offset:{},  size:{}", result.total, result.offset,
-              result.ids.size());
+  ROBIMS_INFO("Result total:{}, size:{}", result.total, result.ids.size());
   ROBIMS_INFO("Avg cost {}us to query bench db with query:{}",
               (gettimeofday_us() - start) / bench_count, query);
+}
+
+static void testCreate() {
+  RobimsDB db;
+  std::string table =
+      "test(id id, age int[1,100], city set, score float, gender mutex, is_child bool, vv set)";
+  db.CreateTable(table);
 }
 
 int main() {
   testSave();
   ROBIMS_INFO("==================================");
   testLoad();
-  testQuery();
-  bench_write();
-  bench_query();
-  clear_bitmap_cache();
+  // testQuery();
+  // bench_write();
+  // bench_query();
+  // clear_bitmap_cache();
+  // testCreate();
   return 0;
 }

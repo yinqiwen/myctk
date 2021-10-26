@@ -26,7 +26,7 @@
  *ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  *THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <robims_bsi.h>
+#include "robims_bsi.h"
 #include "robims_common.h"
 #include "robims_err.h"
 #include "robims_field.h"

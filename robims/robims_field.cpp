@@ -30,12 +30,12 @@
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include <robims_common.h>
 #include <unistd.h>
 #include <algorithm>
 #include <cctype>
 #include <string_view>
 #include <variant>
+#include "robims_common.h"
 #include "robims_err.h"
 #include "robims_log.h"
 #include "robims_table.h"

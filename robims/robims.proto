@@ -38,4 +38,11 @@ enum FieldOperator{
     FIELD_OP_ALL = 100;
 }
 
+message DBHeader{
+    int32 version = 1;
+    bool readonly = 2;
+    bool whole_db = 3;
+    repeated string partial_tables = 4; 
+}
+
 

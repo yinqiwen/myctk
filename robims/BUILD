@@ -28,6 +28,7 @@ cc_library(
         "robims_query.cpp",
         "robims_simple_id_mapping.cpp",
         "robims_table.cpp",
+        "robims_table_creation.cpp",
     ],
     hdrs = [
         "robims_bsi.h",
@@ -42,9 +43,10 @@ cc_library(
         "robims_query.h",
         "robims_simple_id_mapping.h",
         "robims_table.h",
+        "robims_table_creation.h",
     ],
     includes = ["./"],
-    linkopts = ["-L/usr/local/lib64  -L/usr/local/lib -lfolly -lglog"],
+    linkopts = ["-lfolly -lglog"],
     deps = [
         ":robims_cc_proto",
         "@com_github_cameron314_concurrentqueue//:concurrentqueue",

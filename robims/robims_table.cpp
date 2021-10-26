@@ -27,11 +27,11 @@
  *THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "robims_table.h"
-#include <robims_common.h>
 #include <algorithm>
 #include <cctype>
 #include <memory>
 #include <string_view>
+#include "robims_common.h"
 #include "robims_err.h"
 #include "robims_log.h"
 #include "simdjson.h"
@@ -270,7 +270,7 @@ int RobimsTable::Load(FILE* fp) {
     ROBIMS_ERROR("Failed to parse table schema!");
     return -1;
   }
-  ROBIMS_ERROR("Load table:{}", _schema.DebugString());
+  ROBIMS_INFO("Load table:{}", _schema.DebugString());
   int rc = _id_bitmap.Load(fp);
   if (0 != rc) {
     ROBIMS_ERROR("Failed to load table id bitmap");

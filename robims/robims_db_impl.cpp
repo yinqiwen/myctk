@@ -29,14 +29,16 @@
 #include "robims_db_impl.h"
 #include <fcntl.h>
 #include <google/protobuf/util/json_util.h>
-#include <robims_common.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <string_view>
+#include "folly/String.h"
+#include "robims_common.h"
 #include "robims_log.h"
 #include "robims_simple_id_mapping.h"
+#include "robims_table_creation.h"
 
 namespace robims {
 static const uint8_t kDBSaveType = 0;
@@ -90,37 +92,37 @@ int RobimsDBImpl::Load(const std::string& file) {
     ROBIMS_ERROR("Failed to open file:{} to load robims db", file);
     return -1;
   }
-  uint8_t save_type = 0;
-  int rc = fread(&save_type, 1, 1, fp);
-  if (1 != rc) {
-    ROBIMS_ERROR("Failed to read save_type from file:{}", file);
-    fclose(fp);
+  std::string db_header_bin;
+  if (0 != file_read_string(fp, db_header_bin)) {
+    ROBIMS_ERROR("Failed to read db header");
     return -1;
   }
-  rc = 0;
-  if (kTableSaveType == save_type) {
+  DBHeader header;
+  if (!header.ParseFromString(db_header_bin)) {
+    ROBIMS_ERROR("Failed to parse DBHeader!");
+    return -1;
+  }
+
+  int rc = 0;
+  if (!header.whole_db()) {
     std::shared_ptr<RobimsDBData> db = db_data_.load();
-    std::string table_name;
-    if (0 != file_read_string(fp, table_name)) {
-      ROBIMS_ERROR("Failed to read table name from file:{}", file);
-      fclose(fp);
-      return -1;
-    }
-    auto found = db->tables.find(table_name);
-    if (found == db->tables.end()) {
-      ROBIMS_ERROR("No table found for name:{}", table_name);
-      fclose(fp);
-      return -1;
-    }
-    auto old_table = found->second.load();
-    auto new_table = CreateTableInstance(old_table->GetSchema());
-    if (!new_table) {
-      fclose(fp);
-      return -1;
-    }
-    rc = new_table->Load(fp);
-    if (0 == rc) {
-      found->second.store(new_table);
+    for (const auto& table_name : header.partial_tables()) {
+      auto found = db->tables.find(table_name);
+      if (found == db->tables.end()) {
+        ROBIMS_ERROR("No table found for name:{}", table_name);
+        fclose(fp);
+        return -1;
+      }
+      auto old_table = found->second.load();
+      auto new_table = CreateTableInstance(old_table->GetSchema());
+      if (!new_table) {
+        fclose(fp);
+        return -1;
+      }
+      rc = new_table->Load(fp);
+      if (0 == rc) {
+        found->second.store(new_table);
+      }
     }
   } else {
     std::shared_ptr<RobimsDBData> new_db(new RobimsDBData);
@@ -160,17 +162,14 @@ int RobimsDBImpl::SaveTable(const std::string& file, const std::string& table, b
     ROBIMS_ERROR("Failed to create file:{} to save robims table", file);
     return -1;
   }
-  uint8_t type = kTableSaveType;
-  int rc = fwrite(&type, 1, 1, fp);
-  if (1 != rc) {
-    ROBIMS_ERROR("Failed to write save type to file:{}", file);
-    fclose(fp);
-    return -1;
-  }
-  rc = file_write_string(fp, table_obj->GetSchema().name());
+  DBHeader header;
+  header.set_version(1);
+  header.set_whole_db(false);
+  header.add_partial_tables(table);
+  std::string header_bin = header.SerializeAsString();
+  int rc = file_write_string(fp, header_bin);
   if (0 != rc) {
-    ROBIMS_ERROR("Failed to write save table name to file:{}", file);
-    fclose(fp);
+    ROBIMS_ERROR("Failed to write save db header to file:{}", file);
     return -1;
   }
   rc = table_obj->Save(fp, readonly);
@@ -184,10 +183,13 @@ int RobimsDBImpl::Save(const std::string& file, bool readonly) {
     ROBIMS_ERROR("Failed to create file:{} to save robims db", file);
     return -1;
   }
-  uint8_t type = kDBSaveType;
-  int rc = fwrite(&type, 1, 1, fp);
-  if (1 != rc) {
-    ROBIMS_ERROR("Failed to write save type to file:{}", file);
+  DBHeader header;
+  header.set_version(1);
+  header.set_whole_db(true);
+  std::string header_bin = header.SerializeAsString();
+  int rc = file_write_string(fp, header_bin);
+  if (0 != rc) {
+    ROBIMS_ERROR("Failed to write save db header to file:{}", file);
     return -1;
   }
 
@@ -251,13 +253,11 @@ int RobimsDBImpl::CreateTable(const TableSchema& table_schema) {
 
 int RobimsDBImpl::CreateTable(const std::string& schema) {
   TableSchema table_schema;
-  google::protobuf::util::JsonParseOptions opt;
-  opt.ignore_unknown_fields = true;
-  auto rc = google::protobuf::util::JsonStringToMessage(schema, &table_schema, opt);
-  if (!rc.ok()) {
-    ROBIMS_ERROR("Table schema parse from json failed:{}", rc.ToString());
-    return -1;
+  int rc = parse_talbe_creation_desc(schema, table_schema);
+  if (0 != rc) {
+    return rc;
   }
+  ROBIMS_INFO("parsed schema:{} from {}", table_schema.DebugString(), schema);
   return CreateTable(table_schema);
 }
 RobimsTable* RobimsDBImpl::GetTable(const std::string& table) {
@@ -297,7 +297,6 @@ int RobimsDBImpl::Select(const std::string& query, int64_t offset, int64_t limit
     offset = 0;
   }
   result.ids.clear();
-  result.offset = 0;
   result.total = 0;
   folly::SharedMutex::ReadHolder lock(shared_mutex_);
   std::shared_ptr<RobimsDBData> db = db_data_.load();
@@ -320,13 +319,22 @@ int RobimsDBImpl::Select(const std::string& query, int64_t offset, int64_t limit
   RobimsQueryValue val = query_obj->Execute(this);
   CRoaringBitmapPtr* bitmap = std::get_if<CRoaringBitmapPtr>(&val);
   if (nullptr != bitmap) {
+    result.total = roaring_bitmap_get_cardinality(bitmap->get());
     std::vector<uint32_t> local_ids;
     local_ids.resize(limit);
+    // if (offset > 0) {
+    //   uint32_t element;
+    //   if (!roaring_bitmap_select(bitmap->get(), offset, &element)) {
+    //     //ROBIMS_ERROR("Failed to select {} from bitmap while card:{}", offset, result.total);
+    //     return 0;
+    //   }
+    // }
+    // ROBIMS_ERROR("Range bitmap from:{}", offset);
     if (!roaring_bitmap_range_uint32_array(bitmap->get(), offset, limit, &local_ids[0])) {
       ROBIMS_ERROR("Failed to extract ids");
       return -1;
     }
-    result.total = roaring_bitmap_get_cardinality(bitmap->get());
+
     for (size_t i = 0; i < local_ids.size(); i++) {
       if (0 == local_ids[i]) {
         if (i > 0) {
@@ -347,7 +355,7 @@ int RobimsDBImpl::Select(const std::string& query, int64_t offset, int64_t limit
       } else {
         result.ids.push_back(id);
       }
-      result.offset = local_ids[i];
+      // result.offset = local_ids[i];
     }
     return 0;
   } else {
