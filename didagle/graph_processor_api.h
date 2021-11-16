@@ -525,6 +525,22 @@ using namespace didagle;
       });                                                                                 \
   size_t __reset_PARAMS_##name##_code = AddResetFunc([this]() { PARAMS_##name = val; });
 
+#define GRAPH_PARAMS_string_vector(name, val, txt)                                            \
+  std::vector<didagle::ParamsString> PARAMS_##name;                                           \
+  size_t __PARAMS_##name##_code =                                                             \
+      RegisterParam(BOOST_PP_STRINGIZE(name), "vector<string>", BOOST_PP_STRINGIZE(val), txt, \
+                    [this](const didagle::Params& args) {                                     \
+                      if (args.Contains(BOOST_PP_STRINGIZE(name))) {                          \
+                        PARAMS_##name.clear();                                                \
+                        const auto& member = args[BOOST_PP_STRINGIZE(name)];                  \
+                        for (size_t i = 0; i < member.Size(); i++) {                          \
+                          PARAMS_##name.emplace_back(member[i].String());                     \
+                        }                                                                     \
+                      }                                                                       \
+                    });                                                                       \
+  size_t __reset_PARAMS_##name##_code =                                                       \
+      AddResetFunc([this]() { PARAMS_##name = BOOST_PP_REMOVE_PARENS(val); });
+
 #define GRAPH_PARAMS_int(name, val, txt)                                           \
   int64_t PARAMS_##name = val;                                                     \
   size_t __PARAMS_##name##_code =                                                  \
@@ -535,6 +551,22 @@ using namespace didagle;
                       }                                                            \
                     });                                                            \
   size_t __reset_PARAMS_##name##_code = AddResetFunc([this]() { PARAMS_##name = val; });
+
+#define GRAPH_PARAMS_int_vector(name, val, txt)                                            \
+  std::vector<int64_t> PARAMS_##name;                                                      \
+  size_t __PARAMS_##name##_code =                                                          \
+      RegisterParam(BOOST_PP_STRINGIZE(name), "vector<int>", BOOST_PP_STRINGIZE(val), txt, \
+                    [this](const didagle::Params& args) {                                  \
+                      if (args.Contains(BOOST_PP_STRINGIZE(name))) {                       \
+                        PARAMS_##name.clear();                                             \
+                        const auto& member = args[BOOST_PP_STRINGIZE(name)];               \
+                        for (size_t i = 0; i < member.Size(); i++) {                       \
+                          PARAMS_##name.emplace_back(member[i].Int());                     \
+                        }                                                                  \
+                      }                                                                    \
+                    });                                                                    \
+  size_t __reset_PARAMS_##name##_code =                                                    \
+      AddResetFunc([this]() { PARAMS_##name = BOOST_PP_REMOVE_PARENS(val); });
 
 #define GRAPH_PARAMS_bool(name, val, txt)                                           \
   bool PARAMS_##name = val;                                                         \
@@ -547,6 +579,22 @@ using namespace didagle;
                     });                                                             \
   size_t __reset_PARAMS_##name##_code = AddResetFunc([this]() { PARAMS_##name = val; });
 
+#define GRAPH_PARAMS_bool_vector(name, val, txt)                                           \
+  std::vector<bool> PARAMS_##name;                                                         \
+  size_t __PARAMS_##name##_code =                                                          \
+      RegisterParam(BOOST_PP_STRINGIZE(name), "vector<int>", BOOST_PP_STRINGIZE(val), txt, \
+                    [this](const didagle::Params& args) {                                  \
+                      if (args.Contains(BOOST_PP_STRINGIZE(name))) {                       \
+                        PARAMS_##name.clear();                                             \
+                        const auto& member = args[BOOST_PP_STRINGIZE(name)];               \
+                        for (size_t i = 0; i < member.Size(); i++) {                       \
+                          PARAMS_##name.emplace_back(member[i].Bool());                    \
+                        }                                                                  \
+                      }                                                                    \
+                    });                                                                    \
+  size_t __reset_PARAMS_##name##_code =                                                    \
+      AddResetFunc([this]() { PARAMS_##name = BOOST_PP_REMOVE_PARENS(val); });
+
 #define GRAPH_PARAMS_double(name, val, txt)                                           \
   double PARAMS_##name = val;                                                         \
   size_t __PARAMS_##name##_code =                                                     \
@@ -557,3 +605,19 @@ using namespace didagle;
                       }                                                               \
                     });                                                               \
   size_t __reset_PARAMS_##name##_code = AddResetFunc([this]() { PARAMS_##name = val; });
+
+#define GRAPH_PARAMS_double_vector(name, val, txt)                                            \
+  std::vector<double> PARAMS_##name;                                                          \
+  size_t __PARAMS_##name##_code =                                                             \
+      RegisterParam(BOOST_PP_STRINGIZE(name), "vector<double>", BOOST_PP_STRINGIZE(val), txt, \
+                    [this](const didagle::Params& args) {                                     \
+                      if (args.Contains(BOOST_PP_STRINGIZE(name))) {                          \
+                        PARAMS_##name.clear();                                                \
+                        const auto& member = args[BOOST_PP_STRINGIZE(name)];                  \
+                        for (size_t i = 0; i < member.Size(); i++) {                          \
+                          PARAMS_##name.emplace_back(member[i].Double());                     \
+                        }                                                                     \
+                      }                                                                       \
+                    });                                                                       \
+  size_t __reset_PARAMS_##name##_code =                                                       \
+      AddResetFunc([this]() { PARAMS_##name = BOOST_PP_REMOVE_PARENS(val); });

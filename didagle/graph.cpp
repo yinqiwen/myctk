@@ -164,6 +164,10 @@ int Graph::Build() {
   if (TestCircle()) {
     return -1;
   }
+  if (_nodes.empty() && _gen_vertex.empty()) {
+    DIDAGLE_ERROR("Empty graph:{} with none vertex", name);
+    return -1;
+  }
   return 0;
 }
 int Graph::DumpDot(std::string &s) {
@@ -283,6 +287,7 @@ void GraphCluster::ReleaseContext(GraphClusterContext *p) {
 }
 
 GraphCluster::~GraphCluster() {
+  DIDAGLE_DEBUG("Destory GraphCluster");
   GraphClusterContext *ctx = nullptr;
   while (_graph_cluster_context_pool.try_pop(ctx)) {
     delete ctx;
@@ -317,11 +322,12 @@ std::shared_ptr<GraphCluster> GraphManager::Load(const std::string &file) {
     DIDAGLE_ERROR("Failed to build toml script:{}", file);
     return nullptr;
   }
-  auto &&[itr, success] = _graphs.emplace(std::move(name), g);
-  if (!success) {
-    const auto &graph_ptr = itr->second;
-    const_cast<folly::atomic_shared_ptr<GraphCluster> &>(graph_ptr).store(g);
-  }
+  _graphs.insert_or_assign(std::move(name), g);
+  // auto &&[itr, success] = _graphs.emplace(std::move(name), g);
+  // if (!success) {
+  //   const auto &graph_ptr = itr->second;
+  //   const_cast<folly::atomic_shared_ptr<GraphCluster> &>(graph_ptr).store(g);
+  // }
   return g;
 }
 std::shared_ptr<GraphCluster> GraphManager::FindGraphClusterByName(const std::string &name) {
@@ -367,9 +373,11 @@ int GraphManager::Execute(GraphDataContextPtr &data_ctx, const std::string &clus
   }
   ctx->SetExternGraphDataContext(data_ctx.get());
   ctx->SetExecuteParams(params);
-  auto graph_done = [ctx, done](int code) {
+  std::shared_ptr<GraphCluster> runing_cluster = ctx->GetRunningCluster();
+  auto graph_done = [ctx, runing_cluster, done](int code) mutable {
     done(code);
     ctx->GetCluster()->ReleaseContext(ctx);
+    runing_cluster.reset();  // make the binding GraphCluster release last
     // DIDAGLE_DEBUG("#####0  {}", (uintptr_t)ctx);
   };
   GraphContext *graph_ctx = nullptr;

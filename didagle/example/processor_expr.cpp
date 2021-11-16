@@ -26,13 +26,14 @@ int OnSetup(const Params& args) override {
       dynamic_vars = &((*dynamic_vars)[name]);
     }
     ssexpr::Value r;
-    if (dynamic_vars->Int() > 0) {
+    if (dynamic_vars->IsInt()) {
       r = dynamic_vars->Int();
-    } else if (dynamic_vars->Double() > 0) {
+    } else if (dynamic_vars->IsDouble()) {
       r = dynamic_vars->Double();
-    } else if (dynamic_vars->Bool()) {
+    } else if (dynamic_vars->IsBool()) {
       r = dynamic_vars->Bool();
-    } else if (!dynamic_vars->String().empty()) {
+      DIDAGLE_DEBUG("####{} {}", args[0], dynamic_vars->Bool());
+    } else if (dynamic_vars->IsString()) {
       r = dynamic_vars->String();
     } else {
       bool rv = false;

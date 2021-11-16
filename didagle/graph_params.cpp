@@ -53,37 +53,37 @@ void Params::SetParent(const Params* p) {
 }
 bool Params::Valid() const { return !invalid; }
 bool Params::IsBool() const {
-  if (!invalid) {
+  if (invalid) {
     return false;
   }
   return _param_type == PARAM_BOOL;
 }
 bool Params::IsString() const {
-  if (!invalid) {
+  if (invalid) {
     return false;
   }
   return _param_type == PARAM_STRING;
 }
 bool Params::IsDouble() const {
-  if (!invalid) {
+  if (invalid) {
     return false;
   }
   return _param_type == PARAM_DOUBLE;
 }
 bool Params::IsInt() const {
-  if (!invalid) {
+  if (invalid) {
     return false;
   }
   return _param_type == PARAM_INT;
 }
 bool Params::IsObject() const {
-  if (!invalid) {
+  if (invalid) {
     return false;
   }
   return _param_type == PARAM_OBJECT;
 }
 bool Params::IsArray() const {
-  if (!invalid) {
+  if (invalid) {
     return false;
   }
   return _param_type == PARAM_ARRAY;
@@ -93,30 +93,18 @@ int64_t Params::Int() const { return iv; }
 bool Params::Bool() const { return bv; }
 double Params::Double() const { return dv; }
 void Params::SetString(const ParamsString& v) {
-  if (invalid) {
-    return;
-  }
   str = v;
   _param_type = PARAM_STRING;
 }
 void Params::SetInt(int64_t v) {
-  if (invalid) {
-    return;
-  }
   iv = v;
   _param_type = PARAM_INT;
 }
 void Params::SetDouble(double d) {
-  if (invalid) {
-    return;
-  }
   dv = d;
   _param_type = PARAM_DOUBLE;
 }
 void Params::SetBool(bool v) {
-  if (invalid) {
-    return;
-  }
   bv = v;
   _param_type = PARAM_BOOL;
 }

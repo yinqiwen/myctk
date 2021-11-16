@@ -82,9 +82,11 @@ void VertexContext::Reset() {
   }
   _subgraph_ctx = nullptr;
   if (nullptr != _subgraph_cluster) {
+    std::shared_ptr<GraphCluster> runing_cluster = _subgraph_cluster->GetRunningCluster();
     _subgraph_cluster->Reset();
     _subgraph_cluster->GetCluster()->ReleaseContext(_subgraph_cluster);
     _subgraph_cluster = nullptr;
+    runing_cluster.reset();
   }
 
   for (auto &args : _select_params) {
@@ -446,7 +448,6 @@ GraphContext *GraphClusterContext::GetRunGraph(const std::string &name) {
 }
 void GraphClusterContext::Reset() {
   _exec_params = nullptr;
-  _running_cluster.reset();
   if (nullptr != _running_graph) {
     _running_graph->Reset();
     _running_graph = nullptr;
@@ -463,6 +464,7 @@ void GraphClusterContext::Reset() {
   //   sub_graph->Reset();
   // }
   //_done = 0;
+  _running_cluster.reset();
 }
 int GraphClusterContext::Setup(GraphCluster *c) {
   _cluster = c;
@@ -518,8 +520,15 @@ int GraphClusterContext::Execute(const std::string &graph, DoneClosure &&done,
     for (const auto &input_id : p->GetInputIds()) {
       p->InjectInputField(g->GetGraphDataContextRef(), input_id.name, input_id.name, false);
     }
-    Params args;
-    if (0 != p->Execute(args)) {
+
+    int eval_rc = 0;
+    if (nullptr != _exec_params) {
+      eval_rc = p->Execute(*_exec_params);
+    } else {
+      Params args;
+      eval_rc = p->Execute(args);
+    }
+    if (0 != eval_rc) {
       _config_settings[i].result = 0;
     } else {
       _config_settings[i].result = 1;
@@ -528,7 +537,7 @@ int GraphClusterContext::Execute(const std::string &graph, DoneClosure &&done,
     // DIDAGLE_DEBUG("Set config setting:{} to {}",
     // _cluster->config_setting[i].var, *v);
     if (*v) {
-      data_ctx.Set<bool>(_cluster->config_setting[i].name, v);
+      data_ctx.Set(_cluster->config_setting[i].name, v);
     }
   }
   /**

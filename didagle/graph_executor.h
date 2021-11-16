@@ -133,6 +133,7 @@ class GraphClusterContext {
   GraphCluster *GetCluster() { return _cluster; }
   GraphContext *GetRunGraph(const std::string &name);
   void SetRunningCluster(std::shared_ptr<GraphCluster> c) { _running_cluster = c; }
+  std::shared_ptr<GraphCluster> GetRunningCluster() { return _running_cluster; }
   int Setup(GraphCluster *c);
   void Reset();
   int Execute(const std::string &graph, DoneClosure &&done, GraphContext *&graph_ctx);

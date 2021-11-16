@@ -28,10 +28,10 @@
  */
 #include "robims_common.h"
 #include <arpa/inet.h>
+#include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <cstdlib>
 #include "robims_cache.h"
 #include "robims_log.h"
 
@@ -129,7 +129,7 @@ int RoaringBitmap::Load(FILE* fp) {
     return -1;
   }
   _readonly = readonly;
-  char* mbuf = (char*)(std::aligned_alloc(32, n));
+  char* mbuf = (char*)(::aligned_alloc(32, n));
   rc = fread(mbuf, n, 1, fp);
   if (rc != 1) {
     ROBIMS_ERROR("Failed to read bitmap buf data");

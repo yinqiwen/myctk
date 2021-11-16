@@ -1,55 +1,68 @@
 strict_dsl = false #aaa
 default_expr_processor = "expr_phase"
 
+[[config_setting]]
+name = "with_exp_1000"
+cond = '$expid==1000'
+[[config_setting]]
+name = "with_exp_1001"
+cond = '$expid==1001'
 
-[[graph]]
-# 若processor的member名能自动关联，则配置无需定义input/output, 能自动关联
-name = "recall_main"
-[[graph.vertex]]
-expect="$x==1"
-id = "recall_1"
-cluster = "recall_test.toml"
-graph = "recall_1"
-[[graph.vertex]]
-id = "recall_2"
-cluster = "recall_test.toml"
-graph = "recall_2"
-[[graph.vertex]]
-id = "recall_merge"
-cluster = "recall_test.toml"
-graph = "recall_merge"
-deps = ["recall_1", "recall_2"] 
-[[graph.vertex]]
-id = "recall_filter"
-cluster = "recall_test.toml"
-graph = "recall_filter"
-deps = ["recall_merge"] 
+# [[graph]]
+# # 若processor的member名能自动关联，则配置无需定义input/output, 能自动关联
+# name = "recall_main"
+# [[graph.vertex]]
+# expect="$x==1"
+# id = "recall_1"
+# cluster = "recall_test.toml"
+# graph = "recall_1"
+# [[graph.vertex]]
+# id = "recall_2"
+# cluster = "recall_test.toml"
+# graph = "recall_2"
+# [[graph.vertex]]
+# id = "recall_merge"
+# cluster = "recall_test.toml"
+# graph = "recall_merge"
+# deps = ["recall_1", "recall_2"] 
+# [[graph.vertex]]
+# id = "recall_filter"
+# cluster = "recall_test.toml"
+# graph = "recall_filter"
+# deps = ["recall_merge"] 
 
 [[graph]]
 name = "recall_1"
 [[graph.vertex]]
 start = true
 processor = "recall_1"
+args= {vec1=[101,223, 334], vec2=[100.1, 200.3, 300.4], vec3=["test1", "test2", "test3"]}
 
 [[graph]]
 name = "recall_2"
 [[graph.vertex]]
 start = true
+# expect = "$A==true"
 processor = "recall_2"
+select_args = [
+    { match = "with_exp_1000", args = { abc = "hello1", xyz = "aaa" } },
+    { match = "with_exp_1001", args = { abc = "hello2", xyz = "bbb" } },
+]
+args = { abc = "default", xyz = "zzz" }
 
-[[graph]]
-name = "recall_merge"
-[[graph.vertex]]
-start = true
-processor = "recall_merge"
-input=[{field="r1", extern = true}, {field="r2", extern = true},{field="r3", extern = true}]
+# [[graph]]
+# name = "recall_merge"
+# [[graph.vertex]]
+# start = true
+# processor = "recall_merge"
+# input=[{field="r1", extern = true}, {field="r2", extern = true},{field="r3", extern = true}]
 
-[[graph]]
-name = "recall_filter"
-[[graph.vertex]]
-start = true
-processor = "recall_filter"
-input=[{field="merge_out", id="merge_out", extern = true}]
+# [[graph]]
+# name = "recall_filter"
+# [[graph.vertex]]
+# start = true
+# processor = "recall_filter"
+# input=[{field="merge_out", id="merge_out", extern = true}]
 
 
 
