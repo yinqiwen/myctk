@@ -376,15 +376,18 @@ inline void addJsonMember(rapidjson::Value &json, rapidjson::Value::AllocatorTyp
 
 template <typename T>
 inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
-                      const char *name, const T &v) {
+                      const char *name, const T &v, bool ignore_default) {
   rapidjson::Value json_value(rapidjson::kObjectType);
-  v.WriteToJson(json_value, allocator);
+  v.WriteToJson(json_value, allocator, ignore_default);
   addJsonMember(json, allocator, name, json_value);
 }
 
 template <>
 inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
-                      const char *name, const double &v) {
+                      const char *name, const double &v, bool ignore_default) {
+  if (ignore_default && 0 == v) {
+    return;
+  }
   rapidjson::Value json_value(rapidjson::kNumberType);
   json_value.SetDouble(v);
   addJsonMember(json, allocator, name, json_value);
@@ -392,27 +395,39 @@ inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &a
 
 template <>
 inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
-                      const char *name, const float &v) {
+                      const char *name, const float &v, bool ignore_default) {
+  if (ignore_default && 0 == v) {
+    return;
+  }
   rapidjson::Value json_value(rapidjson::kNumberType);
   json_value.SetDouble(v);
   addJsonMember(json, allocator, name, json_value);
 }
 template <>
 inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
-                      const char *name, const std::string &v) {
+                      const char *name, const std::string &v, bool ignore_default) {
+  if (ignore_default && v.empty()) {
+    return;
+  }
   rapidjson::Value json_value(v.c_str(), v.size(), allocator);
   addJsonMember(json, allocator, name, json_value);
 }
 template <>
 inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
-                      const char *name, const bool &v) {
+                      const char *name, const bool &v, bool ignore_default) {
+  if (ignore_default && !v) {
+    return;
+  }
   rapidjson::Value json_value(rapidjson::kNumberType);
   json_value.SetBool(v);
   addJsonMember(json, allocator, name, json_value);
 }
 template <>
 inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
-                      const char *name, const uint64_t &v) {
+                      const char *name, const uint64_t &v, bool ignore_default) {
+  if (ignore_default && 0 == v) {
+    return;
+  }
   rapidjson::Value json_value(rapidjson::kNumberType);
   json_value.SetUint64(v);
   addJsonMember(json, allocator, name, json_value);
@@ -420,7 +435,10 @@ inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &a
 
 template <>
 inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
-                      const char *name, const int64_t &v) {
+                      const char *name, const int64_t &v, bool ignore_default) {
+  if (ignore_default && 0 == v) {
+    return;
+  }
   rapidjson::Value json_value(rapidjson::kNumberType);
   json_value.SetInt64(v);
   addJsonMember(json, allocator, name, json_value);
@@ -428,97 +446,97 @@ inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &a
 
 template <>
 inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
-                      const char *name, const int32_t &v) {
+                      const char *name, const int32_t &v, bool ignore_default) {
   int64_t vv = v;
-  Serialize(json, allocator, name, vv);
+  Serialize(json, allocator, name, vv, ignore_default);
 }
 template <>
 inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
-                      const char *name, const uint32_t &v) {
+                      const char *name, const uint32_t &v, bool ignore_default) {
   uint64_t vv = v;
-  Serialize(json, allocator, name, vv);
+  Serialize(json, allocator, name, vv, ignore_default);
 }
 template <>
 inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
-                      const char *name, const int16_t &v) {
+                      const char *name, const int16_t &v, bool ignore_default) {
   int64_t vv = v;
-  Serialize(json, allocator, name, vv);
+  Serialize(json, allocator, name, vv, ignore_default);
 }
 template <>
 inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
-                      const char *name, const uint16_t &v) {
+                      const char *name, const uint16_t &v, bool ignore_default) {
   uint64_t vv = v;
-  Serialize(json, allocator, name, vv);
+  Serialize(json, allocator, name, vv, ignore_default);
 }
 template <>
 inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
-                      const char *name, const int8_t &v) {
+                      const char *name, const int8_t &v, bool ignore_default) {
   int64_t vv = v;
-  Serialize(json, allocator, name, vv);
+  Serialize(json, allocator, name, vv, ignore_default);
 }
 template <>
 inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
-                      const char *name, const uint8_t &v) {
+                      const char *name, const uint8_t &v, bool ignore_default) {
   uint64_t vv = v;
-  Serialize(json, allocator, name, vv);
+  Serialize(json, allocator, name, vv, ignore_default);
 }
 
 template <typename K>
 inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
-                      const char *name, const std::vector<K> &v);
+                      const char *name, const std::vector<K> &v, bool ignore_default);
 
 template <typename V>
 inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
-                      const char *name, const std::map<std::string, V> &v) {
+                      const char *name, const std::map<std::string, V> &v, bool ignore_default) {
   rapidjson::Value json_value(rapidjson::kObjectType);
   typename std::map<std::string, V>::const_iterator it = v.begin();
   while (it != v.end()) {
     const V &vv = it->second;
-    Serialize(json_value, allocator, it->first.c_str(), vv);
+    Serialize(json_value, allocator, it->first.c_str(), vv, false);
     it++;
   }
   addJsonMember(json, allocator, name, json_value);
 }
 template <typename K>
 inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
-                      const char *name, const std::deque<K> &v) {
+                      const char *name, const std::deque<K> &v, bool ignore_default) {
   rapidjson::Value json_value(rapidjson::kArrayType);
   for (size_t i = 0; i < v.size(); i++) {
     const K &vv = v[i];
-    Serialize(json_value, allocator, "", vv);
+    Serialize(json_value, allocator, "", vv, false);
   }
   addJsonMember(json, allocator, name, json_value);
 }
 template <typename K>
 inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
-                      const char *name, const std::vector<K> &v) {
+                      const char *name, const std::vector<K> &v, bool ignore_default) {
   rapidjson::Value json_value(rapidjson::kArrayType);
   for (size_t i = 0; i < v.size(); i++) {
     const K &vv = v[i];
-    Serialize(json_value, allocator, "", vv);
+    Serialize(json_value, allocator, "", vv, false);
   }
   addJsonMember(json, allocator, name, json_value);
 }
 template <typename K>
 inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
-                      const char *name, const std::list<K> &v) {
+                      const char *name, const std::list<K> &v, bool ignore_default) {
   rapidjson::Value json_value(rapidjson::kArrayType);
   typename std::list<K>::const_iterator cit = v.begin();
   while (cit != v.end()) {
     const K &vv = *cit;
-    Serialize(json_value, allocator, "", vv);
+    Serialize(json_value, allocator, "", vv, false);
     cit++;
   }
   addJsonMember(json, allocator, name, json_value);
 }
 template <typename K>
 inline void Serialize(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
-                      const char *name, const std::set<K> &v) {
+                      const char *name, const std::set<K> &v, bool ignore_default) {
   rapidjson::Value json_value(rapidjson::kArrayType);
   typename std::set<K>::const_iterator cit = v.begin();
   while (cit != v.end()) {
     const K &vv = *cit;
-    Serialize(json_value, allocator, "", vv);
+    Serialize(json_value, allocator, "", vv, false);
     cit++;
   }
   addJsonMember(json, allocator, name, json_value);
@@ -562,11 +580,12 @@ inline bool ParseFromJsonFile(const std::string &file, T &v) {
 }
 
 template <typename T>
-inline int WriteToJsonString(const T &v, std::string &content, bool pretty = false) {
+inline int WriteToJsonString(const T &v, std::string &content, bool pretty = false,
+                             bool ignore_default = true) {
   rapidjson::Value::AllocatorType allocator;
   rapidjson::Value doc(rapidjson::kObjectType);
   // v.WriteToJson(doc, allocator);
-  Serialize(doc, allocator, NULL, v);
+  Serialize(doc, allocator, NULL, v, ignore_default);
   rapidjson::StringBuffer buffer;
   if (pretty) {
     rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
@@ -1414,13 +1433,14 @@ inline int WriteToJsonFile(const T &v, const std::string &file, bool pretty = fa
 #define KCFG_FOR_EACH(what, ...) KCFG_FOR_EACH_(KCFG_NARG_(__VA_ARGS__), what, __VA_ARGS__)
 #define KCFG_PARSE_JSON(field) kcfg::Parse(json, kcfg::GetFieldName(this, #field), field)
 #define KCFG_SERIALIZE_JSON(field) \
-  kcfg::Serialize(json, allocator, kcfg::GetFieldName(this, #field), field)
+  kcfg::Serialize(json, allocator, kcfg::GetFieldName(this, #field), field, ignore_default)
 //#define PRN_FIELD(field)  printf("%s\n", #field)
-#define KCFG_DEFINE_FIELDS(...)                                                                \
-  bool PraseFromJson(const rapidjson::Value &json) {                                           \
-    KCFG_FOR_EACH(KCFG_PARSE_JSON, __VA_ARGS__)                                                \
-    return true;                                                                               \
-  }                                                                                            \
-  void WriteToJson(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator) const { \
-    KCFG_FOR_EACH(KCFG_SERIALIZE_JSON, __VA_ARGS__)                                            \
+#define KCFG_DEFINE_FIELDS(...)                                                        \
+  bool PraseFromJson(const rapidjson::Value &json) {                                   \
+    KCFG_FOR_EACH(KCFG_PARSE_JSON, __VA_ARGS__)                                        \
+    return true;                                                                       \
+  }                                                                                    \
+  void WriteToJson(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator, \
+                   bool ignore_default) const {                                        \
+    KCFG_FOR_EACH(KCFG_SERIALIZE_JSON, __VA_ARGS__)                                    \
   }
