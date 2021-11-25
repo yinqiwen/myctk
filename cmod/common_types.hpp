@@ -100,7 +100,8 @@ typedef SHMHashMap<SHMString, VoidPtr>::Type NamingTable;
 struct Base64Value : public SHMString {
   void Copy(const Base64Value &src);
   bool PraseFromJson(const rapidjson::Value &json);
-  void WriteToJson(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator) const;
+  void WriteToJson(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
+                   bool ignore_default) const;
 };
 
 template <typename T>
@@ -131,7 +132,8 @@ struct FlatBuffersValue : public SHMString {
     delete p;
     return true;
   }
-  void WriteToJson(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator) const {
+  void WriteToJson(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
+                   bool ignore_default) const {
     const char *schema = T::schema;
     flatbuffers::Parser *p = GetFlatBufferParser(schema);
     if (nullptr == p) {
@@ -344,9 +346,12 @@ inline void StructCopy(cmod_robin_hood::unordered_node_map<K, V> &dst,
 template <typename K>
 inline void StructCopy(boost::container::vector<K, cmod::Allocator<K>> &dst,
                        const boost::container::vector<K, cmod::Allocator<K>> &src) {
-  dst.resize(src.size());
+  //dst.resize(src.size());
   for (size_t i = 0; i < src.size(); i++) {
-    StructCopy(dst[i], src[i]);
+    SHMConstructor<K> key(dst.get_allocator());
+    StructCopy(key.value, src[i]);
+    dst.emplace_back(std::move(key.value));
+    //StructCopy(dst[i], src[i]);
   }
 }
 

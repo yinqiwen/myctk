@@ -105,8 +105,8 @@ bool Base64Value::PraseFromJson(const rapidjson::Value &json) {
   this->assign(tmp2.data(), tmp2.size());
   return true;
 }
-void Base64Value::WriteToJson(rapidjson::Value &json,
-                              rapidjson::Value::AllocatorType &allocator) const {
+void Base64Value::WriteToJson(rapidjson::Value &json, rapidjson::Value::AllocatorType &allocator,
+                              bool ignore_default) const {
   std::string tmp = b64_encode(data(), size());
   json.SetString(tmp.data(), tmp.size());
 }
