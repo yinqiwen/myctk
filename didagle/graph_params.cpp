@@ -213,7 +213,15 @@ Params& Params::operator[](size_t idx) {
   param_array.resize(idx + 1);
   return param_array[idx];
 }
-bool Params::Contains(const ParamsString& name) const { return params.count(name) > 0; }
+bool Params::Contains(const ParamsString& name) const {
+  if (params.count(name) > 0) {
+    return true;
+  }
+  if (nullptr != parent) {
+    return parent->Contains(name);
+  }
+  return false;
+}
 void Params::Insert(const Params& other) {
   _param_type = PARAM_OBJECT;
   for (auto& kv : other.Members()) {

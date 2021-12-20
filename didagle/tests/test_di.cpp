@@ -1,3 +1,6 @@
+// Copyright (c) 2021, Tencent Inc.
+// All rights reserved.
+
 #include <gtest/gtest.h>
 #include <stdint.h>
 #include <string>

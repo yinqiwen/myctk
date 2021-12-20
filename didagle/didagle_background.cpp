@@ -26,27 +26,22 @@
  *ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  *THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "didagle_log.h"
-#include "graph_processor_api.h"
+#include "didagle_background.h"
 
-GRAPH_OP_BEGIN(recall_merge)
-GRAPH_OP_INPUT((std::string), r2)
-GRAPH_OP_INPUT((std::string), r1)
-GRAPH_OP_MAP_INPUT(std::string, r3)
-GRAPH_OP_OUTPUT((std::string), merge_out)
-int OnSetup(const didagle::Params& args) override { return 0; }
-int OnExecute(const didagle::Params& args) override {
-  if (nullptr == r1) {
-    DIDAGLE_DEBUG("nullptr r1");
-  } else {
-    DIDAGLE_DEBUG("r1:{}", *r1);
-  }
-  if (nullptr == r2) {
-    DIDAGLE_DEBUG("nullptr r2");
-  } else {
-    DIDAGLE_DEBUG("r2:{}", *r2);
-  }
-  merge_out = "merge_out";
-  return 0;
+#include <utility>
+
+#include "folly/Singleton.h"
+
+namespace {
+struct PrivateTag {};
+}  // namespace
+namespace didagle {
+static folly::Singleton<AsyncResetWorker, PrivateTag> the_singleton;
+std::shared_ptr<AsyncResetWorker> AsyncResetWorker::GetInstance() {
+  return the_singleton.try_get();
 }
-GRAPH_OP_END
+AsyncResetWorker::AsyncResetWorker() {
+  executor_ = std::make_unique<folly::CPUThreadPoolExecutor>(2);
+}
+void AsyncResetWorker::Post(folly::Func&& func) { executor_->add(std::move(func)); }
+}  // namespace didagle

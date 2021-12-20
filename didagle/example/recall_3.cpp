@@ -29,24 +29,19 @@
 #include "didagle_log.h"
 #include "graph_processor_api.h"
 
-GRAPH_OP_BEGIN(recall_merge)
-GRAPH_OP_INPUT((std::string), r2)
-GRAPH_OP_INPUT((std::string), r1)
-GRAPH_OP_MAP_INPUT(std::string, r3)
-GRAPH_OP_OUTPUT((std::string), merge_out)
+GRAPH_OP_BEGIN(recall_3)
+GRAPH_OP_IN_OUT((std::string), abc)
+GRAPH_OP_MAP_INPUT((std::string), ms)
 int OnSetup(const didagle::Params& args) override { return 0; }
 int OnExecute(const didagle::Params& args) override {
-  if (nullptr == r1) {
-    DIDAGLE_DEBUG("nullptr r1");
+  if (nullptr == abc) {
+    DIDAGLE_DEBUG("empty abc");
   } else {
-    DIDAGLE_DEBUG("r1:{}", *r1);
+    DIDAGLE_DEBUG("abc = {}", *abc);
   }
-  if (nullptr == r2) {
-    DIDAGLE_DEBUG("nullptr r2");
-  } else {
-    DIDAGLE_DEBUG("r2:{}", *r2);
-  }
-  merge_out = "merge_out";
+
+  DIDAGLE_DEBUG("map size={}", ms.size());
+
   return 0;
 }
 GRAPH_OP_END

@@ -26,27 +26,20 @@
  *ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  *THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "didagle_log.h"
-#include "graph_processor_api.h"
 
-GRAPH_OP_BEGIN(recall_merge)
-GRAPH_OP_INPUT((std::string), r2)
-GRAPH_OP_INPUT((std::string), r1)
-GRAPH_OP_MAP_INPUT(std::string, r3)
-GRAPH_OP_OUTPUT((std::string), merge_out)
-int OnSetup(const didagle::Params& args) override { return 0; }
-int OnExecute(const didagle::Params& args) override {
-  if (nullptr == r1) {
-    DIDAGLE_DEBUG("nullptr r1");
-  } else {
-    DIDAGLE_DEBUG("r1:{}", *r1);
-  }
-  if (nullptr == r2) {
-    DIDAGLE_DEBUG("nullptr r2");
-  } else {
-    DIDAGLE_DEBUG("r2:{}", *r2);
-  }
-  merge_out = "merge_out";
-  return 0;
-}
-GRAPH_OP_END
+#pragma once
+#include <memory>
+
+#include "folly/executors/CPUThreadPoolExecutor.h"
+namespace didagle {
+
+class AsyncResetWorker {
+ private:
+  std::unique_ptr<folly::CPUThreadPoolExecutor> executor_;
+
+ public:
+  static std::shared_ptr<AsyncResetWorker> GetInstance();
+  AsyncResetWorker();
+  void Post(folly::Func&& func);
+};
+}  // namespace didagle

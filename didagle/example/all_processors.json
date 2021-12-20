@@ -1,6 +1,8 @@
 [
     {
         "name": "recall_merge",
+        "desc": "Empty Description",
+        "isIOProcessor": false,
         "input": [
             {
                 "type": "std::string",
@@ -36,19 +38,33 @@
         "output": [
             {
                 "type": "std::string",
-                "name": "r3",
-                "id": 98766,
+                "name": "merge_out",
+                "id": 98765,
                 "flags": {
                     "is_extern": 0,
                     "is_aggregate": 0,
                     "is_in_out": 0
                 }
             }
-        ]
+        ],
+        "params": []
     },
     {
         "name": "recall_2",
-        "input": [],
+        "desc": "Empty Description",
+        "isIOProcessor": false,
+        "input": [
+            {
+                "type": "std::string",
+                "name": "abc",
+                "id": 98765,
+                "flags": {
+                    "is_extern": 0,
+                    "is_aggregate": 0,
+                    "is_in_out": 1
+                }
+            }
+        ],
         "output": [
             {
                 "type": "std::string",
@@ -59,11 +75,24 @@
                     "is_aggregate": 0,
                     "is_in_out": 0
                 }
+            },
+            {
+                "type": "std::string",
+                "name": "abc",
+                "id": 98765,
+                "flags": {
+                    "is_extern": 0,
+                    "is_aggregate": 0,
+                    "is_in_out": 0
+                }
             }
-        ]
+        ],
+        "params": []
     },
     {
         "name": "phase6",
+        "desc": "Empty Description",
+        "isIOProcessor": false,
         "input": [
             {
                 "type": "std::map<std::string, const std::string*>",
@@ -73,6 +102,26 @@
                     "is_extern": 0,
                     "is_aggregate": 0,
                     "is_in_out": 1
+                }
+            },
+            {
+                "type": "std::shared_ptr<std::string>",
+                "name": "v101",
+                "id": 98767,
+                "flags": {
+                    "is_extern": 0,
+                    "is_aggregate": 0,
+                    "is_in_out": 1
+                }
+            },
+            {
+                "type": "std::shared_ptr<std::string>",
+                "name": "v102",
+                "id": 98767,
+                "flags": {
+                    "is_extern": 0,
+                    "is_aggregate": 1,
+                    "is_in_out": 0
                 }
             }
         ],
@@ -86,16 +135,59 @@
                     "is_aggregate": 0,
                     "is_in_out": 0
                 }
+            },
+            {
+                "type": "std::shared_ptr<std::string>",
+                "name": "v101",
+                "id": 98767,
+                "flags": {
+                    "is_extern": 0,
+                    "is_aggregate": 0,
+                    "is_in_out": 0
+                }
             }
-        ]
+        ],
+        "params": []
+    },
+    {
+        "name": "recall_3",
+        "desc": "Empty Description",
+        "isIOProcessor": false,
+        "input": [
+            {
+                "type": "std::string",
+                "name": "abc",
+                "id": 98765,
+                "flags": {
+                    "is_extern": 0,
+                    "is_aggregate": 0,
+                    "is_in_out": 1
+                }
+            }
+        ],
+        "output": [
+            {
+                "type": "std::string",
+                "name": "abc",
+                "id": 98765,
+                "flags": {
+                    "is_extern": 0,
+                    "is_aggregate": 0,
+                    "is_in_out": 0
+                }
+            }
+        ],
+        "params": []
     },
     {
         "name": "phase1",
+        "desc": "Empty Description",
+        "isIOProcessor": false,
         "input": [
             {
                 "type": "std::map<std::string, std::string>",
                 "name": "v2",
-                "id": 98767,
+                "id": 98768,
                 "flags": {
                     "is_extern": 0,
                     "is_aggregate": 0,
@@ -117,17 +209,20 @@
             {
                 "type": "std::map<std::string, std::string>",
                 "name": "v4",
-                "id": 98767,
+                "id": 98768,
                 "flags": {
                     "is_extern": 0,
                     "is_aggregate": 0,
                     "is_in_out": 0
                 }
             }
-        ]
+        ],
+        "params": []
     },
     {
         "name": "phase2",
+        "desc": "Empty Description",
+        "isIOProcessor": false,
         "input": [
             {
                 "type": "std::string",
@@ -154,17 +249,20 @@
             {
                 "type": "std::map<std::string, std::string>",
                 "name": "v6",
-                "id": 98767,
+                "id": 98768,
                 "flags": {
                     "is_extern": 0,
                     "is_aggregate": 0,
                     "is_in_out": 0
                 }
             }
-        ]
+        ],
+        "params": []
     },
     {
         "name": "recall_1",
+        "desc": "Empty Description",
+        "isIOProcessor": false,
         "input": [
             {
                 "type": "std::string",
@@ -185,6 +283,16 @@
                     "is_aggregate": 0,
                     "is_in_out": 1
                 }
+            },
+            {
+                "type": "std::shared_ptr<std::string>",
+                "name": "tstr",
+                "id": 98767,
+                "flags": {
+                    "is_extern": 1,
+                    "is_aggregate": 0,
+                    "is_in_out": 0
+                }
             }
         ],
         "output": [
@@ -207,16 +315,11 @@
                     "is_aggregate": 0,
                     "is_in_out": 0
                 }
-            }
-        ]
-    },
-    {
-        "name": "expr_phase",
-        "input": [
+            },
             {
-                "type": "RecmdEnv",
-                "name": "env",
-                "id": 98768,
+                "type": "std::string",
+                "name": "abc",
+                "id": 98765,
                 "flags": {
                     "is_extern": 0,
                     "is_aggregate": 0,
@@ -224,10 +327,69 @@
                 }
             }
         ],
-        "output": []
+        "params": [
+            {
+                "name": "barg",
+                "type": "bool",
+                "default_value": "false",
+                "desc": "e"
+            },
+            {
+                "name": "xarg",
+                "type": "int",
+                "default_value": "1212112",
+                "desc": "e"
+            },
+            {
+                "name": "yarg",
+                "type": "string",
+                "default_value": "abcde",
+                "desc": "e"
+            },
+            {
+                "name": "zarg",
+                "type": "double",
+                "default_value": "3.124",
+                "desc": "e"
+            },
+            {
+                "name": "vec1",
+                "type": "vector<int>",
+                "default_value": "({1, 2})",
+                "desc": "int vector"
+            },
+            {
+                "name": "vec2",
+                "type": "vector<double>",
+                "default_value": "({1.1, 2.2})",
+                "desc": "double vector"
+            },
+            {
+                "name": "vec3",
+                "type": "vector<string>",
+                "default_value": "({\"hello\", \"world\"})",
+                "desc": "string vector"
+            },
+            {
+                "name": "vec4",
+                "type": "vector<int>",
+                "default_value": "({true, false})",
+                "desc": "bool vector"
+            }
+        ]
+    },
+    {
+        "name": "expr_phase",
+        "desc": "Empty Description",
+        "isIOProcessor": false,
+        "input": [],
+        "output": [],
+        "params": []
     },
     {
         "name": "phase3",
+        "desc": "Empty Description",
+        "isIOProcessor": false,
         "input": [
             {
                 "type": "std::string",
@@ -242,7 +404,7 @@
             {
                 "type": "std::map<std::string, std::string>",
                 "name": "v2",
-                "id": 98767,
+                "id": 98768,
                 "flags": {
                     "is_extern": 0,
                     "is_aggregate": 0,
@@ -262,7 +424,7 @@
             {
                 "type": "std::map<std::string, std::string>",
                 "name": "v4",
-                "id": 98767,
+                "id": 98768,
                 "flags": {
                     "is_extern": 0,
                     "is_aggregate": 0,
@@ -282,7 +444,7 @@
             {
                 "type": "std::map<std::string, std::string>",
                 "name": "v6",
-                "id": 98767,
+                "id": 98768,
                 "flags": {
                     "is_extern": 0,
                     "is_aggregate": 0,
@@ -301,15 +463,18 @@
                     "is_in_out": 0
                 }
             }
-        ]
+        ],
+        "params": []
     },
     {
-        "name": "phase0",
+        "name": "recall_filter",
+        "desc": "Empty Description",
+        "isIOProcessor": false,
         "input": [
             {
-                "type": "int",
-                "name": "v0",
-                "id": 98769,
+                "type": "std::string",
+                "name": "merge_out",
+                "id": 98765,
                 "flags": {
                     "is_extern": 0,
                     "is_aggregate": 0,
@@ -317,51 +482,70 @@
                 }
             },
             {
+                "type": "std::shared_ptr<std::string>",
+                "name": "tstr",
+                "id": 98767,
+                "flags": {
+                    "is_extern": 1,
+                    "is_aggregate": 0,
+                    "is_in_out": 0
+                }
+            },
+            {
                 "type": "std::string",
-                "name": "vx",
+                "name": "ustr",
                 "id": 98765,
                 "flags": {
                     "is_extern": 1,
                     "is_aggregate": 0,
-                    "is_in_out": 1
+                    "is_in_out": 0
+                }
+            }
+        ],
+        "output": [],
+        "params": []
+    },
+    {
+        "name": "phase0",
+        "desc": "this is test phase",
+        "isIOProcessor": false,
+        "input": [
+            {
+                "type": "std::string",
+                "name": "model_id",
+                "id": 98765,
+                "flags": {
+                    "is_extern": 0,
+                    "is_aggregate": 0,
+                    "is_in_out": 0
                 }
             }
         ],
         "output": [
             {
-                "type": "std::string",
-                "name": "vx",
-                "id": 98765,
-                "flags": {
-                    "is_extern": 0,
-                    "is_aggregate": 0,
-                    "is_in_out": 0
-                }
-            },
-            {
-                "type": "std::string",
-                "name": "v1",
-                "id": 98765,
-                "flags": {
-                    "is_extern": 0,
-                    "is_aggregate": 0,
-                    "is_in_out": 0
-                }
-            },
-            {
                 "type": "std::map<std::string, std::string>",
-                "name": "v2",
-                "id": 98767,
+                "name": "result_map",
+                "id": 98768,
                 "flags": {
                     "is_extern": 0,
                     "is_aggregate": 0,
                     "is_in_out": 0
                 }
+            }
+        ],
+        "params": [
+            {
+                "name": "debug_enable",
+                "type": "bool",
+                "default_value": "false",
+                "desc": "debug enable"
             }
         ]
     },
     {
         "name": "phase5",
+        "desc": "Empty Description",
+        "isIOProcessor": false,
         "input": [
             {
                 "type": "std::map<std::string, const std::string*>",
@@ -385,10 +569,13 @@
                     "is_in_out": 0
                 }
             }
-        ]
+        ],
+        "params": []
     },
     {
         "name": "phase4",
+        "desc": "Empty Description",
+        "isIOProcessor": false,
         "input": [
             {
                 "type": "std::string",
@@ -401,17 +588,7 @@
                 }
             }
         ],
-        "output": [
-            {
-                "type": "std::string",
-                "name": "v100",
-                "id": 98766,
-                "flags": {
-                    "is_extern": 0,
-                    "is_aggregate": 0,
-                    "is_in_out": 0
-                }
-            }
-        ]
+        "output": [],
+        "params": []
     }
 ]

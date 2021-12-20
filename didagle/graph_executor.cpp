@@ -3,8 +3,12 @@
 #include "graph_executor.h"
 #include <sys/time.h>
 #include <time.h>
+
 #include <cstdint>
 #include <regex>
+#include <set>
+#include <utility>
+
 #include "didagle_event.h"
 #include "didagle_log.h"
 #include "graph.h"
@@ -15,7 +19,7 @@ static inline uint64_t ustime() {
   struct timeval tv;
   uint64_t ust;
   gettimeofday(&tv, nullptr);
-  ust = ((long long)tv.tv_sec) * 1000000;
+  ust = ((uint64_t)tv.tv_sec) * 1000000;
   ust += tv.tv_usec;
   return ust;
 }
@@ -75,6 +79,7 @@ void VertexContext::Reset() {
   _exec_start_ustime = 0;
   _result = V_RESULT_INVALID;
   _code = V_CODE_INVALID;
+  _exec_rc = INT_MAX;
   _deps_results.assign(_vertex->_deps_idx.size(), V_RESULT_INVALID);
   _waiting_num = _vertex->_deps_idx.size();
   if (nullptr != _processor) {
@@ -109,15 +114,29 @@ VertexContext::VertexContext() { _waiting_num = 0; }
 bool VertexContext::Ready() { return 0 == _waiting_num.load(); }
 void VertexContext::FinishVertexProcess(int code) {
   _code = (VertexErrCode)code;
+  DAGEventTracker *tracker = _graph_ctx->GetGraphDataContextRef().GetEventTracker();
+  if (_exec_rc == INT_MAX) {
+    _exec_rc = _code;
+  }
   if (0 != _code) {
     _result = V_RESULT_ERR;
+    if (nullptr != _processor_di) {
+      _processor_di->MoveDataWhenSkipped(_graph_ctx->GetGraphDataContextRef());
+    }
   } else {
     _result = V_RESULT_OK;
     if (nullptr != _processor_di) {
+      uint64_t post_exec_start_ustime = ustime();
       _processor_di->CollectOutputs(_graph_ctx->GetGraphDataContextRef(), _exec_params);
+      if (nullptr != tracker) {
+        std::unique_ptr<DAGEvent> event(new DAGEvent);
+        event->start_ustime = post_exec_start_ustime;
+        event->end_ustime = ustime();
+        event->phase = PhaseType::DAG_PHASE_POST_EXECUTE;
+        tracker->events.enqueue(std::move(event));
+      }
     }
   }
-  DAGEventTracker *tracker = _graph_ctx->GetGraphDataContextRef().GetEventTracker();
   if (nullptr != tracker) {
     std::unique_ptr<DAGEvent> event(new DAGEvent);
     event->start_ustime = _exec_start_ustime;
@@ -129,8 +148,8 @@ void VertexContext::FinishVertexProcess(int code) {
       event->cluster = _vertex->_graph->_cluster->_name;
       event->full_graph_name = _full_graph_name;
     }
-    event->rc = code;
-    tracker->events.push(std::move(event));
+    event->rc = _exec_rc;
+    tracker->events.enqueue(std::move(event));
   }
   if (nullptr != _subgraph_ctx) {
     _graph_ctx->GetGraphDataContextRef().SetChild(_subgraph_ctx->GetGraphDataContext(), _child_idx);
@@ -174,16 +193,46 @@ int VertexContext::ExecuteProcessor() {
     FinishVertexProcess(V_CODE_SKIP);
     return 0;
   }
-
+  DAGEventTracker *tracker = _graph_ctx->GetGraphDataContextRef().GetEventTracker();
+  if (nullptr != tracker) {
+    std::unique_ptr<DAGEvent> event(new DAGEvent);
+    event->start_ustime = _exec_start_ustime;
+    event->end_ustime = ustime();
+    event->phase = PhaseType::DAG_PHASE_PREPARE_EXECUTE;
+    tracker->events.enqueue(std::move(event));
+  }
   if (_processor->IsAsync()) {
-    _processor->AsyncExecute(*_exec_params, [this](int code) {
+    try {
+      _processor->AsyncExecute(*_exec_params, [this](int code) {
+        _exec_rc = code;
+        FinishVertexProcess(
+            (_vertex->ignore_processor_execute_error && !_vertex->IsCondVertex()) ? 0 : code);
+      });
+    } catch (std::exception &ex) {
+      DIDAGLE_ERROR("Vertex:{} execute with caught excetion:{} ", _vertex->GetDotLable(),
+                    ex.what());
+      _exec_rc = V_CODE_ERR;
       FinishVertexProcess(
-          (_vertex->ignore_processor_execute_error && !_vertex->IsCondVertex()) ? 0 : code);
-    });
+          (_vertex->ignore_processor_execute_error && !_vertex->IsCondVertex()) ? 0 : _exec_rc);
+    } catch (...) {
+      DIDAGLE_ERROR("Vertex:{} execute with caught unknown excetion.", _vertex->GetDotLable());
+      _exec_rc = V_CODE_ERR;
+      FinishVertexProcess(
+          (_vertex->ignore_processor_execute_error && !_vertex->IsCondVertex()) ? 0 : _exec_rc);
+    }
   } else {
-    int rc = _processor->Execute(*_exec_params);
-    FinishVertexProcess((_vertex->ignore_processor_execute_error && !_vertex->IsCondVertex()) ? 0
-                                                                                              : rc);
+    try {
+      _exec_rc = _processor->Execute(*_exec_params);
+    } catch (std::exception &ex) {
+      DIDAGLE_ERROR("Vertex:{} execute with caught excetion:{} ", _vertex->GetDotLable(),
+                    ex.what());
+      _exec_rc = V_CODE_ERR;
+    } catch (...) {
+      DIDAGLE_ERROR("Vertex:{} execute with caught unknown excetion.", _vertex->GetDotLable());
+      _exec_rc = V_CODE_ERR;
+    }
+    FinishVertexProcess(
+        (_vertex->ignore_processor_execute_error && !_vertex->IsCondVertex()) ? 0 : _exec_rc);
   }
   return 0;
 }
@@ -194,8 +243,9 @@ int VertexContext::ExecuteSubGraph() {
   }
   _exec_params = GetExecParams();
   _subgraph_cluster->SetExternGraphDataContext(_graph_ctx->GetGraphDataContext());
-  //_subgraph_cluster->SetExecuteParams(_graph_ctx->GetGraphClusterContext()->GetExecuteParams());
   _subgraph_cluster->SetExecuteParams(_exec_params);
+  // succeed end time
+  _subgraph_cluster->SetEndTime(_graph_ctx->GetGraphClusterContext()->GetEndTime());
   _subgraph_cluster->Execute(
       _vertex->graph, [this](int code) { FinishVertexProcess(code); }, _subgraph_ctx);
   return 0;
@@ -250,7 +300,9 @@ int VertexContext::Execute() {
     }
   }
 
-  if (!match_dep_expected_result) {
+  if (!match_dep_expected_result ||
+      (_graph_ctx->GetGraphClusterContext()->GetEndTime() != 0 &&
+       ustime() >= _graph_ctx->GetGraphClusterContext()->GetEndTime())) {
     _result = V_RESULT_ERR;
     _code = V_CODE_SKIP;
     // no need to exec this
@@ -350,16 +402,50 @@ void GraphContext::Reset() {
 }
 void GraphContext::ExecuteReadyVertexs(std::vector<VertexContext *> &ready_vertexs) {
   DIDAGLE_DEBUG("ExecuteReadyVertexs with {} vertexs.", ready_vertexs.size());
+  if (ready_vertexs.empty()) {
+    return;
+  }
   if (ready_vertexs.size() == 1) {
     // inplace run
     ready_vertexs[0]->Execute();
   } else {
-    for (VertexContext *ctx : ready_vertexs) {
-      VertexContext *next = ctx;
-      auto f = [next]() { next->Execute(); };
-      const auto &exec_opts = _cluster->GetCluster()->GetGraphManager()->GetGraphExecuteOptions();
-      exec_opts.concurrent_executor(f);
+    VertexContext *local_execute = nullptr;
+    for (size_t i = 0; i < ready_vertexs.size(); i++) {
+      // select first non IO op to run directly
+      if (nullptr == ready_vertexs[i]->GetProcessor()) {
+        // use subgraph as local executor
+        local_execute = ready_vertexs[i];
+        break;
+      }
+      if (!ready_vertexs[i]->GetProcessor()->isIOProcessor()) {
+        local_execute = ready_vertexs[i];
+        break;
+      }
     }
+    // select first op run directly if there is no non IO op
+    if (nullptr == local_execute) {
+      local_execute = ready_vertexs[0];
+    }
+    const auto &exec_opts = _cluster->GetCluster()->GetGraphManager()->GetGraphExecuteOptions();
+    uint64_t sched_start_ustime = ustime();
+    DAGEventTracker *tracker = _data_ctx->GetEventTracker();
+    for (VertexContext *ctx : ready_vertexs) {
+      if (ctx == local_execute) {
+        continue;
+      }
+      VertexContext *next = ctx;
+      exec_opts.concurrent_executor([tracker, next, sched_start_ustime]() {
+        if (nullptr != tracker) {
+          std::unique_ptr<DAGEvent> event(new DAGEvent);
+          event->start_ustime = sched_start_ustime;
+          event->end_ustime = ustime();
+          event->phase = PhaseType::DAG_PHASE_CONCURRENT_SCHED;
+          tracker->events.enqueue(std::move(event));
+        }
+        next->Execute();
+      });
+    }
+    local_execute->Execute();
   }
 }
 void GraphContext::OnVertexDone(VertexContext *vertex) {
@@ -368,7 +454,7 @@ void GraphContext::OnVertexDone(VertexContext *vertex) {
   if (1 == _join_vertex_num.fetch_sub(1)) {  // last vertex
     if (_done) {
       _done(0);
-      //_done = 0;
+      // _done = 0;
       // DIDAGLE_DEBUG("#####1{}", (uintptr_t)_cluster);
       // if (!_cluster->IsSubgraph()) {
       //   DIDAGLE_DEBUG("#####1  {}", (uintptr_t)_cluster);
@@ -447,6 +533,7 @@ GraphContext *GraphClusterContext::GetRunGraph(const std::string &name) {
   return _running_graph;
 }
 void GraphClusterContext::Reset() {
+  _end_ustime = 0;
   _exec_params = nullptr;
   if (nullptr != _running_graph) {
     _running_graph->Reset();
@@ -456,14 +543,7 @@ void GraphClusterContext::Reset() {
     item.eval_proc->Reset();
     item.result = 0;
   }
-  //_extern_data_ctx.reset();
   _extern_data_ctx = nullptr;
-  // _exec_options.reset();
-  // GraphClusterContext *sub_graph = nullptr;
-  // while (_sub_graphs.try_pop(sub_graph)) {
-  //   sub_graph->Reset();
-  // }
-  //_done = 0;
   _running_cluster.reset();
 }
 int GraphClusterContext::Setup(GraphCluster *c) {
@@ -512,7 +592,6 @@ int GraphClusterContext::Execute(const std::string &graph, DoneClosure &&done,
   }
   graph_ctx = g;
   GraphDataContext &data_ctx = g->GetGraphDataContextRef();
-  //_config_setting_result.assign(_config_setting_processors.size(), 0);
   DIDAGLE_DEBUG("config setting size = {}", _config_settings.size());
   for (size_t i = 0; i < _config_settings.size(); i++) {
     Processor *p = _config_settings[i].eval_proc;
@@ -533,7 +612,7 @@ int GraphClusterContext::Execute(const std::string &graph, DoneClosure &&done,
     } else {
       _config_settings[i].result = 1;
     }
-    bool *v = (bool *)(&_config_settings[i].result);
+    bool *v = reinterpret_cast<bool *>(&_config_settings[i].result);
     // DIDAGLE_DEBUG("Set config setting:{} to {}",
     // _cluster->config_setting[i].var, *v);
     if (*v) {

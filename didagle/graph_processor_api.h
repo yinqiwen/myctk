@@ -4,8 +4,8 @@
 // Authors: qiyingwang (qiyingwang@tencent.com)
 #pragma once
 #include <atomic>
-#include <boost/preprocessor/library.hpp>
 #include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -13,13 +13,21 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
+#include "boost/preprocessor/comparison/equal.hpp"
+#include "boost/preprocessor/control/if.hpp"
+#include "boost/preprocessor/library.hpp"
+#include "boost/preprocessor/variadic/elem.hpp"
+#include "boost/preprocessor/variadic/size.hpp"
 #include "di_container.h"
 #include "di_reset.h"
 #include "didagle_event.h"
+#include "folly/container/F14Map.h"
+#include "folly/container/F14Set.h"
 #include "graph_data.h"
 
-//#include "folly/Demangle.h"
-//#include "tbb/concurrent_hash_map.h"
+// #include "folly/Demangle.h"
+// #include "tbb/concurrent_hash_map.h"
 
 #define ERR_UNIMPLEMENTED -7890
 
@@ -32,12 +40,10 @@ enum ProcessorFieldType {
 typedef std::function<void(int)> DoneClosure;
 
 struct FieldFlags {
-  uint8_t is_extern;
-  uint8_t is_aggregate;
-  uint8_t is_in_out;
+  uint8_t is_extern = 0;
+  uint8_t is_aggregate = 0;
+  uint8_t is_in_out = 0;
   KCFG_DEFINE_FIELDS(is_extern, is_aggregate, is_in_out)
-  FieldFlags(uint8_t v0 = 0, uint8_t v1 = 0, uint8_t v2 = 0)
-      : is_extern(v0), is_aggregate(v1), is_in_out(v2) {}
 };
 
 struct FieldInfo : public DIObjectKey {
@@ -58,6 +64,12 @@ struct DataValue {
   std::atomic<void*> val = nullptr;
   std::shared_ptr<std::string> name;
   std::shared_ptr<void> _sval;  // store shared_ptr
+  DataValue() = default;
+  DataValue(const DataValue& other) {
+    val.store(other.val.load());
+    name = other.name;
+    _sval = other._sval;
+  }
   DataValue& operator=(const DataValue& other) {
     val.store(other.val.load());
     name = other.name;
@@ -79,10 +91,14 @@ struct GraphDataGetOptions {
 
 class GraphDataContext {
  public:
-  typedef std::unordered_set<const GraphDataContext*> ExcludeGraphDataContextSet;
+  // typedef std::unordered_set<const GraphDataContext*> ExcludeGraphDataContextSet;
+  typedef folly::F14ValueSet<const GraphDataContext*> ExcludeGraphDataContextSet;
 
  private:
-  typedef std::unordered_map<DIObjectKeyView, DataValue, DIObjectKeyViewHash, DIObjectKeyViewEqual>
+  // typedef std::unordered_map<DIObjectKeyView, DataValue, DIObjectKeyViewHash,
+  // DIObjectKeyViewEqual>
+  //     DataTable;
+  typedef folly::F14FastMap<DIObjectKeyView, DataValue, DIObjectKeyViewHash, DIObjectKeyViewEqual>
       DataTable;
   DataTable _data_table;
   const GraphDataContext* _parent = nullptr;
@@ -90,14 +106,17 @@ class GraphDataContext {
   std::vector<const GraphDataContext*> _executed_childrens;
   bool _disable_entry_creation = false;
 
+  DataValue* GetValue(const DIObjectKeyView& key, GraphDataGetOptions opt = {},
+                      ExcludeGraphDataContextSet* excludes = nullptr);
+
  public:
-  GraphDataContext() {}
   void SetParent(const GraphDataContext* p) { _parent = p; }
   const GraphDataContext* GetParent() { return _parent; }
   void ReserveChildCapacity(size_t n);
   void SetChild(const GraphDataContext* c, size_t idx);
 
   void RegisterData(const DIObjectKey& id);
+  int Move(const DIObjectKey& from, const DIObjectKey& to);
 
   void DisableEntryCreation() { _disable_entry_creation = true; }
 
@@ -116,7 +135,7 @@ class GraphDataContext {
     auto found = _data_table.find(key);
     if (found != _data_table.end()) {
       if constexpr (std::is_pointer<GetValueType>::value) {
-        GetValueType val = (GetValueType)(found->second.val.load());
+        GetValueType val = static_cast<GetValueType>(found->second.val.load());
         if (nullptr != val) {
           return val;
         }
@@ -127,7 +146,7 @@ class GraphDataContext {
           return val;
         }
       } else {
-        GetValueType* val = (GetValueType*)(found->second.val.load());
+        GetValueType* val = static_cast<GetValueType*>(found->second.val.load());
         if (nullptr != val) {
           return *val;
         }
@@ -147,9 +166,6 @@ class GraphDataContext {
       parent_opt.with_di_container = 0;
       if (new_excludes->count(_parent) == 0) {
         r = _parent->Get<T>(name, parent_opt, new_excludes);
-      }
-      if (nullptr == new_excludes) {
-        delete new_excludes;
       }
       if (r) {
         return r;
@@ -241,48 +257,6 @@ class GraphDataContext {
     return empty;
   }
 
-  /**
-   * @brief when 'create_entry' = true, not thread safe
-   *
-   * @tparam T any type
-   * @param name
-   * @param v
-   * @param create_entry
-   * @return true
-   * @return false
-   */
-  // template <typename T>
-  // bool Set(const std::string_view& name, const T* v) {
-  //   uint32_t id = DIContainer::GetTypeId<T>();
-  //   DIDAGLE_DEBUG("1Set:{} {} {}", name, id, folly::demangle(typeid(T)).c_str());
-  //   DIObjectKeyView key = {name, id};
-  //   auto found = _data_table.find(key);
-  //   if (found != _data_table.end()) {
-  //     if constexpr (is_shared_ptr<T>::value) {
-  //       found->second._sval = *v;
-  //       found->second.val = found->second._sval.get();
-  //     } else {
-  //       found->second.val = (void*)v;
-  //     }
-  //     return true;
-  //   } else {
-  //     if (_disable_entry_creation) {
-  //       return false;
-  //     }
-  //     DataValue dv;
-  //     if constexpr (is_shared_ptr<T>::value) {
-  //       dv._sval = *v;
-  //       dv.val = dv._sval.get();
-  //     } else {
-  //       dv.val = (void*)v;
-  //     }
-  //     dv.name.reset(new std::string(name.data(), name.size()));
-  //     DIObjectKeyView key = {*(dv.name), id};
-  //     _data_table[key] = dv;
-  //     return true;
-  //   }
-  // }
-
   template <typename T>
   bool Set(const std::string_view& name, const T& v) {
     using RT = typename std::remove_const<typename std::remove_pointer<T>::type>::type;
@@ -299,9 +273,9 @@ class GraphDataContext {
         found->second._sval = *v;
         found->second.val = found->second._sval.get();
       } else if constexpr (std::is_pointer_v<T>) {
-        found->second.val = (void*)(v);
+        found->second.val.store(const_cast<void*>(static_cast<const void*>(v)));
       } else {
-        found->second.val = (void*)(v);
+        found->second.val.store(const_cast<void*>(static_cast<const void*>(v)));
       }
       return true;
     } else {
@@ -318,15 +292,16 @@ class GraphDataContext {
         dv.val = dv._sval.get();
         // DIDAGLE_DEBUG("Set pointer:{} {} {}", name, id, folly::demangle(typeid(RT)).c_str());
       } else if constexpr (std::is_pointer_v<T>) {
-        dv.val = (void*)(v);
+        dv.val.store(const_cast<void*>(static_cast<const void*>(v)));
         // DIDAGLE_DEBUG("Set pointer:{} {} {}", name, id, folly::demangle(typeid(RT)).c_str());
       } else {
-        dv.val = (void*)(v);
+        dv.val.store(const_cast<void*>(static_cast<const void*>(v)));
         // DIDAGLE_DEBUG("Set object:{} {} {}", name, id, folly::demangle(typeid(RT)).c_str());
       }
       dv.name.reset(new std::string(name.data(), name.size()));
       DIObjectKeyView key = {*(dv.name), id};
-      _data_table[key] = dv;
+      // _data_table[key] = dv;
+      _data_table.emplace(key, dv);
       return true;
     }
   }
@@ -342,8 +317,10 @@ class Processor {
   typedef std::function<int(GraphDataContext&, const std::string_view&)> EmitFunc;
   typedef std::function<void(const Params&)> ParamSetFunc;
   typedef std::function<void(void)> ResetFunc;
-  typedef std::unordered_map<std::string, InjectFunc> FieldInjectFuncTable;
-  typedef std::unordered_map<std::string, EmitFunc> FieldEmitFuncTable;
+  // typedef std::unordered_map<std::string, InjectFunc> FieldInjectFuncTable;
+  // typedef std::unordered_map<std::string, EmitFunc> FieldEmitFuncTable;
+  typedef folly::F14FastMap<std::string, InjectFunc> FieldInjectFuncTable;
+  typedef folly::F14FastMap<std::string, EmitFunc> FieldEmitFuncTable;
   std::vector<FieldInfo> _input_ids;
   std::vector<FieldInfo> _output_ids;
   std::vector<ParamInfo> _params;
@@ -386,16 +363,19 @@ class Processor {
 
   virtual int OnSetup(const Params& args) { return 0; }
   virtual int OnReset() { return 0; }
-  virtual int OnExecute(const Params& args) { return ERR_UNIMPLEMENTED; };
-  virtual void OnAsyncExecute(const Params& args, DoneClosure&& done) { done(ERR_UNIMPLEMENTED); };
+  virtual int OnExecute(const Params& args) { return ERR_UNIMPLEMENTED; }
+  virtual void OnAsyncExecute(const Params& args, DoneClosure&& done) { done(ERR_UNIMPLEMENTED); }
 
   friend class VertexContext;
   friend class GraphClusterContext;
 
  public:
   void SetDataContext(GraphDataContext* p) { _data_ctx = p; }
-  virtual const std::string& Name() const = 0;
+  virtual std::string_view Desc() const { return ""; }
+  virtual std::string_view Name() const = 0;
   virtual bool IsAsync() const { return false; }
+  // io bound processor
+  virtual bool isIOProcessor() const { return false; }
   const std::vector<FieldInfo>& GetInputIds() { return _input_ids; }
   const std::vector<FieldInfo>& GetOutputIds() { return _output_ids; }
   const std::vector<ParamInfo>& GetParams() { return _params; }
@@ -411,33 +391,39 @@ class Processor {
 };
 typedef std::function<Processor*(void)> ProcessorCreator;
 struct ProcessorRegister {
-  ProcessorRegister(const char* name, const ProcessorCreator& creator);
+  ProcessorRegister(std::string_view name, const ProcessorCreator& creator);
 };
 }  // namespace didagle
 
-using namespace didagle;
-#define GRAPH_OP_BEGIN(NAME)                                \
-  namespace {                                               \
-  static const char* _local_processor_name = #NAME;         \
-  struct GraphProcessor##NAME##Object;                      \
-  typedef GraphProcessor##NAME##Object LocalProcessorClass; \
-  struct GraphProcessor##NAME##Object : public Processor {  \
-    const std::string& Name() const {                       \
-      static std::string __name = _local_processor_name;    \
-      return __name;                                        \
-    }
-#define GRAPH_OP_END                                                                  \
-  }                                                                                   \
-  ;                                                                                   \
-  static ProcessorRegister _##NAME##_instance(                                        \
-      _local_processor_name, []() -> Processor* { return new LocalProcessorClass; }); \
-  }
+#define GRAPH_OP_BEGIN(...)                                                                 \
+  namespace {                                                                               \
+  const constexpr std::string_view _local_processor_name =                                  \
+      BOOST_PP_STRINGIZE(BOOST_PP_VARIADIC_ELEM(0, __VA_ARGS__));                           \
+  const constexpr std::string_view _local_processor_desc =                                  \
+      BOOST_PP_IF(BOOST_PP_EQUAL(BOOST_PP_VARIADIC_SIZE(__VA_ARGS__), 2),                   \
+                  BOOST_PP_VARIADIC_ELEM(1, __VA_ARGS__), ("Empty Description"));           \
+  struct BOOST_PP_CAT(GraphProcessor,                                                       \
+                      BOOST_PP_CAT(BOOST_PP_VARIADIC_ELEM(0, __VA_ARGS__), Object));        \
+  typedef BOOST_PP_CAT(GraphProcessor, BOOST_PP_CAT(BOOST_PP_VARIADIC_ELEM(0, __VA_ARGS__), \
+                                                    Object)) LocalProcessorClass;           \
+  struct BOOST_PP_CAT(GraphProcessor,                                                       \
+                      BOOST_PP_CAT(BOOST_PP_VARIADIC_ELEM(0, __VA_ARGS__), Object))         \
+      : public didagle::Processor {                                                         \
+    std::string_view Name() const { return _local_processor_name; }                         \
+    std::string_view Desc() const { return _local_processor_desc; }
+
+#define GRAPH_OP_END                                                                           \
+  }                                                                                            \
+  ;                                                                                            \
+  static didagle::ProcessorRegister _##NAME##_instance(                                        \
+      _local_processor_name, []() -> didagle::Processor* { return new LocalProcessorClass; }); \
+  }  // namespace
 
 #define __GRAPH_OP_INPUT(TYPE, NAME, FLAGS)                                                       \
-  typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_type NAME = {};                 \
+  typename didagle::DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_type NAME = {};        \
   size_t __input_##NAME##_code = RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>(                     \
       #NAME, BOOST_PP_STRINGIZE(BOOST_PP_REMOVE_PARENS(TYPE)),                                    \
-      [this](GraphDataContext& ctx, const std::string_view& data, bool move) {                    \
+      [this](didagle::GraphDataContext& ctx, const std::string_view& data, bool move) {           \
         using FIELD_TYPE =                                                                        \
             typename std::remove_const<typename std::remove_pointer<decltype(NAME)>::type>::type; \
         if (move) {                                                                               \
@@ -453,63 +439,63 @@ using namespace didagle;
 #define GRAPH_OP_INPUT(TYPE, NAME) __GRAPH_OP_INPUT(TYPE, NAME, ({0, 0, 0}))
 #define GRAPH_OP_EXTERN_INPUT(TYPE, NAME) __GRAPH_OP_INPUT(TYPE, NAME, ({1, 0, 0}))
 
-#define GRAPH_OP_MAP_INPUT(TYPE, NAME)                                                        \
-  std::map<std::string, typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_type> \
-      NAME;                                                                                   \
-  size_t __input_##NAME##_code = RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>(                 \
-      #NAME, BOOST_PP_STRINGIZE(BOOST_PP_REMOVE_PARENS(TYPE)),                                \
-      [this](GraphDataContext& ctx, const std::string_view& data, bool move) {                \
-        using FIELD_TYPE = BOOST_PP_REMOVE_PARENS(TYPE);                                      \
-        typename DIObjectTypeHelper<FIELD_TYPE>::read_type tmp = {};                          \
-        if (move) {                                                                           \
-          tmp = ctx.Move<FIELD_TYPE>(data);                                                   \
-        } else {                                                                              \
-          tmp = ctx.Get<FIELD_TYPE>(data);                                                    \
-        }                                                                                     \
-        if (!tmp) {                                                                           \
-          return -1;                                                                          \
-        }                                                                                     \
-        std::string name_key(data.data(), data.size());                                       \
-        NAME[name_key] = tmp;                                                                 \
-        return 0;                                                                             \
-      },                                                                                      \
-      {0, 1, 0});                                                                             \
+#define GRAPH_OP_MAP_INPUT(TYPE, NAME)                                                    \
+  std::map<std::string,                                                                   \
+           typename didagle::DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_type> \
+      NAME;                                                                               \
+  size_t __input_##NAME##_code = RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>(             \
+      #NAME, BOOST_PP_STRINGIZE(BOOST_PP_REMOVE_PARENS(TYPE)),                            \
+      [this](didagle::GraphDataContext& ctx, const std::string_view& data, bool move) {   \
+        using FIELD_TYPE = BOOST_PP_REMOVE_PARENS(TYPE);                                  \
+        typename didagle::DIObjectTypeHelper<FIELD_TYPE>::read_type tmp = {};             \
+        if (move) {                                                                       \
+          tmp = ctx.Move<FIELD_TYPE>(data);                                               \
+        } else {                                                                          \
+          tmp = ctx.Get<FIELD_TYPE>(data);                                                \
+        }                                                                                 \
+        if (!tmp) {                                                                       \
+          return -1;                                                                      \
+        }                                                                                 \
+        std::string name_key(data.data(), data.size());                                   \
+        NAME[name_key] = tmp;                                                             \
+        return 0;                                                                         \
+      },                                                                                  \
+      {0, 1, 0});                                                                         \
   size_t __reset_##NAME##_code = AddResetFunc([this]() { NAME = {}; });
 
-#define GRAPH_OP_OUTPUT(TYPE, NAME)                                                \
-  typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::write_type NAME = {}; \
-  size_t __output_##NAME##_code = RegisterOutput<BOOST_PP_REMOVE_PARENS(TYPE)>(    \
-      #NAME, BOOST_PP_STRINGIZE(BOOST_PP_REMOVE_PARENS(TYPE)),                     \
-      [this](GraphDataContext& ctx, const std::string_view& data) {                \
-        using FIELD_TYPE = decltype(NAME);                                         \
-        ctx.Set(data, &(this->NAME));                                              \
-        return 0;                                                                  \
-      });                                                                          \
-  size_t __reset_##NAME##_code = AddResetFunc([this]() {                           \
-    didagle::Reset<decltype(NAME)> reset;                                          \
-    reset(NAME);                                                                   \
+#define GRAPH_OP_OUTPUT(TYPE, NAME)                                                         \
+  typename didagle::DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::write_type NAME = {}; \
+  size_t __output_##NAME##_code = RegisterOutput<BOOST_PP_REMOVE_PARENS(TYPE)>(             \
+      #NAME, BOOST_PP_STRINGIZE(BOOST_PP_REMOVE_PARENS(TYPE)),                              \
+      [this](didagle::GraphDataContext& ctx, const std::string_view& data) {                \
+        ctx.Set(data, &(this->NAME));                                                       \
+        return 0;                                                                           \
+      });                                                                                   \
+  size_t __reset_##NAME##_code = AddResetFunc([this]() {                                    \
+    didagle::Reset<decltype(NAME)> reset;                                                   \
+    reset(NAME);                                                                            \
   });
 
-#define __GRAPH_OP_IN_OUT(TYPE, NAME, FLAGS)                                            \
-  typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_write_type NAME = {}; \
-  size_t __input_##NAME##_code = RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>(           \
-      #NAME, BOOST_PP_STRINGIZE(BOOST_PP_REMOVE_PARENS(TYPE)),                          \
-      [this](GraphDataContext& ctx, const std::string_view& data, bool move) {          \
-        if (!move) {                                                                    \
-          return -1;                                                                    \
-        }                                                                               \
-        using FIELD_TYPE = typename std::remove_pointer<decltype(NAME)>::type;          \
-        NAME = ctx.Move<FIELD_TYPE>(data);                                              \
-        return (!NAME) ? -1 : 0;                                                        \
-      },                                                                                \
-      BOOST_PP_REMOVE_PARENS(FLAGS));                                                   \
-  size_t __output_##NAME##_code = RegisterOutput<BOOST_PP_REMOVE_PARENS(TYPE)>(         \
-      #NAME, BOOST_PP_STRINGIZE(BOOST_PP_REMOVE_PARENS(TYPE)),                          \
-      [this](GraphDataContext& ctx, const std::string_view& data) {                     \
-        using FIELD_TYPE = typename std::remove_pointer<decltype(NAME)>::type;          \
-        ctx.Set(data, NAME);                                                            \
-        return 0;                                                                       \
-      });                                                                               \
+#define __GRAPH_OP_IN_OUT(TYPE, NAME, FLAGS)                                                     \
+  typename didagle::DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_write_type NAME = {}; \
+  size_t __input_##NAME##_code = RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>(                    \
+      #NAME, BOOST_PP_STRINGIZE(BOOST_PP_REMOVE_PARENS(TYPE)),                                   \
+      [this](didagle::GraphDataContext& ctx, const std::string_view& data, bool move) {          \
+        if (!move) {                                                                             \
+          return -1;                                                                             \
+        }                                                                                        \
+        using FIELD_TYPE = typename std::remove_pointer<decltype(NAME)>::type;                   \
+        NAME = ctx.Move<FIELD_TYPE>(data);                                                       \
+        return (!NAME) ? -1 : 0;                                                                 \
+      },                                                                                         \
+      BOOST_PP_REMOVE_PARENS(FLAGS));                                                            \
+  size_t __output_##NAME##_code = RegisterOutput<BOOST_PP_REMOVE_PARENS(TYPE)>(                  \
+      #NAME, BOOST_PP_STRINGIZE(BOOST_PP_REMOVE_PARENS(TYPE)),                                   \
+      [this](didagle::GraphDataContext& ctx, const std::string_view& data) {                     \
+        using FIELD_TYPE = typename std::remove_pointer<decltype(NAME)>::type;                   \
+        ctx.Set(data, NAME);                                                                     \
+        return 0;                                                                                \
+      });                                                                                        \
   size_t __reset_##NAME##_code = AddResetFunc([this]() { NAME = {}; });
 
 #define GRAPH_OP_IN_OUT(TYPE, NAME) __GRAPH_OP_IN_OUT(TYPE, NAME, ({0, 0, 1}))
@@ -519,12 +505,11 @@ using namespace didagle;
   didagle::ParamsString PARAMS_##name = val;                                              \
   size_t __PARAMS_##name##_code = RegisterParam(                                          \
       BOOST_PP_STRINGIZE(name), "string", val, txt, [this](const didagle::Params& args) { \
-        if (args.Contains(BOOST_PP_STRINGIZE(name))) {                                    \
+        if (args[BOOST_PP_STRINGIZE(name)].IsString()) {                                  \
           PARAMS_##name = args[BOOST_PP_STRINGIZE(name)].String();                        \
         }                                                                                 \
       });                                                                                 \
   size_t __reset_PARAMS_##name##_code = AddResetFunc([this]() { PARAMS_##name = val; });
-
 #define GRAPH_PARAMS_string_vector(name, val, txt)                                            \
   std::vector<didagle::ParamsString> PARAMS_##name;                                           \
   size_t __PARAMS_##name##_code =                                                             \
@@ -546,12 +531,11 @@ using namespace didagle;
   size_t __PARAMS_##name##_code =                                                  \
       RegisterParam(BOOST_PP_STRINGIZE(name), "int", BOOST_PP_STRINGIZE(val), txt, \
                     [this](const didagle::Params& args) {                          \
-                      if (args.Contains(BOOST_PP_STRINGIZE(name))) {               \
+                      if (args[BOOST_PP_STRINGIZE(name)].IsInt()) {                \
                         PARAMS_##name = args[BOOST_PP_STRINGIZE(name)].Int();      \
                       }                                                            \
                     });                                                            \
   size_t __reset_PARAMS_##name##_code = AddResetFunc([this]() { PARAMS_##name = val; });
-
 #define GRAPH_PARAMS_int_vector(name, val, txt)                                            \
   std::vector<int64_t> PARAMS_##name;                                                      \
   size_t __PARAMS_##name##_code =                                                          \
@@ -573,7 +557,7 @@ using namespace didagle;
   size_t __PARAMS_##name##_code =                                                   \
       RegisterParam(BOOST_PP_STRINGIZE(name), "bool", BOOST_PP_STRINGIZE(val), txt, \
                     [this](const didagle::Params& args) {                           \
-                      if (args.Contains(BOOST_PP_STRINGIZE(name))) {                \
+                      if (args[BOOST_PP_STRINGIZE(name)].IsBool()) {                \
                         PARAMS_##name = args[BOOST_PP_STRINGIZE(name)].Bool();      \
                       }                                                             \
                     });                                                             \
@@ -600,7 +584,7 @@ using namespace didagle;
   size_t __PARAMS_##name##_code =                                                     \
       RegisterParam(BOOST_PP_STRINGIZE(name), "double", BOOST_PP_STRINGIZE(val), txt, \
                     [this](const didagle::Params& args) {                             \
-                      if (args.Contains(BOOST_PP_STRINGIZE(name))) {                  \
+                      if (args[BOOST_PP_STRINGIZE(name)].IsDouble()) {                \
                         PARAMS_##name = args[BOOST_PP_STRINGIZE(name)].Double();      \
                       }                                                               \
                     });                                                               \

@@ -36,7 +36,7 @@ name = "recall_1"
 [[graph.vertex]]
 start = true
 processor = "recall_1"
-args= {vec1=[101,223, 334], vec2=[100.1, 200.3, 300.4], vec3=["test1", "test2", "test3"]}
+args= {vec1=[101,223, 334], vec2=[100.1, 200.3, 300.4], vec3=["test1", "test2", "test3"],xarg=100, yarg="asdadas",barg=true, zarg=1.01}
 
 [[graph]]
 name = "recall_2"
@@ -57,12 +57,23 @@ args = { abc = "default", xyz = "zzz" }
 # processor = "recall_merge"
 # input=[{field="r1", extern = true}, {field="r2", extern = true},{field="r3", extern = true}]
 
-# [[graph]]
-# name = "recall_filter"
-# [[graph.vertex]]
-# start = true
-# processor = "recall_filter"
-# input=[{field="merge_out", id="merge_out", extern = true}]
+[[graph]]
+name = "recall_3"
+[[graph.vertex]]
+start = true
+processor = "recall_1"
+output=[{field="abc", id = "input"}]
+
+[[graph.vertex]]
+processor = "recall_2"
+expect='has_param($EXP, "expid")'
+input=[{field="abc", id = "input"}]
+output=[{field="abc", id = "output", move_from_when_skipped="input"}]
+# output=[{field="abc", id = "output"}]
+
+[[graph.vertex]]
+processor = "recall_3"
+input=[{field="abc", id = "output"}, {field="ms", extern=true, aggregate = ["xyz", "y"]}]
 
 
 

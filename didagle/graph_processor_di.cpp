@@ -1,8 +1,10 @@
 // Copyright (c) 2021, Tencent Inc.
 // All rights reserved.
 #include "graph_processor_di.h"
-#include <didagle_log.h>
+#include <string>
+#include <utility>
 #include <vector>
+#include "didagle_log.h"
 
 namespace didagle {
 ProcessorDI::ProcessorDI(Processor* proc, bool strict_dsl) : _proc(proc), _strict_dsl(strict_dsl) {}
@@ -132,6 +134,25 @@ int ProcessorDI::CollectOutputs(GraphDataContext& ctx, const Params* params) {
     int rc = _proc->EmitOutputField(ctx, field, data.name);
     if (0 != rc) {
       DIDAGLE_ERROR("[{}]Collect output for field {}:{} failed.", _proc->Name(), field, data.name);
+    }
+  }
+  return 0;
+}
+
+int ProcessorDI::MoveDataWhenSkipped(GraphDataContext& ctx) {
+  for (const auto& pair : _output_ids) {
+    const std::string& field = pair.first;
+    const FieldInfo& field_info = pair.second.first;
+    const GraphData* data = pair.second.second;
+    if (nullptr != data && !data->move_from_when_skipped.empty()) {
+      DIObjectKey from;
+      from.id = field_info.id;
+      from.name = data->move_from_when_skipped;
+      int rc = ctx.Move(from, field_info);
+      if (0 != rc) {
+        DIDAGLE_ERROR("[{}]Filed:{} move {} to {} when skipped failed.", _proc->Name(), field,
+                      data->move_from_when_skipped, field_info.name);
+      }
     }
   }
   return 0;

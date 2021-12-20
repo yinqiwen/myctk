@@ -8,8 +8,8 @@ GRAPH_OP_BEGIN(phase2)
 GRAPH_OP_INPUT(std::string, v1)
 GRAPH_OP_OUTPUT(std::string, v5)
 GRAPH_OP_OUTPUT((std::map<std::string, std::string>), v6)
-int OnSetup(const Params& args) override { return 0; }
-int OnExecute(const Params& args) override {
+int OnSetup(const didagle::Params& args) override { return 0; }
+int OnExecute(const didagle::Params& args) override {
   DIDAGLE_DEBUG("Run {}", Name());
   if (nullptr != v1) {
     DIDAGLE_DEBUG("phase2 input v1 = {}", *v1);

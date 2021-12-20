@@ -4,9 +4,12 @@
 // Authors: qiyingwang (qiyingwang@tencent.com)
 #pragma once
 #include <atomic>
+#include <map>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 #include "graph_processor_api.h"
 #include "tbb/concurrent_hash_map.h"
 
@@ -14,15 +17,17 @@ namespace didagle {
 
 struct ProcessorMeta {
   std::string name;
+  std::string desc;
+  bool isIOProcessor = false;
   std::vector<FieldInfo> input;
   std::vector<FieldInfo> output;
   std::vector<ParamInfo> params;
-  KCFG_DEFINE_FIELDS(name, input, output, params)
+  KCFG_DEFINE_FIELDS(name, desc, isIOProcessor, input, output, params)
 };
 
 class ProcessorFactory {
  public:
-  static void Register(const std::string &name, const ProcessorCreator &creator);
+  static void Register(std::string_view name, const ProcessorCreator &creator);
   static Processor *GetProcessor(const std::string &name);
   static void GetAllMetas(std::vector<ProcessorMeta> &metas);
   static int DumpAllMetas(const std::string &file = "all_processors.json");
@@ -31,9 +36,15 @@ class ProcessorFactory {
 struct ProcessorRunResult {
   std::shared_ptr<Processor> processor;
   int rc = -1;
-  ProcessorRunResult(int v = -1) : rc(v) {}
+  explicit ProcessorRunResult(int v = -1) : rc(v) {}
 };
+
+struct ProcessorRunOptions {
+  const Params *params = nullptr;
+  std::map<std::string, std::vector<std::string>> map_aggregate_ids;
+};
+
 ProcessorRunResult run_processor(GraphDataContext &ctx, const std::string &proc,
-                                 const Params *params = nullptr);
+                                 const ProcessorRunOptions &opts = {});
 
 }  // namespace didagle

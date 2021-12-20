@@ -19,7 +19,7 @@ int main(int argc, char** argv) {
   if (!cluster) {
     printf("Failed to parse toml\n");
     return -1;
-  };
+  }
   if (0 != cluster->Build()) {
     printf("Failed to build graph cluster\n");
     return -1;

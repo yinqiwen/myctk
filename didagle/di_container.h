@@ -3,14 +3,17 @@
 // Created on 2021/05/26
 // Authors: qiyingwang (qiyingwang@tencent.com)
 #pragma once
-#include <google/protobuf/service.h>
 #include <atomic>
-#include <boost/preprocessor/library.hpp>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <unordered_map>
+#include <vector>
+
+#include <boost/preprocessor/library.hpp>
+#include "google/protobuf/service.h"
+
 #include "didagle_log.h"
 #include "kcfg_json.h"
 
@@ -110,7 +113,8 @@ struct DIObjectBuilder : public DIObjectBuilderBase {
 
   std::function<DIObjectType()> _functor;
   std::function<int()> _init;
-  DIObjectBuilder(const std::function<DIObjectType()>& f = {}, const std::function<int()> init = {})
+  explicit DIObjectBuilder(const std::function<DIObjectType()>& f = {},
+                           const std::function<int()> init = {})
       : _functor(f), _init(init) {}
   virtual int Init() {
     if (_init) {
@@ -213,10 +217,10 @@ class DIObject {
 };
 
 }  // namespace didagle
-using namespace didagle;
-#define DI_DEP(TYPE, NAME)                                                                     \
-  typename DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_type NAME = {};              \
-  size_t __input_##NAME##_code = RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>(#NAME, [this]() { \
-    NAME = DIContainer::Get<BOOST_PP_REMOVE_PARENS(TYPE)>(#NAME);                              \
-    return NAME ? 0 : -1;                                                                      \
-  });
+#define DI_DEP(TYPE, NAME)                                                                 \
+  typename didagle::DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_type NAME = {}; \
+  size_t __input_##NAME##_code =                                                           \
+      RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>(#NAME, [this]() {               \
+        NAME = didagle::DIContainer::Get<BOOST_PP_REMOVE_PARENS(TYPE)>(#NAME);             \
+        return NAME ? 0 : -1;                                                              \
+      });

@@ -1,3 +1,6 @@
+// Copyright (c) 2021, Tencent Inc.
+// All rights reserved.
+
 #include <benchmark/benchmark.h>
 #include <sys/time.h>
 #include "graph_processor.h"

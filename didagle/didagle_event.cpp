@@ -26,27 +26,22 @@
  *ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  *THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "didagle_log.h"
-#include "graph_processor_api.h"
-
-GRAPH_OP_BEGIN(recall_merge)
-GRAPH_OP_INPUT((std::string), r2)
-GRAPH_OP_INPUT((std::string), r1)
-GRAPH_OP_MAP_INPUT(std::string, r3)
-GRAPH_OP_OUTPUT((std::string), merge_out)
-int OnSetup(const didagle::Params& args) override { return 0; }
-int OnExecute(const didagle::Params& args) override {
-  if (nullptr == r1) {
-    DIDAGLE_DEBUG("nullptr r1");
-  } else {
-    DIDAGLE_DEBUG("r1:{}", *r1);
-  }
-  if (nullptr == r2) {
-    DIDAGLE_DEBUG("nullptr r2");
-  } else {
-    DIDAGLE_DEBUG("r2:{}", *r2);
-  }
-  merge_out = "merge_out";
-  return 0;
+#include "didagle_event.h"
+#include <array>
+namespace didagle {
+template <size_t N>
+static constexpr std::string_view sv(const char (&literal)[N]) {
+  return std::string_view(literal, N - 1);
 }
-GRAPH_OP_END
+
+template <size_t... N>
+static constexpr std::array<std::string_view, sizeof...(N)> sva(const char (&... literals)[N]) {
+  return {{sv(literals)...}};
+}
+
+constexpr auto kPhases =
+    sva("unknown", "concurrency_sched", "prepare_execute", "post_execute", "graph_reset");
+
+std::string_view get_dag_phase_name(PhaseType phase) { return kPhases[static_cast<int>(phase)]; }
+
+}  // namespace didagle

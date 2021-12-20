@@ -1,13 +1,25 @@
+// Copyright (c) 2021, Tencent Inc.
+// All rights reserved.
+// Created on 2021/04/16
+// Authors: qiyingwang (qiyingwang@tencent.com)
+#pragma once
+
 #include <stdint.h>
-#include <tbb/concurrent_hash_map.h>
-#include <tbb/concurrent_queue.h>
+
 #include <atomic>
-#include <boost/functional/hash.hpp>
 #include <functional>
+#include <map>
 #include <memory>
+#include <string>
+#include <unordered_map>
 #include <unordered_set>
+#include <vector>
+
+#include "boost/functional/hash.hpp"
+#include "concurrentqueue.h"
 #include "folly/concurrency/AtomicSharedPtr.h"
-#include "folly/concurrency/ConcurrentHashMap.h"
+#include "folly/container/F14Map.h"
+
 #include "graph_executor.h"
 #include "graph_vertex.h"
 #include "kcfg_toml.h"
@@ -38,7 +50,7 @@ struct Graph {
   ~Graph();
 };
 
-struct GraphManager;
+class GraphManager;
 class GraphClusterContext;
 struct GraphCluster {
   std::string desc;
@@ -52,8 +64,10 @@ struct GraphCluster {
   typedef std::map<std::string, Graph *> GraphTable;
   GraphTable _graphs;
   GraphManager *_graph_manager = nullptr;
+  bool _builded = false;
 
-  tbb::concurrent_queue<GraphClusterContext *> _graph_cluster_context_pool;
+  // tbb::concurrent_queue<GraphClusterContext *> _graph_cluster_context_pool;
+  moodycamel::ConcurrentQueue<GraphClusterContext *> _graph_cluster_context_pool;
   KCFG_TOML_DEFINE_FIELDS(desc, strict_dsl, default_expr_processor, default_context_pool_size,
                           graph, config_setting)
 
@@ -72,19 +86,21 @@ class GraphContext;
 class GraphManager {
  private:
   // typedef tbb::concurrent_hash_map<std::string, std::shared_ptr<GraphCluster>> ClusterGraphTable;
-  typedef folly::ConcurrentHashMap<std::string, folly::atomic_shared_ptr<GraphCluster>>
-      ClusterGraphTable;
+  // typedef folly::ConcurrentHashMap<std::string, folly::atomic_shared_ptr<GraphCluster>>
+  //     ClusterGraphTable;
+  typedef folly::F14NodeMap<std::string, folly::atomic_shared_ptr<GraphCluster>> ClusterGraphTable;
   ClusterGraphTable _graphs;
   GraphExecuteOptions _exec_options;
+  std::mutex _graphs_mutex;
 
  public:
-  GraphManager(const GraphExecuteOptions &options);
+  explicit GraphManager(const GraphExecuteOptions &options);
   const GraphExecuteOptions &GetGraphExecuteOptions() const { return _exec_options; }
   std::shared_ptr<GraphCluster> Load(const std::string &file);
   std::shared_ptr<GraphCluster> FindGraphClusterByName(const std::string &name);
   GraphClusterContext *GetGraphClusterContext(const std::string &cluster);
   int Execute(GraphDataContextPtr &data_ctx, const std::string &cluster, const std::string &graph,
-              const Params *params, DoneClosure &&done);
+              const Params *params, DoneClosure &&done, uint64_t = 0);
   bool Exists(const std::string &cluster, const std::string &graph);
 };
 }  // namespace didagle

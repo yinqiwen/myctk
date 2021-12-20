@@ -9,6 +9,7 @@
 #include <atomic>
 #include <functional>
 #include <memory>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -47,6 +48,7 @@ class VertexContext {
   uint64_t _exec_start_ustime = 0;
   size_t _child_idx = (size_t)-1;
   const Params *_exec_params = nullptr;
+  int _exec_rc = INT_MAX;
 
  public:
   VertexContext();
@@ -54,7 +56,8 @@ class VertexContext {
   Vertex *GetVertex() { return _vertex; }
   const Params *GetExecParams();
   ProcessorDI *GetProcessorDI() { return _processor_di; }
-  VertexResult GetResult() { return _result; };
+  Processor *GetProcessor() { return _processor; }
+  VertexResult GetResult() { return _result; }
   void FinishVertexProcess(int code);
   int ExecuteProcessor();
   int ExecuteSubGraph();
@@ -120,6 +123,7 @@ class GraphClusterContext {
   DoneClosure _done;
   GraphDataContext *_extern_data_ctx = nullptr;
   // bool _is_subgraph = false;
+  uint64_t _end_ustime = 0;
 
  public:
   // bool IsSubgraph() const { return _is_subgraph; }
@@ -128,6 +132,8 @@ class GraphClusterContext {
   // void SetExecuteOptions(const GraphExecuteOptions* opt) { _exec_options =
   // opt; } const GraphExecuteOptions& GetExecuteOptions() { return
   // *_exec_options; }
+  uint64_t GetEndTime() { return _end_ustime; }
+  void SetEndTime(const uint64_t end_ustime) { _end_ustime = end_ustime; }
   void SetExecuteParams(const Params *p) { _exec_params = p; }
   const Params *GetExecuteParams() const { return _exec_params; }
   GraphCluster *GetCluster() { return _cluster; }

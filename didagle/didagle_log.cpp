@@ -27,6 +27,7 @@
  *THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "didagle_log.h"
+#include <memory>
 #include "spdlog/spdlog.h"
 
 namespace didagle {
@@ -48,10 +49,16 @@ Spdlogger::Spdlogger() {
 }
 bool Spdlogger::ShouldLog(spdlog::level::level_enum log_level) {
   auto logger = spdlog::default_logger_raw();
+  if (nullptr == logger) {
+    return false;
+  }
   return logger->should_log(log_level);
 }
 void Spdlogger::Log(spdlog::source_loc loc, spdlog::level::level_enum lvl, std::string_view msg) {
   auto logger = spdlog::default_logger_raw();
+  if (nullptr == logger) {
+    return;
+  }
   logger->log(loc, lvl, msg);
 }
 }  // namespace didagle

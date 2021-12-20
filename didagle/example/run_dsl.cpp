@@ -2,11 +2,15 @@
 // All rights reserved.
 
 #include <stdlib.h>
-#include <boost/asio/post.hpp>
-#include <boost/asio/thread_pool.hpp>
 #include <fstream>
 #include <iostream>
 #include <string>
+
+#include "boost/asio/post.hpp"
+#include "boost/asio/thread_pool.hpp"
+#include "folly/Singleton.h"
+#include "folly/synchronization/HazptrThreadPoolExecutor.h"
+
 #include "didagle_log.h"
 #include "expr.h"
 #include "graph.h"
@@ -26,6 +30,11 @@ static std::string get_basename(const std::string& filename) {
     return filename;
 }
 int main(int argc, char** argv) {
+  folly::SingletonVault::singleton()->registrationComplete();
+  // Set the default hazard pointer domain to use a thread pool executor
+  // for asynchronous reclamation
+  folly::enable_hazptr_thread_pool_executor();
+
   boost::asio::thread_pool pool(8);
   GraphExecuteOptions exec_opt;
   exec_opt.concurrent_executor = [&pool](AnyClosure&& r) {
@@ -47,7 +56,7 @@ int main(int argc, char** argv) {
     if (!cluster) {
       printf("Failed to parse toml\n");
       return -1;
-    };
+    }
     std::string cluster_name = get_basename(config);
 
     exec_opt.params.reset(new Params);
@@ -57,6 +66,7 @@ int main(int argc, char** argv) {
     paras["y"].SetInt(1);
     paras["A"].SetBool(true);
     paras["expid"].SetInt(1000);
+    paras["EXP"]["field1"].SetInt(1221);
     // graphs.Load(config);
     // boost::asio::post(pool, [&] {
     //   GraphDataContextPtr root1(new GraphDataContext);

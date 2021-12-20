@@ -27,15 +27,12 @@ processor = "phase3"
 
 [[graph]]
 name = "sub_graph0"
-# 其它复杂情况
 [[graph.vertex]]
 processor = "phase0"
-input = [{ field = "v0", extern = true }]
-output = [{ field = "v1" }, { field = "v2" }]
+input = [{ field = "v0", extern = true }]    # 算子extern输入
+output = [{ field = "v1", id = "v1" }, { field = "v2" }]  # 算子两个输出
 select_args = [
     { match = "with_exp_1000", args = { abc = "hello1", xyz = "aaa" } },
-    { match = "with_exp_1001", args = { abc = "hello2", xyz = "bbb" } },
-    { match = "with_exp_1002", args = { abc = "hello3", xyz = "ccc" } },
 ]
 args = { abc = "default", xyz = "zzz" }
 [[graph.vertex]]
@@ -49,6 +46,7 @@ output = [{ field = "v5" }, { field = "v6" }]
 [[graph.vertex]]
 processor = "phase3"
 id = "phase3_0"
+# 显示声明input数据
 input = [
     { field = "v1" },
     { field = "v2" },
@@ -61,37 +59,23 @@ output = [{ field = "v100", id = "m0" }]
 [[graph.vertex]]
 processor = "phase3"
 id = "phase3_1"
-input = [
-    { field = "v1" },
-    { field = "v2" },
-    { field = "v3" },
-    { field = "v4" },
-    { field = "v5" },
-    { field = "v6" },
-]
-output = [{ field = "v100", id = "m1" }]
+# input = ...  , 无需设置，隐式可以推导出和phase3_0配置一样效果
+output = [{ field = "v100", id = "m1" }]     # 将field输出到数据m1
 [[graph.vertex]]
-#expect = 'user_type=="34old"'
-expect_config = "!with_exp_1002"
+#expect = 'user_type=="34old"'               # 当条件'user_type=="34old"'满足时该算子才会运行
+expect_config = "with_exp_1002"              # 当全局bool变量with_exp_1002为true时，该算子才会运行
 processor = "phase3"
 id = "phase3_2"
-input = [
-    { field = "v1" },
-    { field = "v2" },
-    { field = "v3" },
-    { field = "v4" },
-    { field = "v5" },
-    { field = "v6" },
-]
-output = [{ field = "v100", id = "m2" }]
+# input = ...  , 无需设置，隐式可以推导出和phase3_0配置一样效果
+output = [{ field = "v100", id = "m2" }]     # 将field输出到数据m2
 [[graph.vertex]]
 processor = "phase4"
-input = [{ field = "v100", aggregate = ["m0", "m1", "m2"] }]
-[[graph.vertex]]
-processor = "phase5"
-input = [{ field = "v100", move = true }]
-output = [{ field = "v100", id = "new_v100" }]
-[[graph.vertex]]
-processor = "phase6"
-input = [{ field = "v100", id = "new_v100", move = true }]
-output = [{ field = "v100", id = "new2_v100" }]
+input = [{ field = "v100", aggregate = ["m0", "m1", "m2"] }]   # 输入为m0,m1,m2的聚合， 用途将多个重复类型的不同数据聚合在一起
+# [[graph.vertex]]
+# processor = "phase5"
+# input = [{ field = "v100", move = true }]
+# output = [{ field = "v100", id = "new_v100" }]
+# [[graph.vertex]]
+# processor = "phase6"
+# input = [{ field = "v100", id = "new_v100", move = true }]
+# output = [{ field = "v100", id = "new2_v100" }]

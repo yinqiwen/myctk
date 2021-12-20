@@ -6,6 +6,8 @@ cc_library(
     name = "didagle_core",
     srcs = [
         "di_container.cpp",
+        "didagle_background.cpp",
+        "didagle_event.cpp",
         "didagle_log.cpp",
         "graph.cpp",
         "graph_data.cpp",
@@ -18,6 +20,7 @@ cc_library(
     hdrs = [
         "di_container.h",
         "di_reset.h",
+        "didagle_background.h",
         "didagle_event.h",
         "didagle_log.h",
         "graph.h",
@@ -30,9 +33,10 @@ cc_library(
         "graph_vertex.h",
     ],
     includes = ["./"],
-    linkopts = ["-lpthread -ltbb -lglog -lfolly"],
+    linkopts = ["-lpthread -lglog -lfolly"],
     deps = [
         "//config:kcfg",
+        "@com_github_cameron314_concurrentqueue//:concurrentqueue",
         "@com_github_spdlog//:spdlog",
         "@com_google_protobuf//:protobuf",
     ],

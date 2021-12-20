@@ -28,25 +28,38 @@
  */
 
 #pragma once
-#include <memory>
 #include <stdint.h>
-#include <tbb/concurrent_queue.h>
 
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include "concurrentqueue.h"
 namespace didagle {
+enum class PhaseType {
+  DAG_PHASE_UNKNOWN = 0,
+  DAG_PHASE_CONCURRENT_SCHED,
+  DAG_PHASE_PREPARE_EXECUTE,
+  DAG_PHASE_POST_EXECUTE,
+  DAG_PHASE_RESET,
+};
+
 struct DAGEvent {
   std::string_view processor;
   std::string_view cluster;
   std::string_view graph;
   std::string_view full_graph_name;
+
+  PhaseType phase{PhaseType::DAG_PHASE_UNKNOWN};
   uint64_t start_ustime = 0;
   uint64_t end_ustime = 0;
   int rc = -1;
 };
 
 struct DAGEventTracker {
-  tbb::concurrent_queue<std::unique_ptr<DAGEvent>> events;
+  moodycamel::ConcurrentQueue<std::unique_ptr<DAGEvent>> events;
 };
-} // namespace didagle
+
+std::string_view get_dag_phase_name(PhaseType phase);
+}  // namespace didagle

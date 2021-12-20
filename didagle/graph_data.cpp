@@ -27,6 +27,7 @@
  *THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "graph_data.h"
+#include <string>
 
 namespace didagle {
 bool GraphParams::ParseFromToml(const kcfg::TomlValue& doc) {
@@ -42,22 +43,27 @@ bool GraphParams::ParseFromToml(const kcfg::TomlValue& doc) {
       }
     }
     invalid = false;
+    _param_type = PARAM_OBJECT;
   } else if (doc.is_integer()) {
     iv = doc.as_integer();
     str = std::to_string(iv);
     invalid = false;
+    _param_type = PARAM_INT;
   } else if (doc.is_boolean()) {
     bv = doc.as_boolean();
     str = std::to_string(bv);
     invalid = false;
+    _param_type = PARAM_BOOL;
   } else if (doc.is_floating()) {
     dv = doc.as_floating();
     str = std::to_string(dv);
     invalid = false;
+    _param_type = PARAM_DOUBLE;
   } else if (doc.is_string()) {
     std::string tmp = doc.as_string();
     str = tmp;
     invalid = false;
+    _param_type = PARAM_STRING;
   } else if (doc.is_array()) {
     for (const auto& item : doc.as_array()) {
       GraphParams tmp;
@@ -68,6 +74,7 @@ bool GraphParams::ParseFromToml(const kcfg::TomlValue& doc) {
         return false;
       }
     }
+    _param_type = PARAM_ARRAY;
     invalid = false;
   } else {
     return false;

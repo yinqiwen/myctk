@@ -5,6 +5,8 @@
 #pragma once
 #include <fmt/core.h>
 #include <stdio.h>
+#include <memory>
+#include <string>
 #include <string_view>
 #include "spdlog/logger.h"
 

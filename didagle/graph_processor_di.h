@@ -4,6 +4,11 @@
 // Authors: qiyingwang (qiyingwang@tencent.com)
 
 #pragma once
+#include <map>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "graph_processor.h"
 namespace didagle {
 class ProcessorDI {
@@ -18,13 +23,14 @@ class ProcessorDI {
                           const std::vector<GraphData>& config_fields, FieldDataTable& field_ids);
 
  public:
-  ProcessorDI(Processor* proc, bool strict_dsl = false);
+  explicit ProcessorDI(Processor* proc, bool strict_dsl = false);
   const FieldDataTable& GetInputIds() { return _input_ids; }
   const FieldDataTable& GetOutputIds() { return _output_ids; }
   int PrepareInputs(const std::vector<GraphData>& config_inputs = {});
   int PrepareOutputs(const std::vector<GraphData>& config_outputs = {});
   int InjectInputs(GraphDataContext& ctx, const Params* params);
   int CollectOutputs(GraphDataContext& ctx, const Params* params);
+  int MoveDataWhenSkipped(GraphDataContext& ctx);
 };
 
 }  // namespace didagle

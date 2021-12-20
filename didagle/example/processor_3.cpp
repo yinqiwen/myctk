@@ -12,8 +12,8 @@ GRAPH_OP_INPUT((std::map<std::string, std::string>), v4)
 GRAPH_OP_INPUT(std::string, v5)
 GRAPH_OP_INPUT((std::map<std::string, std::string>), v6)
 GRAPH_OP_OUTPUT(std::string, v100)
-int OnSetup(const Params& args) override { return 0; }
-int OnExecute(const Params& args) override {
+int OnSetup(const didagle::Params& args) override { return 0; }
+int OnExecute(const didagle::Params& args) override {
   DIDAGLE_DEBUG("Run {}", Name());
   if (nullptr != v1) {
     DIDAGLE_DEBUG("phase3 input v1 = {}", *v1);

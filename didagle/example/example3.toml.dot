@@ -13,7 +13,8 @@ digraph G {
     auto_graph_with_exp_1001 [label="with_exp_1001" shape=diamond color=black fillcolor=aquamarine style=filled];
     auto_graph_with_exp_1002 [label="with_exp_1002" shape=diamond color=black fillcolor=aquamarine style=filled];
     auto_graph__START__ -> auto_graph_phase0;
-    auto_graph_phase3 -> auto_graph__STOP__    auto_graph_phase2 -> auto_graph_phase3 [style=bold label="all"];
+    auto_graph_phase3 -> auto_graph__STOP__;
+    auto_graph_phase2 -> auto_graph_phase3 [style=bold label="all"];
     auto_graph_phase0 -> auto_graph_phase3 [style=bold label="all"];
     auto_graph_phase1 -> auto_graph_phase3 [style=bold label="all"];
     auto_graph_phase0 -> auto_graph_phase2 [style=bold label="all"];
@@ -24,8 +25,6 @@ digraph G {
     label = "sub_graph0";
     sub_graph0__START__[color=black fillcolor=deepskyblue style=filled shape=Msquare label="START"];
     sub_graph0__STOP__[color=black fillcolor=deepskyblue style=filled shape=Msquare label="STOP"];
-    sub_graph0_phase6 [label="phase6" color=black fillcolor=linen style=filled];
-    sub_graph0_phase5 [label="phase5" color=black fillcolor=linen style=filled];
     sub_graph0_phase4 [label="phase4" color=black fillcolor=linen style=filled];
     sub_graph0_phase1 [label="phase1" color=black fillcolor=linen style=filled];
     sub_graph0_phase2 [label="phase2" color=black fillcolor=linen style=filled];
@@ -36,8 +35,7 @@ digraph G {
     sub_graph0_with_exp_1000 [label="with_exp_1000" shape=diamond color=black fillcolor=aquamarine style=filled];
     sub_graph0_with_exp_1001 [label="with_exp_1001" shape=diamond color=black fillcolor=aquamarine style=filled];
     sub_graph0_with_exp_1002 [label="with_exp_1002" shape=diamond color=black fillcolor=aquamarine style=filled];
-    sub_graph0_phase6 -> sub_graph0__STOP__    sub_graph0_phase5 -> sub_graph0_phase6 [style=bold label="all"];
-    sub_graph0_phase4 -> sub_graph0_phase5 [style=bold label="all"];
+    sub_graph0_phase4 -> sub_graph0__STOP__;
     sub_graph0_phase3_2 -> sub_graph0_phase4 [style=bold label="all"];
     sub_graph0_phase3_0 -> sub_graph0_phase4 [style=bold label="all"];
     sub_graph0_phase3_1 -> sub_graph0_phase4 [style=bold label="all"];
@@ -50,7 +48,7 @@ digraph G {
     sub_graph0_phase0 -> sub_graph0_phase3_1 [style=bold label="all"];
     sub_graph0_phase1 -> sub_graph0_phase3_1 [style=bold label="all"];
     sub_graph0__START__ -> sub_graph0_phase0;
-    sub_graph0_with_exp_1002 -> sub_graph0_phase3_2 [style=dashed color=red label="err"];
+    sub_graph0_with_exp_1002 -> sub_graph0_phase3_2 [style=bold label="ok"];
     sub_graph0__START__ -> sub_graph0_with_exp_1002;
     sub_graph0_phase2 -> sub_graph0_phase3_2 [style=bold label="all"];
     sub_graph0_phase0 -> sub_graph0_phase3_2 [style=bold label="all"];

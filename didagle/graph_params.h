@@ -33,13 +33,15 @@
 #include <string>
 #include <vector>
 #include "folly/FBString.h"
+#include "folly/container/F14Map.h"
 #include "kcfg_toml.h"
 
 namespace didagle {
 typedef folly::fbstring ParamsString;
 class Params {
  public:
-  typedef std::map<ParamsString, Params> ParamValueTable;
+  // typedef std::map<ParamsString, Params> ParamValueTable;
+  typedef folly::F14NodeMap<ParamsString, Params> ParamValueTable;
 
  protected:
   enum ParamValueType {
@@ -65,7 +67,7 @@ class Params {
   const Params* parent = nullptr;
 
  public:
-  Params(bool invalid_ = false);
+  explicit Params(bool invalid_ = false);
   void SetParent(const Params* p);
   bool Valid() const;
   bool IsBool() const;

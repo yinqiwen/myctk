@@ -1,11 +1,26 @@
 // Copyright (c) 2020, Tencent Inc.
 // All rights reserved.
 #include "graph.h"
+#include <sys/time.h>
 #include <iostream>
 #include <regex>
+#include <set>
+#include <string>
+#include <utility>
+
+#include "didagle_background.h"
 #include "didagle_log.h"
 
 namespace didagle {
+static inline uint64_t ustime() {
+  struct timeval tv;
+  uint64_t ust;
+  gettimeofday(&tv, nullptr);
+  ust = ((uint64_t)tv.tv_sec) * 1000000;
+  ust += tv.tv_usec;
+  return ust;
+}
+
 std::string Graph::generateNodeId() {
   std::string id = name + "_" + std::to_string(_idx);
   _idx++;
@@ -188,7 +203,7 @@ int Graph::DumpDot(std::string &s) {
   for (auto &config_setting : _cluster->config_setting) {
     const std::string &var_name = config_setting.name;
     if (cfg_setting_vars.insert(var_name).second) {
-      std::string dot_var_name = var_name;
+      std::string dot_var_name = name + "_" + var_name;
       std::string label_name = var_name;
       s.append("    ").append(dot_var_name).append(" [label=\"").append(label_name).append("\"");
       s.append(" shape=diamond color=black fillcolor=aquamarine style=filled];\n");
@@ -219,7 +234,7 @@ bool GraphCluster::ContainsConfigSetting(const std::string &name) {
   return false;
 }
 int GraphCluster::Build() {
-  if (!_graph_cluster_context_pool.empty()) {
+  if (_builded) {
     // already builded
     return 0;
   }
@@ -249,8 +264,9 @@ int GraphCluster::Build() {
   }
   for (int i = 0; i < default_context_pool_size; i++) {
     GraphClusterContext *ctx = GetContext();
-    _graph_cluster_context_pool.push(ctx);
+    _graph_cluster_context_pool.enqueue(ctx);
   }
+  _builded = true;
   return 0;
 }
 int GraphCluster::DumpDot(std::string &s) {
@@ -274,7 +290,7 @@ bool GraphCluster::Exists(const std::string &graph) { return FindGraphByName(gra
 
 GraphClusterContext *GraphCluster::GetContext() {
   GraphClusterContext *ctx = nullptr;
-  if (_graph_cluster_context_pool.try_pop(ctx)) {
+  if (_graph_cluster_context_pool.try_dequeue(ctx)) {
     return ctx;
   }
   ctx = new GraphClusterContext;
@@ -283,13 +299,13 @@ GraphClusterContext *GraphCluster::GetContext() {
 }
 void GraphCluster::ReleaseContext(GraphClusterContext *p) {
   p->Reset();
-  _graph_cluster_context_pool.push(p);
+  _graph_cluster_context_pool.enqueue(p);
 }
 
 GraphCluster::~GraphCluster() {
   DIDAGLE_DEBUG("Destory GraphCluster");
   GraphClusterContext *ctx = nullptr;
-  while (_graph_cluster_context_pool.try_pop(ctx)) {
+  while (_graph_cluster_context_pool.try_dequeue(ctx)) {
     delete ctx;
   }
 }
@@ -322,7 +338,11 @@ std::shared_ptr<GraphCluster> GraphManager::Load(const std::string &file) {
     DIDAGLE_ERROR("Failed to build toml script:{}", file);
     return nullptr;
   }
-  _graphs.insert_or_assign(std::move(name), g);
+  {
+    std::lock_guard<std::mutex> guard(_graphs_mutex);
+    _graphs[std::move(name)].store(g);
+  }
+  // _graphs.insert_or_assign(std::move(name), g);
   // auto &&[itr, success] = _graphs.emplace(std::move(name), g);
   // if (!success) {
   //   const auto &graph_ptr = itr->second;
@@ -332,6 +352,7 @@ std::shared_ptr<GraphCluster> GraphManager::Load(const std::string &file) {
 }
 std::shared_ptr<GraphCluster> GraphManager::FindGraphClusterByName(const std::string &name) {
   // std::shared_ptr<GraphCluster> ret;
+  std::lock_guard<std::mutex> guard(_graphs_mutex);
   auto found = _graphs.find(name);
   if (found != _graphs.end()) {
     return found->second.load();
@@ -357,7 +378,8 @@ bool GraphManager::Exists(const std::string &cluster, const std::string &graph) 
 }
 
 int GraphManager::Execute(GraphDataContextPtr &data_ctx, const std::string &cluster,
-                          const std::string &graph, const Params *params, DoneClosure &&done) {
+                          const std::string &graph, const Params *params, DoneClosure &&done,
+                          uint64_t time_out_ms) {
   if (!_exec_options.concurrent_executor) {
     DIDAGLE_ERROR("Empty concurrent executor");
     return -1;
@@ -373,12 +395,15 @@ int GraphManager::Execute(GraphDataContextPtr &data_ctx, const std::string &clus
   }
   ctx->SetExternGraphDataContext(data_ctx.get());
   ctx->SetExecuteParams(params);
-  std::shared_ptr<GraphCluster> runing_cluster = ctx->GetRunningCluster();
-  auto graph_done = [ctx, runing_cluster, done](int code) mutable {
+  if (time_out_ms != 0) {
+    ctx->SetEndTime(ustime() + time_out_ms * 1000);
+  }
+  auto graph_done = [ctx, done](int code) mutable {
     done(code);
-    ctx->GetCluster()->ReleaseContext(ctx);
-    runing_cluster.reset();  // make the binding GraphCluster release last
-    // DIDAGLE_DEBUG("#####0  {}", (uintptr_t)ctx);
+    AsyncResetWorker::GetInstance()->Post([ctx]() {
+      std::shared_ptr<GraphCluster> runing_cluster = ctx->GetRunningCluster();
+      runing_cluster->ReleaseContext(ctx);
+    });
   };
   GraphContext *graph_ctx = nullptr;
   // ctx->SetExecuteOptions(&_exec_opt);

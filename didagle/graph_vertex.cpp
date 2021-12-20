@@ -2,6 +2,8 @@
 // All rights reserved.
 #include "graph_vertex.h"
 #include <regex>
+#include <set>
+#include <string>
 #include "didagle_log.h"
 #include "graph.h"
 #include "graph_processor.h"
