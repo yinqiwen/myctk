@@ -22,10 +22,12 @@ namespace didagle {
 typedef std::function<void(int)> DoneClosure;
 typedef std::function<void(void)> AnyClosure;
 typedef std::function<void(AnyClosure &&)> ConcurrentExecutor;
+using EventReporter = std::function<void(DAGEvent)>;
 
 struct GraphExecuteOptions {
   ConcurrentExecutor concurrent_executor;
   std::shared_ptr<Params> params;
+  EventReporter event_reporter;
 };
 
 class GraphContext;

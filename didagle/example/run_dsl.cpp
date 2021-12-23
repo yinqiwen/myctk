@@ -65,6 +65,8 @@ int main(int argc, char** argv) {
     paras["x"].SetInt(1);
     paras["y"].SetInt(1);
     paras["A"].SetBool(true);
+    paras["myid"].SetString("xyz");
+    paras["myid0"].SetString("output");
     paras["expid"].SetInt(1000);
     paras["EXP"]["field1"].SetInt(1221);
     // graphs.Load(config);

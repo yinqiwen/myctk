@@ -398,11 +398,21 @@ int GraphManager::Execute(GraphDataContextPtr &data_ctx, const std::string &clus
   if (time_out_ms != 0) {
     ctx->SetEndTime(ustime() + time_out_ms * 1000);
   }
-  auto graph_done = [ctx, done](int code) mutable {
+  auto graph_done = [this, ctx, done](int code) mutable {
     done(code);
-    AsyncResetWorker::GetInstance()->Post([ctx]() {
-      std::shared_ptr<GraphCluster> runing_cluster = ctx->GetRunningCluster();
-      runing_cluster->ReleaseContext(ctx);
+    AsyncResetWorker::GetInstance()->Post([this, ctx]() {
+      uint64_t start_exec_ustime = ustime();
+      {
+        std::shared_ptr<GraphCluster> runing_cluster = ctx->GetRunningCluster();
+        runing_cluster->ReleaseContext(ctx);
+      }
+      if (_exec_options.event_reporter) {
+        DAGEvent event;
+        event.start_ustime = start_exec_ustime;
+        event.end_ustime = ustime();
+        event.phase = PhaseType::DAG_PHASE_GRAPH_ASYNC_RESET;
+        _exec_options.event_reporter(std::move(event));
+      }
     });
   };
   GraphContext *graph_ctx = nullptr;

@@ -41,7 +41,28 @@ int OnExecute(const didagle::Params& args) override {
   }
 
   DIDAGLE_DEBUG("map size={}", ms.size());
+  for (const auto& kv : ms) {
+    DIDAGLE_DEBUG("map key={}", kv.first);
+  }
+  return 0;
+}
+GRAPH_OP_END
 
+GRAPH_OP_BEGIN(recall_4)
+GRAPH_OP_IN_OUT((std::string), abc)
+GRAPH_OP_MAP_INPUT((std::string), ms)
+int OnSetup(const didagle::Params& args) override { return 0; }
+int OnExecute(const didagle::Params& args) override {
+  if (nullptr == abc) {
+    DIDAGLE_DEBUG("empty abc");
+  } else {
+    DIDAGLE_DEBUG("abc = {}", *abc);
+  }
+
+  DIDAGLE_DEBUG("map size={}", ms.size());
+  for (const auto& kv : ms) {
+    DIDAGLE_DEBUG("map key={}", kv.first);
+  }
   return 0;
 }
 GRAPH_OP_END

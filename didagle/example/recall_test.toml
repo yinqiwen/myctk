@@ -73,7 +73,8 @@ output=[{field="abc", id = "output", move_from_when_skipped="input"}]
 
 [[graph.vertex]]
 processor = "recall_3"
-input=[{field="abc", id = "output"}, {field="ms", extern=true, aggregate = ["xyz", "y"]}]
+input=[{field="abc", extern=true, id = "$myid0"}, {field="ms", extern=true, aggregate = ["$myid"]}]
+deps = ["recall_2"]
 
 
 

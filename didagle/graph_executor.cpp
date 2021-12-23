@@ -132,7 +132,7 @@ void VertexContext::FinishVertexProcess(int code) {
         std::unique_ptr<DAGEvent> event(new DAGEvent);
         event->start_ustime = post_exec_start_ustime;
         event->end_ustime = ustime();
-        event->phase = PhaseType::DAG_PHASE_POST_EXECUTE;
+        event->phase = PhaseType::DAG_PHASE_OP_POST_EXECUTE;
         tracker->events.enqueue(std::move(event));
       }
     }
@@ -198,7 +198,7 @@ int VertexContext::ExecuteProcessor() {
     std::unique_ptr<DAGEvent> event(new DAGEvent);
     event->start_ustime = _exec_start_ustime;
     event->end_ustime = ustime();
-    event->phase = PhaseType::DAG_PHASE_PREPARE_EXECUTE;
+    event->phase = PhaseType::DAG_PHASE_OP_PREPARE_EXECUTE;
     tracker->events.enqueue(std::move(event));
   }
   if (_processor->IsAsync()) {
@@ -582,6 +582,7 @@ int GraphClusterContext::Setup(GraphCluster *c) {
 }
 int GraphClusterContext::Execute(const std::string &graph, DoneClosure &&done,
                                  GraphContext *&graph_ctx) {
+  uint64_t start_exec_ustime = ustime();
   graph_ctx = nullptr;
   GraphContext *g = GetRunGraph(graph);
   if (nullptr == g) {
@@ -613,8 +614,6 @@ int GraphClusterContext::Execute(const std::string &graph, DoneClosure &&done,
       _config_settings[i].result = 1;
     }
     bool *v = reinterpret_cast<bool *>(&_config_settings[i].result);
-    // DIDAGLE_DEBUG("Set config setting:{} to {}",
-    // _cluster->config_setting[i].var, *v);
     if (*v) {
       data_ctx.Set(_cluster->config_setting[i].name, v);
     }
@@ -624,6 +623,15 @@ int GraphClusterContext::Execute(const std::string &graph, DoneClosure &&done,
    * creation is not thread-safe.
    */
   data_ctx.DisableEntryCreation();
+  DAGEventTracker *tracker = data_ctx.GetEventTracker();
+  if (nullptr != tracker) {
+    std::unique_ptr<DAGEvent> event(new DAGEvent);
+    event->start_ustime = start_exec_ustime;
+    event->end_ustime = ustime();
+    event->phase = PhaseType::DAG_GRAPH_GRAPH_PREPARE_EXECUTE;
+    tracker->events.enqueue(std::move(event));
+  }
+
   return g->Execute(std::move(done));
 }
 
