@@ -1,0 +1,191 @@
+syntax = "proto3";
+package mraft;
+
+message LogPBMeta {
+  int64 first_log_index = 1;
+};
+
+message RaftNodePeer {
+  string host = 1;
+  uint32 port = 2;
+  int32 id = 3;
+}
+
+message RaftMeta {
+  map<uint32, RaftNodePeer> node_peers = 1;
+  RaftNodePeer self_peer = 2;
+  // int64 last_term = 2;
+  // int64 last_idx = 3;
+  int64 last_applied_idx = 4;
+  int64 last_applied_term = 5;
+  int64 snapshot_last_idx = 6;
+  int64 snapshot_last_term = 7;
+  int32 voted_for = 8;
+}
+
+message SnapshotFileMeta {
+  string name = 1;
+  int64 size = 2;
+}
+
+message SnapshotMeta {
+  repeated SnapshotFileMeta files = 1;
+}
+
+message SnapshotChunk {
+  int64 offset = 1;
+  bytes data = 2;
+  bool last_chunk = 3;
+}
+
+message SnapshotRequest {
+  string cluster = 1;
+  int32 node_id = 2;
+  /** currentTerm, for follower to update itself */
+  int64 term = 3;
+
+  /** used to identify the sender node. Useful when this message is received
+   * from the nodes that are not part of the configuration yet. */
+  int32 leader_id = 4;
+
+  /** id, to make it possible to associate responses with requests. */
+  int64 msg_id = 5;
+
+  /** last included index of the snapshot */
+  int64 snapshot_index = 6;
+
+  /** last included term of the snapshot */
+  int64 snapshot_term = 7;
+
+  /** snapshot chunk **/
+  SnapshotChunk chunk = 8;
+
+  SnapshotMeta meta = 9;  // only assign when chunk offset = 0
+}
+
+message SnapshotResponse {
+  /** the msg_id this response refers to */
+  int64 msg_id = 1;
+
+  /** currentTerm, to force other leader to step down */
+  int64 term = 2;
+
+  /** indicates last acknowledged snapshot offset by the follower */
+  int64 offset = 3;
+
+  /** 1 if request is accepted */
+  bool success = 4;
+
+  /** 1 if this is a response to the final chunk */
+  bool last_chunk = 5;
+}
+
+message RequestVoteRequest {
+  string cluster = 1;
+  int32 node_id = 2;
+  bool prevote = 3;
+  /** currentTerm, to force other leader/candidate to step down */
+  int64 term = 4;
+  /** candidate requesting vote */
+  uint32 candidate_id = 5;
+  /** index of candidate's last log entry */
+  int64 last_log_idx = 6;
+  /** term of candidate's last log entry */
+  int64 last_log_term = 7;
+  /** tell nodes that they should allow a vote, even with a healthy leader */
+  bool transfer_leader = 8;
+}
+
+message RequestVoteResponse {
+  /** 1 if this is a prevote message, 0 otherwise */
+  bool prevote = 1;
+
+  /** term of received requestvote msg */
+  int64 request_term = 2;
+
+  /** currentTerm, for candidate to update itself */
+  int64 term = 3;
+
+  /** true means candidate received vote */
+  bool vote_granted = 4;
+}
+
+message RaftEntry {
+  /** the entry's term at the point it was created */
+  int64 term = 1;
+
+  /** the entry's unique ID */
+  int64 id = 2;
+
+  /** type of entry */
+  uint32 type = 3;
+
+  bytes data = 4;
+}
+
+message AppendEntriesRequest {
+  string cluster = 1;
+  int32 node_id = 2;
+  /** used to identify the sender node. Useful when this message is received
+   * from the nodes that are not part of the configuration yet. **/
+  uint32 leader_id = 3;
+
+  /** id, to make it possible to associate responses with requests. */
+  uint32 msg_id = 4;
+
+  /** currentTerm, to force other leader/candidate to step down */
+  int64 term = 5;
+
+  /** the index of the log just before the newest entry for the node who
+   * receives this message */
+  int64 prev_log_idx = 6;
+
+  /** the term of the log just before the newest entry for the node who
+   * receives this message */
+  int64 prev_log_term = 7;
+
+  /** the index of the entry that has been appended to the majority of the
+   * cluster. Entries up to this index will be applied to the FSM */
+  int64 leader_commit = 8;
+
+  /** array of pointers to entries within this message */
+  repeated RaftEntry entries = 9;
+}
+
+message AppendEntriesResponse {
+  /** the msg_id this response refers to */
+  int64 msg_id = 1;
+
+  /** currentTerm, to force other leader/candidate to step down */
+  int64 term = 2;
+
+  /** true if follower contained entry matching prevLogidx and prevLogTerm */
+  bool success = 3;
+
+  /* Non-Raft fields follow: */
+  /* Having the following fields allows us to do less book keeping in
+   * regards to full fledged RPC */
+
+  /** If success, this is the highest log IDX we've received and appended to
+   * our log; otherwise, this is the our currentIndex */
+  int64 current_idx = 4;
+}
+
+message TimeoutNowRequest {
+  string cluster = 1;
+  int32 node_id = 2;
+}
+
+message TimeoutNowResponse {}
+
+message NodeJoinRequest {
+  string cluster = 1;
+  RaftNodePeer leader = 2;
+  RaftNodePeer peer = 3;
+}
+
+message NodeJoinResponse {
+  bool success = 1;
+  int32 errcode = 2;
+  RaftNodePeer joined_peer = 3;
+}
