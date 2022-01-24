@@ -14,8 +14,6 @@ message RaftNodePeer {
 message RaftMeta {
   map<uint32, RaftNodePeer> node_peers = 1;
   RaftNodePeer self_peer = 2;
-  // int64 last_term = 2;
-  // int64 last_idx = 3;
   int64 last_applied_idx = 4;
   int64 last_applied_term = 5;
   int64 snapshot_last_idx = 6;

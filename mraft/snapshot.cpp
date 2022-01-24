@@ -27,8 +27,10 @@
  *THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "mraft/snapshot.h"
+#include <bits/types/FILE.h>
 #include <sys/mman.h>
 #include <algorithm>
+#include <memory>
 #include <string>
 
 #include "folly/FileUtil.h"
@@ -39,6 +41,24 @@
 
 namespace mraft {
 static constexpr std::string_view kSnapshotMeta = "snapshot_meta";
+
+int SnapshotWritableFile::GetFD() {
+  if (!file_) {
+    return -1;
+  }
+  return file_->fd();
+}
+void SnapshotWritableFile::Close() {
+  if (!file_) {
+    return;
+  }
+  file_->close();
+}
+SnapshotWritableFile::~SnapshotWritableFile() {
+  if (snapshot_) {
+    snapshot_->Add(name_);
+  }
+}
 
 Snapshot::Snapshot(const std::string& path, int64_t index) : index_(index) {
   path_ = path + "/" + std::to_string(index_);
@@ -130,6 +150,30 @@ bool Snapshot::Exists(const std::string& file_name) const {
     }
   }
   return false;
+}
+
+std::unique_ptr<folly::File> Snapshot::GetReadableFile(const std::string& file_name) const {
+  std::unique_ptr<folly::File> file;
+  std::string file_path = path_ + "/" + file_name;
+  try {
+    file = std::make_unique<folly::File>(file_path, O_RDWR);
+  } catch (const std::runtime_error& e) {
+    MRAFT_ERROR("Failed to open file:{} to read with reason:{}", file_path, e.what());
+    return nullptr;
+  }
+  return file;
+}
+
+std::unique_ptr<SnapshotWritableFile> Snapshot::GetWritableFile(const std::string& file_name) {
+  std::unique_ptr<folly::File> file;
+  std::string file_path = path_ + "/" + file_name;
+  try {
+    file = std::make_unique<folly::File>(file_path, O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+  } catch (const std::runtime_error& e) {
+    MRAFT_ERROR("Failed to open file:{} to write with reason:{}", file_path, e.what());
+    return nullptr;
+  }
+  return std::make_unique<SnapshotWritableFile>(this, file_name, std::move(file));
 }
 
 int Snapshot::Add(const std::string& file_name) {

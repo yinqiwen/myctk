@@ -61,6 +61,8 @@ struct LocalInt {
 bool has_prefix(const std::string_view& str, const std::string_view& prefix);
 bool has_suffix(const std::string_view& fullString, const std::string_view& ending);
 int pb_write_file(const std::string& file, const ::google::protobuf::Message& msg);
+int pb_write_fd(int fd, const ::google::protobuf::Message& msg);
 int pb_read_file(const std::string& file, ::google::protobuf::Message& msg);
+int pb_read_fd(int fd, ::google::protobuf::Message& msg);
 
 }  // namespace mraft

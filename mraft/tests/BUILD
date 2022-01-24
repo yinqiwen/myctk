@@ -20,5 +20,6 @@ cc_binary(
     ],
     deps = [
         ":local_raft",
+        "@com_github_cpp_linenoise//:cpp_linenoise",
     ],
 )

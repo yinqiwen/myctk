@@ -37,6 +37,7 @@
 #include <thread>
 #include <vector>
 
+#include "folly/container/F14Map.h"
 #include "folly/io/IOBuf.h"
 #include "folly/io/async/EventBase.h"
 #include "mraft.pb.h"
@@ -52,6 +53,7 @@ struct RaftOptions {
   RaftNodePeer self_peer;
   std::vector<RaftNodePeer> raft_peers;
   uint32_t routine_period_msecs = 100;
+  uint32_t snapshot_period_mins = 15;
   int create_cluster = -1;  // must set this to 0/1
 };
 
@@ -92,6 +94,12 @@ using Done = std::function<void(int)>;
 struct RaftID {
   std::string_view cluster;
   int id = -1;
+};
+
+class Raft;
+struct RaftNodeState {
+  Raft* raft = nullptr;
+  uint32_t pending_raft_response_num = 0;
 };
 
 struct RaftEntryClosure {
@@ -138,7 +146,9 @@ class Raft {
   int RecvNodeJoin(const RaftNodePeer& peer, const NodeJoinRequest& req, NodeJoinResponse& res, Done&& done);
   int RecvTimeoutNow(const RaftNodePeer& peer, const TimeoutNowRequest& req, TimeoutNowResponse& res, Done&& done);
 
+  int RemoveNode(const RaftNodePeer& peer, Done&& done);
   int TransferLeader(int32_t target_node_id, int32_t timeout_msecs, Done&& done);
+  void SaveSnapshot(Done&& done);
 
   virtual ~Raft();
 
@@ -170,7 +180,7 @@ class Raft {
   static int RaftClearSnapshot(raft_server_t* raft, void* user_data);
 
   int StoreSnapshotChunk(raft_index_t snapshot_index, raft_size_t offset, raft_snapshot_chunk_t* chunk);
-  int GetSnapshotChunk(const RaftNodePeer& peer, raft_size_t offset, raft_snapshot_chunk_t* chunk);
+  int GetSnapshotChunk(raft_size_t offset, raft_snapshot_chunk_t* chunk);
   int AppendConfigChange(raft_logtype_e type, const RaftNodePeer& peer, bool only_log);
   void HandleTransferLeaderComplete(raft_transfer_state_e state);
   int AddNodeHasSufficientLogs(const RaftNodePeer& peer);
@@ -192,6 +202,7 @@ class Raft {
   int RecvSnapshotResponse(const RaftNodePeer& peer, SnapshotResponse&& res);
   int RecvTimeoutNowResponse(const RaftNodePeer& peer, TimeoutNowResponse&& res);
 
+  void DoSaveSnapshot(Done&& done);
   int LoadMeta(bool& is_empty);
   int SaveMeta();
   int LoadCommitLog();
@@ -200,10 +211,14 @@ class Raft {
   int TryJoinExistingCluster();
 
   int AddNode(const RaftNodePeer& peer, bool vote);
+  int DoAddNode(const RaftNodePeer& peer);
+  int DoRemoveNode(int32_t node_id);
   int32_t NextNodeID();
-  void DoSnapshotSave();
+
   void EventLoop();
   bool CheckRaftState();
+  void ScheduleSaveSnapshot();
+  void TrySaveSnapshot();
   void ScheduleRoutine();
   void Routine();
   std::unique_ptr<Snapshot> DoLoadSnapshot(int64_t index);
@@ -213,12 +228,15 @@ class Raft {
   std::string snapshot_home_;
   folly::EventBase event_base_;
   std::unique_ptr<std::thread> event_base_thread_;
+  std::unique_ptr<std::thread> snapshot_save_thread_;
   raft_log_impl_t raft_log_impl_;
   raft_server_t* raft_server_ = nullptr;
   std::unique_ptr<LogStorage> raft_log_store_;
   std::unique_ptr<Snapshot> last_snapshot_;
   std::unique_ptr<Snapshot> incoming_snapshot_;
   RaftMeta meta_;
+  using RaftNodeStateTable = folly::F14FastMap<int32_t, RaftNodeState>;
+  RaftNodeStateTable node_states_;
   std::atomic<RaftState> state_ = {RaftState::RAFT_UP};
   int id_ = -1;
 };

@@ -50,13 +50,11 @@ TEST_F(SnapshotTest, Read) {
   int n1 = 1024;
   int n2 = 4098;
   {
-    folly::File a("./snapshots/1/a", O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
-    folly::File b("./snapshots/1/b", O_RDWR | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
-    folly::ftruncateNoInt(a.fd(), n1);
-    folly::ftruncateNoInt(b.fd(), n2);
+    auto a = s.GetWritableFile("a");
+    auto b = s.GetWritableFile("b");
+    folly::ftruncateNoInt(a->GetFD(), n1);
+    folly::ftruncateNoInt(b->GetFD(), n2);
   }
-  EXPECT_EQ(s.Add("a"), 0);
-  EXPECT_EQ(s.Add("b"), 0);
   EXPECT_EQ(s.Size(), n1 + n2);
   SnapshotChunk chunk;
   int64_t offset = 0;

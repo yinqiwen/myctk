@@ -39,6 +39,21 @@
 
 namespace mraft {
 
+class Snapshot;
+class SnapshotWritableFile {
+ private:
+  Snapshot* snapshot_;
+  std::string name_;
+  std::unique_ptr<folly::File> file_;
+
+ public:
+  explicit SnapshotWritableFile(Snapshot* s, const std::string& n, std::unique_ptr<folly::File>&& f)
+      : snapshot_(s), name_(n), file_(std::move(f)) {}
+  int GetFD();
+  void Close();
+  ~SnapshotWritableFile();
+};
+
 class Snapshot {
  public:
   Snapshot(const std::string& path, int64_t index);
@@ -50,15 +65,18 @@ class Snapshot {
   const std::string& GetPath() const;
   int64_t GetIndex() const;
   const SnapshotMeta& GetMeta() const;
-  int Add(const std::string& file_name);
+  std::unique_ptr<SnapshotWritableFile> GetWritableFile(const std::string& file_name);
+  std::unique_ptr<folly::File> GetReadableFile(const std::string& file_name) const;
+
   bool Exists(const std::string& file_name) const;
   int Write(int64_t offset, const void* data, size_t len);
   int Read(int64_t offset, void*& chunk, int64_t& count, bool& last_chunk);
   int64_t Size() const;
 
  private:
+  friend class SnapshotWritableFile;
   void Close();
-
+  int Add(const std::string& file_name);
   int SyncMeta();
   int GetFileByOffset(int64_t offset, int& file_idx, int64_t& file_start_offset);
 

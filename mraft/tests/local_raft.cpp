@@ -28,6 +28,7 @@
  */
 #include "mraft/tests/local_raft.h"
 #include <bits/stdint-intn.h>
+#include "folly/FileUtil.h"
 #include "mraft/logger.h"
 
 namespace mraft {
@@ -73,10 +74,18 @@ int LocalRaft::OnSendSnapshot(const RaftNodePeer& peer, const SnapshotRequest& m
 }
 int LocalRaft::OnSnapshotLoad(const Snapshot& snapshot) {
   MRAFT_DEBUG("OnSnapshotLoad");
+  auto f = snapshot.GetReadableFile("counter");
+
   return 0;
 }
 int LocalRaft::OnSnapshotSave(Snapshot& snapshot) {
   MRAFT_DEBUG("OnSnapshotSave");
+  auto f = snapshot.GetWritableFile("counter");
+  if (!f) {
+    return -1;
+  }
+  folly::writeNoInt(f->GetFD(), &counter, sizeof(counter));
+  f->Close();
   return 0;
 }
 

@@ -53,14 +53,8 @@ bool has_suffix(const std::string_view& fullString, const std::string_view& endi
     return false;
   }
 }
-int pb_write_file(const std::string& file_path, const ::google::protobuf::Message& msg) {
-  std::unique_ptr<folly::File> file;
-  try {
-    file = std::make_unique<folly::File>(file_path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC);
-  } catch (const std::exception& ex) {
-    MRAFT_ERROR("Failed to open file:{} with msg:{}", file_path, ex.what());
-    return -1;
-  }
+
+int pb_write_fd(int fd, const ::google::protobuf::Message& msg) {
   IOBufAsZeroCopyOutputStream os;
   if (!msg.SerializeToZeroCopyStream(&os)) {
     return -1;
@@ -77,45 +71,49 @@ int pb_write_file(const std::string& file_path, const ::google::protobuf::Messag
   head_buf->appendChain(std::move(data_buf));
   const size_t to_write = len + head_buf->length();
   auto iov = head_buf->getIov();
-  ssize_t n = folly::writevFull(file->fd(), iov.data(), iov.size());
+  ssize_t n = folly::writevFull(fd, iov.data(), iov.size());
   if (n != to_write) {
     int err = errno;
-    MRAFT_ERROR("Fail to write to fd={}, path:{}, error:{}", file->fd(), file_path, folly::errnoStr(err));
+    MRAFT_ERROR("Fail to write to fd={}, error:{}", fd, folly::errnoStr(err));
     return -1;
   }
   return 0;
 }
-int pb_read_file(const std::string& file_path, ::google::protobuf::Message& msg) {
+
+int pb_write_file(const std::string& file_path, const ::google::protobuf::Message& msg) {
   std::unique_ptr<folly::File> file;
   try {
-    file = std::make_unique<folly::File>(file_path);
+    file = std::make_unique<folly::File>(file_path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC);
   } catch (const std::exception& ex) {
     MRAFT_ERROR("Failed to open file:{} with msg:{}", file_path, ex.what());
     return -1;
   }
+  return pb_write_fd(file->fd(), msg);
+}
+
+int pb_read_fd(int fd, ::google::protobuf::Message& msg) {
   auto head_buf = folly::IOBuf::create(sizeof(uint32_t));
   // get file size
   struct stat st_buf;
-  if (fstat(file->fd(), &st_buf) != 0) {
+  if (fstat(fd, &st_buf) != 0) {
     int save_err = errno;
-    MRAFT_ERROR("Failed to get file stat:{} with error:{}", file_path, folly::errnoStr(save_err));
+    MRAFT_ERROR("Failed to get file stat by fd:{} with error:{}", fd, folly::errnoStr(save_err));
     return -1;
   }
   int64_t file_size = st_buf.st_size;
   uint32_t pb_len = 0;
-  const ssize_t n = folly::readNoInt(file->fd(), &pb_len, sizeof(uint32_t));
+  const ssize_t n = folly::readNoInt(fd, &pb_len, sizeof(uint32_t));
   if (n != sizeof(uint32_t)) {
     int save_err = errno;
-    MRAFT_ERROR("Failed to read len from file:{} with error:{}", file_path, folly::errnoStr(save_err));
+    MRAFT_ERROR("Failed to read len from fd:{} with error:{}", fd, folly::errnoStr(save_err));
     return -1;
   }
   pb_len = LocalInt<uint32_t>::ToLocalValue(pb_len);
   auto body_buf = folly::IOBuf::create(pb_len);
-  const ssize_t msg_n = folly::readFull(file->fd(), body_buf->writableData(), pb_len);
+  const ssize_t msg_n = folly::readFull(fd, body_buf->writableData(), pb_len);
   if (msg_n != pb_len) {
     int save_err = errno;
-    MRAFT_ERROR("Failed to read {} bytes msg content from file:{} with error:{}", pb_len, file_path,
-                folly::errnoStr(save_err));
+    MRAFT_ERROR("Failed to read {} bytes msg content from fd:{} with error:{}", pb_len, fd, folly::errnoStr(save_err));
     return -1;
   }
   body_buf->append(pb_len);
@@ -125,6 +123,17 @@ int pb_read_file(const std::string& file_path, ::google::protobuf::Message& msg)
     return -1;
   }
   return 0;
+}
+
+int pb_read_file(const std::string& file_path, ::google::protobuf::Message& msg) {
+  std::unique_ptr<folly::File> file;
+  try {
+    file = std::make_unique<folly::File>(file_path);
+  } catch (const std::exception& ex) {
+    MRAFT_ERROR("Failed to open file:{} with msg:{}", file_path, ex.what());
+    return -1;
+  }
+  return pb_read_fd(file->fd(), msg);
 }
 
 }  // namespace mraft

@@ -42,7 +42,7 @@
 #include <utility>
 
 #include "fmt/core.h"
-#include "folly/container/F14Map.h"
+
 #include "folly/portability/Filesystem.h"
 #include "folly/synchronization/Latch.h"
 #include "mraft/logger.h"
@@ -254,15 +254,18 @@ int Raft::RaftPersistTerm(raft_server_t* raft, void* user_data, raft_term_t term
 }
 int Raft::RaftApplyLog(raft_server_t* raft, void* user_data, raft_entry_t* entry, raft_index_t entry_idx) {
   Raft* r = reinterpret_cast<Raft*>(user_data);
-  r->meta_.set_last_applied_idx(entry_idx);
-  r->meta_.set_last_applied_term(entry->term);
+
   int rc = 0;
   switch (entry->type) {
     case RAFT_LOGTYPE_REMOVE_NODE: {
+      RaftCfgChange* req = reinterpret_cast<RaftCfgChange*>(entry->data);
+      r->DoRemoveNode(req->node_id);
+      if (r->state_ == RaftState::RAFT_LOADING) {
+        raft_handle_append_cfg_change(raft, entry, entry_idx);
+      }
       break;
     }
-    case RAFT_LOGTYPE_ADD_NONVOTING_NODE: {
-    }
+    case RAFT_LOGTYPE_ADD_NONVOTING_NODE:
     case RAFT_LOGTYPE_ADD_NODE: {
       RaftCfgChange* req = reinterpret_cast<RaftCfgChange*>(entry->data);
       if (r->meta_.node_peers().count(req->node_id) == 0) {
@@ -271,6 +274,9 @@ int Raft::RaftApplyLog(raft_server_t* raft, void* user_data, raft_entry_t* entry
         peer.set_port(req->port);
         peer.set_id(req->node_id);
         r->meta_.mutable_node_peers()->insert({req->node_id, peer});
+      }
+      if (r->state_ == RaftState::RAFT_LOADING) {
+        raft_handle_append_cfg_change(raft, entry, entry_idx);
       }
       break;
     }
@@ -291,6 +297,11 @@ int Raft::RaftApplyLog(raft_server_t* raft, void* user_data, raft_entry_t* entry
       break;
   }
   r->raft_log_store_->ClearCacheEntry(entry_idx);
+  if (r->state_ == RaftState::RAFT_UP) {
+    r->meta_.set_last_applied_idx(entry_idx);
+    r->meta_.set_last_applied_term(entry->term);
+    // r->SaveMeta();
+  }
   return rc;
 }
 void Raft::RaftLog(raft_server_t* raft, raft_node_id_t node, void* user_data, const char* buf) {
@@ -344,16 +355,16 @@ void Raft::RaftNotifyStateEvent(raft_server_t* raft, void* user_data, raft_state
       break;
     }
     case RAFT_STATE_PRECANDIDATE: {
-      MRAFT_INFO("Node:{} State change: Election starting, node is now a pre-candidate, term {}", r->SelfNode(),
+      MRAFT_INFO("Node:{} State change: election starting, node is now a pre-candidate, term {}", r->SelfNode(),
                  raft_get_current_term(raft));
       break;
     }
     case RAFT_STATE_CANDIDATE: {
-      MRAFT_INFO("Node:{} State change: Node is now a candidate, term {}", r->SelfNode(), raft_get_current_term(raft));
+      MRAFT_INFO("Node:{} State change: node is now a candidate, term {}", r->SelfNode(), raft_get_current_term(raft));
       break;
     }
     case RAFT_STATE_LEADER: {
-      MRAFT_INFO("Node:{} State change: Node is now a leader, term {}", r->SelfNode(), raft_get_current_term(raft));
+      MRAFT_INFO("Node:{} State change: node is now a leader, term {}", r->SelfNode(), raft_get_current_term(raft));
       break;
     }
     default: {
@@ -362,11 +373,11 @@ void Raft::RaftNotifyStateEvent(raft_server_t* raft, void* user_data, raft_state
   }
 }
 int Raft::RaftSendTimeoutNow(raft_server_t* raft, raft_node_t* raft_node) {
-  Raft* r = reinterpret_cast<Raft*>(raft_node_get_udata(raft_node));
+  RaftNodeState* state = reinterpret_cast<RaftNodeState*>(raft_node_get_udata(raft_node));
+  Raft* r = state->raft;
   raft_node_id_t node_id = raft_node_get_id(raft_node);
   RaftNodePeer peer;
   if (0 != r->GetNodePeerById(node_id, peer)) {
-    MRAFT_WARN("Can NOT find node by id:{}", node_id);
     return -1;
   }
   return r->TimeoutNow(peer);
@@ -382,7 +393,6 @@ int Raft::RaftSendSnapshot(raft_server_t* raft, void* user_data, raft_node_t* no
   raft_node_id_t node_id = raft_node_get_id(node);
   RaftNodePeer peer;
   if (0 != r->GetNodePeerById(node_id, peer)) {
-    MRAFT_WARN("Can NOT find node by id:{}", node_id);
     return -1;
   }
   return r->SendSnapshot(peer, msg);
@@ -395,12 +405,7 @@ int Raft::RaftLoadSnapshot(raft_server_t* raft, void* user_data, raft_index_t sn
 int Raft::RaftGetSnapshotChunk(raft_server_t* raft, void* user_data, raft_node_t* node, raft_size_t offset,
                                raft_snapshot_chunk_t* chunk) {
   Raft* r = reinterpret_cast<Raft*>(user_data);
-  raft_node_id_t node_id = raft_node_get_id(node);
-  RaftNodePeer peer;
-  if (0 != r->GetNodePeerById(node_id, peer)) {
-    return -1;
-  }
-  return r->GetSnapshotChunk(peer, offset, chunk);
+  return r->GetSnapshotChunk(offset, chunk);
 }
 int Raft::RaftStoreSnapshotChunk(raft_server_t* raft, void* user_data, raft_index_t snapshot_index, raft_size_t offset,
                                  raft_snapshot_chunk_t* chunk) {
@@ -424,8 +429,8 @@ int Raft::Shutdown() {
       event_base_.runInEventBaseThreadAndWait([this] {
         folly::HHWheelTimer& t = event_base_.timer();
         t.cancelAll();
+        event_base_.terminateLoopSoon();
       });
-      event_base_.terminateLoopSoon();
       event_base_thread_->join();
     }
     raft_destroy(raft_server_);
@@ -454,8 +459,9 @@ std::string Raft::Info() {
                        raft_is_follower(raft_server_), raft_is_leader(raft_server_)));
   s.append(fmt::format("is_precandidate:{},is_candidate:{},last_applied_idx:{},", raft_is_precandidate(raft_server_),
                        raft_is_candidate(raft_server_), raft_get_last_applied_idx(raft_server_)));
-  s.append(fmt::format("nvotes_for_me:{},voted_for:{},leader_id:{}", raft_get_nvotes_for_me(raft_server_),
-                       raft_get_voted_for(raft_server_), raft_get_leader_id(raft_server_)));
+  s.append(fmt::format("nvotes_for_me:{},voted_for:{},leader_id:{},cluster_peers_num:{}",
+                       raft_get_nvotes_for_me(raft_server_), raft_get_voted_for(raft_server_),
+                       raft_get_leader_id(raft_server_), meta_.node_peers_size()));
   return s;
 }
 
@@ -493,6 +499,32 @@ bool Raft::CheckRaftState() {
   }
 }
 
+void Raft::ScheduleSaveSnapshot() {
+  folly::HHWheelTimer& t = event_base_.timer();
+  t.scheduleTimeoutFn(std::bind(&Raft::TrySaveSnapshot, this), std::chrono::minutes(options_.snapshot_period_mins));
+}
+
+void Raft::TrySaveSnapshot() {
+  if (nullptr == raft_server_) {
+    return;
+  }
+  if (!CheckRaftState()) {
+    return;
+  }
+  ScheduleSaveSnapshot();
+  if (last_snapshot_ && last_snapshot_->GetIndex() == raft_log_store_->LastLogIndex()) {
+    MRAFT_WARN("Skip this snapshot saving since no new log entry since last snapshot.");
+    return;
+  }
+  if (snapshot_save_thread_) {
+    MRAFT_WARN("Skip this snapshot saving since last snapshot saving in progress.");
+    return;
+  }
+  MRAFT_INFO("[{}/{}]Snapshot saving start.", options_.name, GetNodeID());
+  DoSaveSnapshot(
+      [this](int rc) { MRAFT_INFO("[{}/{}]Snapshot done with rc:{}", options_.name, GetNodeID(), GetErrString(rc)); });
+}
+
 void Raft::ScheduleRoutine() {
   folly::HHWheelTimer& t = event_base_.timer();
   t.scheduleTimeoutFn(std::bind(&Raft::Routine, this), std::chrono::milliseconds(options_.routine_period_msecs));
@@ -500,7 +532,12 @@ void Raft::ScheduleRoutine() {
 
 void Raft::EventLoop() {
   ScheduleRoutine();
+  ScheduleSaveSnapshot();
   event_base_.loopForever();
+  if (snapshot_save_thread_) {
+    snapshot_save_thread_->join();
+    snapshot_save_thread_ = nullptr;
+  }
 }
 
 void Raft::HandleTransferLeaderComplete(raft_transfer_state_e state) {
@@ -532,15 +569,15 @@ int Raft::AppendConfigChange(raft_logtype_e change_type, const RaftNodePeer& pee
   std::memcpy(cfgchange->host, peer.host().data(), peer.host().size());
   cfgchange->host[peer.host().size()] = 0;
   ety->type = change_type;
+  int rc = 0;
   if (only_log) {
-    raft_log_impl_.append(raft_log_store_.get(), ety);
+    rc = raft_log_impl_.append(raft_log_store_.get(), ety);
   } else {
     msg_entry_response_t response;
-    int e = raft_recv_entry(raft_server_, ety, &response);
+    rc = raft_recv_entry(raft_server_, ety, &response);
   }
-
   raft_entry_release(ety);
-  return 0;
+  return rc;
 }
 
 int Raft::AddNodeHasSufficientLogs(const RaftNodePeer& peer) {
@@ -573,15 +610,35 @@ std::unique_ptr<Snapshot> Raft::DoLoadSnapshot(int64_t index) {
   return s;
 }
 
-void Raft::DoSnapshotSave() {
+void Raft::DoSaveSnapshot(Done&& done) {
+  if (snapshot_save_thread_) {
+    done(RAFT_ERR_SNAPSHOT_IN_PROGRESS);
+    return;
+  }
   int64_t snapshot_index = raft_log_store_->LastLogIndex();
   std::unique_ptr<Snapshot> s = std::make_unique<Snapshot>(snapshot_home_, snapshot_index);
   raft_begin_snapshot(raft_server_, RAFT_SNAPSHOT_NONBLOCKING_APPLY);
-  int rc = OnSnapshotSave(*s);
-  raft_end_snapshot(raft_server_);
-  if (0 == rc) {
-    last_snapshot_ = std::move(s);
-  }
+
+  snapshot_save_thread_ = std::make_unique<std::thread>([this, s = std::move(s), done = std::move(done)]() mutable {
+    int rc = OnSnapshotSave(*s);
+    event_base_.runInEventBaseThread([this, rc, s = std::move(s), done = std::move(done)]() mutable {
+      if (0 != rc) {
+        raft_cancel_snapshot(raft_server_);
+      } else {
+        raft_end_snapshot(raft_server_);
+      }
+      if (0 == rc) {
+        last_snapshot_ = std::move(s);
+      }
+      snapshot_save_thread_->join();
+      snapshot_save_thread_ = nullptr;
+      done(rc);
+    });
+  });
+}
+
+void Raft::SaveSnapshot(Done&& done) {
+  event_base_.runInEventBaseThread([this, done = std::move(done)]() mutable { DoSaveSnapshot(std::move(done)); });
 }
 
 int Raft::LoadLastSnapshot() {
@@ -596,7 +653,7 @@ int Raft::LoadMeta(bool& is_empty) {
   is_empty = false;
   std::string meta_file = options_.home + "/";
   meta_file.append(kRaftMeta);
-  if (!folly::fs::is_regular_file(meta_file)) {
+  if (!folly::fs::exists(meta_file)) {
     MRAFT_WARN("Meta:{} is not exist.", meta_file);
     is_empty = true;
     return 0;
@@ -616,15 +673,26 @@ int Raft::SaveMeta() {
   int rc = pb_write_file(meta_file, meta_);
   if (0 != rc) {
     MRAFT_ERROR("Meta:{} failed to save.", meta_file);
+  } else {
+    MRAFT_INFO("Meta:{} save success.", meta_file);
   }
   return rc;
 }
 
 int Raft::LoadCommitLog() {
-  if (meta_.last_applied_idx() > 0) {
-    raft_set_commit_idx(raft_server_, meta_.last_applied_idx());
+  MRAFT_INFO("[{}:{}]Load commit log with last_applied_idx:{}, snapshot_last_idx:{}, last_commit_idx:{}", options_.name,
+             GetNodeID(), meta_.last_applied_idx(), meta_.snapshot_last_idx(), raft_log_store_->LastLogIndex());
+  if (raft_log_store_->LastLogIndex() > 0) {
+    raft_set_commit_idx(raft_server_, raft_log_store_->LastLogIndex());
   }
   raft_set_snapshot_metadata(raft_server_, meta_.snapshot_last_term(), meta_.snapshot_last_idx());
+  // int rc = raft_log_store_->TruncateSuffix(meta_.last_applied_idx());
+  // if (0 != rc) {
+  //   MRAFT_ERROR("[{}:{}]TruncateSuffix to {} failed with rc:{}", options_.name, GetNodeID(),
+  //   meta_.last_applied_idx(),
+  //               rc);
+  //   return rc;
+  // }
   raft_apply_all(raft_server_);
   raft_set_current_term(raft_server_, meta_.last_applied_term());
   if (meta_.voted_for() > 0) {
@@ -721,6 +789,10 @@ int Raft::Init(const RaftOptions& options) {
     MRAFT_ERROR("'slef_peer' is not set.");
     return -1;
   }
+  if (options.raft_peers.empty()) {
+    MRAFT_ERROR("'raft_peers' is empty.");
+    return -1;
+  }
   std::string log_home = options.home + "/log";
   if (options.create_cluster) {
     folly::fs::remove_all(log_home);
@@ -773,8 +845,10 @@ int Raft::Init(const RaftOptions& options) {
       return -1;
     }
   }
-  state_ = RaftState::RAFT_UP;
+  int rc = 0;
+
   if (start_from_empty) {
+    state_ = RaftState::RAFT_UP;
     if (options.create_cluster) {
       if (options_.self_peer == options_.raft_peers[0]) {
         MRAFT_INFO("[{}:{}]Since self node is min address, start as first leader node.", options_.self_peer.host(),
@@ -784,7 +858,10 @@ int Raft::Init(const RaftOptions& options) {
         meta_.mutable_self_peer()->CopyFrom(options_.self_peer);
         AddNode(options_.self_peer, true);
         raft_become_leader(raft_server_);
-        AppendConfigChange(RAFT_LOGTYPE_ADD_NODE, options_.self_peer, true);
+        rc = AppendConfigChange(RAFT_LOGTYPE_ADD_NODE, options_.self_peer, true);
+        if (0 != rc) {
+          return rc;
+        }
       } else {
         int rc = TryJoinExistingCluster();
         if (0 != rc) {
@@ -794,27 +871,32 @@ int Raft::Init(const RaftOptions& options) {
         MRAFT_INFO("[{}]Join cluster success.", GetNodeID());
       }
     } else {
-      // new node join
-      // 1. get node id from leader
-      // 2. add nodes
       if (0 != TryJoinExistingCluster()) {
         return -1;
       }
     }
-
+    rc = SaveMeta();
+    if (0 != rc) {
+      return rc;
+    }
   } else {
     // load snapshot
-    if (0 != LoadLastSnapshot()) {
-      return -1;
+    state_ = RaftState::RAFT_LOADING;
+    rc = LoadLastSnapshot();
+    if (0 != rc) {
+      return rc;
     }
-    for (const auto& peer_pair : meta_.node_peers()) {
-      const auto& peer = peer_pair.second;
-      AddNode(peer, true);
+    rc = AddNode(meta_.self_peer(), false);
+    if (0 != rc) {
+      return rc;
     }
     // load commit entry
-    if (0 != LoadCommitLog()) {
-      return -1;
+
+    rc = LoadCommitLog();
+    if (0 != rc) {
+      return rc;
     }
+    state_ = RaftState::RAFT_UP;
   }
   try_emplace_raft(this);
   event_base_thread_ = std::make_unique<std::thread>(&Raft::EventLoop, this);
@@ -827,6 +909,33 @@ int Raft::ClearInComingSnapshot() {
     incoming_snapshot_->Remove();
     incoming_snapshot_ = nullptr;
   }
+  return 0;
+}
+
+int Raft::RemoveNode(const RaftNodePeer& peer, Done&& done) {
+  event_base_.runInEventBaseThread([this, peer, done = std::move(done)]() {
+    if (!CheckRaftState()) {
+      done(RAFT_ERR_INVALID_STATE);
+      return;
+    }
+    if (!IsLeader()) {
+      done(RaftErrorCode::RAFT_ERR_NOT_LEADER);
+      return;
+    }
+    int node_id = peer.id();
+    if (node_id <= 0) {
+      node_id = GetNodeIdByPeer(peer);
+    }
+    if (node_id <= 0) {
+      done(RaftErrorCode::RAFT_ERR_INVALID_NODEID);
+      return;
+    }
+    RaftNodePeer remove_peer = peer;
+    remove_peer.set_id(node_id);
+    AppendConfigChange(RAFT_LOGTYPE_REMOVE_NODE, remove_peer, false);
+    done(0);
+  });
+
   return 0;
 }
 
@@ -1065,7 +1174,7 @@ int Raft::DoRecvRequestVote(const RaftNodePeer& peer, const RequestVoteRequest& 
     MRAFT_ERROR("RecvRequestVote operation failed");
     return -1;
   }
-  MRAFT_ERROR("#### vote_granted:{}", response.vote_granted);
+  MRAFT_ERROR("vote_granted:{}", response.vote_granted);
   res.set_prevote(response.prevote);
   res.set_request_term(response.request_term);
   res.set_term(response.term);
@@ -1155,6 +1264,9 @@ int Raft::SendSnapshot(const RaftNodePeer& peer, msg_snapshot_t* msg) {
 }
 
 int Raft::AppendEntries(const RaftNodePeer& peer, AppendEntriesRequest& request) {
+  if (!CheckRaftState()) {
+    return RAFT_ERR_INVALID_STATE;
+  }
   request.set_cluster(options_.name);
   request.set_node_id(peer.id());
   return OnSendAppendEntries(peer, request, [this, peer](AppendEntriesResponse&& res) {
@@ -1208,7 +1320,7 @@ int Raft::StoreSnapshotChunk(raft_index_t snapshot_index, raft_size_t offset, ra
   return rc;
 }
 
-int Raft::GetSnapshotChunk(const RaftNodePeer& peer, raft_size_t offset, raft_snapshot_chunk_t* chunk) {
+int Raft::GetSnapshotChunk(raft_size_t offset, raft_snapshot_chunk_t* chunk) {
   if (!last_snapshot_) {
     return -1;
   }
@@ -1247,27 +1359,49 @@ int32_t Raft::NextNodeID() {
   return max_node_id + 1;
 }
 
+int Raft::DoRemoveNode(int32_t node_id) {
+  raft_node_t* node = raft_get_node(raft_server_, node_id);
+  if (nullptr != node) {
+    raft_node_set_udata(node, nullptr);
+  }
+  node_states_.erase(node_id);
+  meta_.mutable_node_peers()->erase(node_id);
+  return 0;
+}
+
+int Raft::DoAddNode(const RaftNodePeer& peer) {
+  int32_t node_id = peer.id();
+  meta_.mutable_node_peers()->insert({node_id, peer});
+  auto& state = node_states_[node_id];
+  state.raft = this;
+  raft_node_t* node = raft_get_node(raft_server_, node_id);
+  if (nullptr != node) {
+    raft_node_set_udata(node, &state);
+  }
+  return 0;
+}
+
 int Raft::AddNode(const RaftNodePeer& peer, bool vote) {
   int is_self = 0;
   if (peer.host() == GetPeer().host() && peer.port() == GetPeer().port()) {
     is_self = 1;
   }
   int32_t node_id = peer.id();
-  meta_.mutable_node_peers()->insert({node_id, peer});
+  if (node_id <= 0) {
+    MRAFT_ERROR("Invalid node_id to add node.", node_id);
+    return RAFT_ERR_INVALID_NODEID;
+  }
   raft_node_t* node = nullptr;
   if (vote) {
     node = raft_add_node(raft_server_, this, node_id, is_self);
   } else {
     node = raft_add_non_voting_node(raft_server_, this, node_id, is_self);
-    if (nullptr == node) {
-      auto* x = raft_get_node(raft_server_, node_id);
-      printf("existing node:%d %d\n", node_id, x == nullptr);
-    }
   }
   if (nullptr == node) {
     MRAFT_ERROR("Failed to add node {}/{}:{}", node_id, peer.host(), peer.port());
-    return -1;
+    return RAFT_ERR_INVALID_STATE;
   }
+  DoAddNode(peer);
   if (is_self) {
     meta_.mutable_self_peer()->CopyFrom(peer);
   }
