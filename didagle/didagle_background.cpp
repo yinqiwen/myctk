@@ -29,7 +29,6 @@
 #include "didagle_background.h"
 
 #include <utility>
-
 #include "folly/Singleton.h"
 
 namespace {
@@ -37,11 +36,18 @@ struct PrivateTag {};
 }  // namespace
 namespace didagle {
 static folly::Singleton<AsyncResetWorker, PrivateTag> the_singleton;
-std::shared_ptr<AsyncResetWorker> AsyncResetWorker::GetInstance() {
-  return the_singleton.try_get();
-}
+std::shared_ptr<AsyncResetWorker> AsyncResetWorker::GetInstance() { return the_singleton.try_get(); }
 AsyncResetWorker::AsyncResetWorker() {
-  executor_ = std::make_unique<folly::CPUThreadPoolExecutor>(2);
+  executor_ =
+      std::make_unique<folly::CPUThreadPoolExecutor>(2, std::make_shared<folly::NamedThreadFactory>("didagle_async"));
 }
-void AsyncResetWorker::Post(folly::Func&& func) { executor_->add(std::move(func)); }
+void AsyncResetWorker::Post(folly::Func&& func) {
+  executor_->add(std::move(func));
+  // boost::asio::post(executor_.get_executor(), std::move(func));
+}
+
+AsyncResetWorker::~AsyncResetWorker() {
+  // executor_.wait();
+  executor_->stop();
+}
 }  // namespace didagle

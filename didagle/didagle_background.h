@@ -36,10 +36,12 @@ namespace didagle {
 class AsyncResetWorker {
  private:
   std::unique_ptr<folly::CPUThreadPoolExecutor> executor_;
+  // boost::asio::static_thread_pool executor_;
 
  public:
   static std::shared_ptr<AsyncResetWorker> GetInstance();
   AsyncResetWorker();
   void Post(folly::Func&& func);
+  ~AsyncResetWorker();
 };
 }  // namespace didagle

@@ -26,19 +26,19 @@ std::string Graph::generateNodeId() {
   _idx++;
   return id;
 }
-Vertex *Graph::geneatedCondVertex(const std::string &cond) {
+Vertex* Graph::geneatedCondVertex(const std::string& cond) {
   std::shared_ptr<Vertex> v(new Vertex);
   v->SetGeneratedId(generateNodeId());
   v->processor = _cluster->default_expr_processor;
   v->cond = cond;
   v->_graph = this;
   v->MergeSuccessor();
-  Vertex *r = v.get();
+  Vertex* r = v.get();
   _nodes[v->id] = r;
   _gen_vertex.push_back(v);
   return r;
 }
-Vertex *Graph::FindVertexByData(const std::string &data) {
+Vertex* Graph::FindVertexByData(const std::string& data) {
   auto found = _data_mapping_table.find(data);
   if (found == _data_mapping_table.end()) {
     // DIDAGLE_ERROR("No dep input id:{}", data);
@@ -46,7 +46,7 @@ Vertex *Graph::FindVertexByData(const std::string &data) {
   }
   return found->second;
 }
-Vertex *Graph::FindVertexById(const std::string &id) {
+Vertex* Graph::FindVertexById(const std::string& id) {
   auto found = _nodes.find(id);
   if (found == _nodes.end()) {
     // DIDAGLE_ERROR("No dep input id:{}", id);
@@ -55,8 +55,8 @@ Vertex *Graph::FindVertexById(const std::string &id) {
   return found->second;
 }
 bool Graph::TestCircle() {
-  for (auto &pair : _nodes) {
-    Vertex *v = pair.second;
+  for (auto& pair : _nodes) {
+    Vertex* v = pair.second;
     if (v->FindVertexInSuccessors(v)) {
       DIDAGLE_ERROR("[{}]Found vertex:{} has circle", name, v->GetDotLable());
       return true;
@@ -66,7 +66,7 @@ bool Graph::TestCircle() {
 }
 int Graph::Build() {
   VertexTable generated_cond_nodes;
-  for (auto &n : vertex) {
+  for (auto& n : vertex) {
     if (n.processor.empty() && !n.cond.empty()) {
       // use default expr processor
       n.processor = _cluster->default_expr_processor;
@@ -98,7 +98,7 @@ int Graph::Build() {
       if (generated_cond_nodes.find(n.expect) == generated_cond_nodes.end()) {
         generated_cond_nodes[n.expect] = geneatedCondVertex(n.expect);
       }
-      Vertex *cond_vertex = generated_cond_nodes[n.expect];
+      Vertex* cond_vertex = generated_cond_nodes[n.expect];
       n.deps_on_ok.insert(cond_vertex->id);
     }
     if (_nodes.find(n.id) != _nodes.end()) {
@@ -118,7 +118,7 @@ int Graph::Build() {
       n.FillInputOutput();
     }
 
-    for (auto &data : n.output) {
+    for (auto& data : n.output) {
       if (data.field.empty()) {
         DIDAGLE_ERROR("Empty data field in output for node:{}", n.id);
         return -1;
@@ -134,7 +134,7 @@ int Graph::Build() {
       _data_mapping_table[data.id] = &n;
     }
 
-    for (auto &data : n.input) {
+    for (auto& data : n.input) {
       if (data.field.empty()) {
         DIDAGLE_ERROR("Empty data field in input for node:{}", n.id);
         return -1;
@@ -151,26 +151,26 @@ int Graph::Build() {
       // }
     }
   }
-  for (auto &n : vertex) {
+  for (auto& n : vertex) {
     if (0 != n.Build()) {
       DIDAGLE_ERROR("Failed to build vertex:{} in graph:{}", n.GetDotLable(), name);
       return -1;
     }
   }
-  for (auto &n : _gen_vertex) {
+  for (auto& n : _gen_vertex) {
     if (0 != n->Build()) {
       DIDAGLE_ERROR("Failed to build vertex:{} in graph:{}", n->GetDotLable(), name);
       return -1;
     }
   }
 
-  for (auto &n : vertex) {
+  for (auto& n : vertex) {
     if (!n.Verify()) {
       // DIDAGLE_ERROR("Vertex:{} has no deps and successors", n.id);
       return -1;
     }
   }
-  for (auto &n : _gen_vertex) {
+  for (auto& n : _gen_vertex) {
     if (!n->Verify()) {
       // DIDAGLE_ERROR("Generated Vertex:{} has no deps and successors", n->id);
       return -1;
@@ -185,7 +185,7 @@ int Graph::Build() {
   }
   return 0;
 }
-int Graph::DumpDot(std::string &s) {
+int Graph::DumpDot(std::string& s) {
   s.append("  subgraph cluster_").append(name).append("{\n");
   s.append("    style = rounded;\n");
   s.append("    label = \"").append(name).append("\";\n");
@@ -195,13 +195,13 @@ int Graph::DumpDot(std::string &s) {
   s.append("    ")
       .append(name + "__STOP__")
       .append("[color=black fillcolor=deepskyblue style=filled shape=Msquare label=\"STOP\"];\n");
-  for (auto &pair : _nodes) {
-    Vertex *v = pair.second;
+  for (auto& pair : _nodes) {
+    Vertex* v = pair.second;
     v->DumpDotDefine(s);
   }
   std::set<std::string> cfg_setting_vars;
-  for (auto &config_setting : _cluster->config_setting) {
-    const std::string &var_name = config_setting.name;
+  for (auto& config_setting : _cluster->config_setting) {
+    const std::string& var_name = config_setting.name;
     if (cfg_setting_vars.insert(var_name).second) {
       std::string dot_var_name = name + "_" + var_name;
       std::string label_name = var_name;
@@ -209,8 +209,8 @@ int Graph::DumpDot(std::string &s) {
       s.append(" shape=diamond color=black fillcolor=aquamarine style=filled];\n");
     }
   }
-  for (auto &pair : _nodes) {
-    Vertex *v = pair.second;
+  for (auto& pair : _nodes) {
+    Vertex* v = pair.second;
     v->DumpDotEdge(s);
   }
   s.append("};\n");
@@ -219,8 +219,8 @@ int Graph::DumpDot(std::string &s) {
 
 Graph::~Graph() {}
 
-bool GraphCluster::ContainsConfigSetting(const std::string &name) {
-  for (ConfigSetting &cfg : config_setting) {
+bool GraphCluster::ContainsConfigSetting(const std::string& name) {
+  for (ConfigSetting& cfg : config_setting) {
     if (!name.empty() && name[0] == '!') {
       if (cfg.name == name.substr(1)) {
         return true;
@@ -238,7 +238,7 @@ int GraphCluster::Build() {
     // already builded
     return 0;
   }
-  for (auto &f : graph) {
+  for (auto& f : graph) {
     f._cluster = this;
     _graphs[f.name] = &f;
     if (0 != f.Build()) {
@@ -246,7 +246,7 @@ int GraphCluster::Build() {
       return -1;
     }
   }
-  for (ConfigSetting &cfg : config_setting) {
+  for (ConfigSetting& cfg : config_setting) {
     if (cfg.processor.empty()) {
       cfg.processor = default_expr_processor;
       if (default_expr_processor.empty()) {
@@ -263,33 +263,33 @@ int GraphCluster::Build() {
     ctx.Reset();
   }
   for (int i = 0; i < default_context_pool_size; i++) {
-    GraphClusterContext *ctx = GetContext();
+    GraphClusterContext* ctx = GetContext();
     _graph_cluster_context_pool.enqueue(ctx);
   }
   _builded = true;
   return 0;
 }
-int GraphCluster::DumpDot(std::string &s) {
+int GraphCluster::DumpDot(std::string& s) {
   s.append("digraph G {\n");
   s.append("    rankdir=LR;\n");
-  for (auto &f : graph) {
+  for (auto& f : graph) {
     f.DumpDot(s);
   }
   s.append("}\n");
 
   return 0;
 }
-Graph *GraphCluster::FindGraphByName(const std::string &name) {
+Graph* GraphCluster::FindGraphByName(const std::string& name) {
   auto found = _graphs.find(name);
   if (found != _graphs.end()) {
     return found->second;
   }
   return nullptr;
 }
-bool GraphCluster::Exists(const std::string &graph) { return FindGraphByName(graph) != nullptr; }
+bool GraphCluster::Exists(const std::string& graph) { return FindGraphByName(graph) != nullptr; }
 
-GraphClusterContext *GraphCluster::GetContext() {
-  GraphClusterContext *ctx = nullptr;
+GraphClusterContext* GraphCluster::GetContext() {
+  GraphClusterContext* ctx = nullptr;
   if (_graph_cluster_context_pool.try_dequeue(ctx)) {
     return ctx;
   }
@@ -297,20 +297,20 @@ GraphClusterContext *GraphCluster::GetContext() {
   ctx->Setup(this);
   return ctx;
 }
-void GraphCluster::ReleaseContext(GraphClusterContext *p) {
+void GraphCluster::ReleaseContext(GraphClusterContext* p) {
   p->Reset();
   _graph_cluster_context_pool.enqueue(p);
 }
 
 GraphCluster::~GraphCluster() {
   DIDAGLE_DEBUG("Destory GraphCluster");
-  GraphClusterContext *ctx = nullptr;
+  GraphClusterContext* ctx = nullptr;
   while (_graph_cluster_context_pool.try_dequeue(ctx)) {
     delete ctx;
   }
 }
 
-static std::string get_basename(const std::string &filename) {
+static std::string get_basename(const std::string& filename) {
 #if defined(_WIN32)
   char dir_sep('\\');
 #else
@@ -323,8 +323,8 @@ static std::string get_basename(const std::string &filename) {
   else
     return filename;
 }
-GraphManager::GraphManager(const GraphExecuteOptions &options) : _exec_options(options) {}
-std::shared_ptr<GraphCluster> GraphManager::Load(const std::string &file) {
+GraphManager::GraphManager(const GraphExecuteOptions& options) : _exec_options(options) {}
+std::shared_ptr<GraphCluster> GraphManager::Load(const std::string& file) {
   std::shared_ptr<GraphCluster> g(new GraphCluster);
   bool v = kcfg::ParseFromTomlFile(file, *g);
   if (!v) {
@@ -350,7 +350,7 @@ std::shared_ptr<GraphCluster> GraphManager::Load(const std::string &file) {
   // }
   return g;
 }
-std::shared_ptr<GraphCluster> GraphManager::FindGraphClusterByName(const std::string &name) {
+std::shared_ptr<GraphCluster> GraphManager::FindGraphClusterByName(const std::string& name) {
   // std::shared_ptr<GraphCluster> ret;
   std::lock_guard<std::mutex> guard(_graphs_mutex);
   auto found = _graphs.find(name);
@@ -359,17 +359,17 @@ std::shared_ptr<GraphCluster> GraphManager::FindGraphClusterByName(const std::st
   }
   return nullptr;
 }
-GraphClusterContext *GraphManager::GetGraphClusterContext(const std::string &cluster) {
+GraphClusterContext* GraphManager::GetGraphClusterContext(const std::string& cluster) {
   std::shared_ptr<GraphCluster> c = FindGraphClusterByName(cluster);
   if (!c) {
     return nullptr;
   }
-  GraphClusterContext *ctx = c->GetContext();
+  GraphClusterContext* ctx = c->GetContext();
   ctx->SetRunningCluster(c);
   return ctx;
 }
 
-bool GraphManager::Exists(const std::string &cluster, const std::string &graph) {
+bool GraphManager::Exists(const std::string& cluster, const std::string& graph) {
   std::shared_ptr<GraphCluster> c = FindGraphClusterByName(cluster);
   if (!c) {
     return false;
@@ -377,9 +377,8 @@ bool GraphManager::Exists(const std::string &cluster, const std::string &graph) 
   return c->Exists(graph);
 }
 
-int GraphManager::Execute(GraphDataContextPtr &data_ctx, const std::string &cluster,
-                          const std::string &graph, const Params *params, DoneClosure &&done,
-                          uint64_t time_out_ms) {
+int GraphManager::Execute(GraphDataContextPtr& data_ctx, const std::string& cluster, const std::string& graph,
+                          const Params* params, DoneClosure&& done, uint64_t time_out_ms) {
   if (!_exec_options.concurrent_executor) {
     DIDAGLE_ERROR("Empty concurrent executor");
     return -1;
@@ -388,7 +387,7 @@ int GraphManager::Execute(GraphDataContextPtr &data_ctx, const std::string &clus
     DIDAGLE_ERROR("Empty 'GraphDataContext'");
     return -1;
   }
-  GraphClusterContext *ctx = GetGraphClusterContext(cluster);
+  GraphClusterContext* ctx = GetGraphClusterContext(cluster);
   if (!ctx) {
     DIDAGLE_ERROR("Find graph cluster {} failed.", cluster);
     return -1;
@@ -412,10 +411,11 @@ int GraphManager::Execute(GraphDataContextPtr &data_ctx, const std::string &clus
         event.end_ustime = ustime();
         event.phase = PhaseType::DAG_PHASE_GRAPH_ASYNC_RESET;
         _exec_options.event_reporter(std::move(event));
+        DIDAGLE_DEBUG("Graph reset cost {}us", event.end_ustime - start_exec_ustime);
       }
     });
   };
-  GraphContext *graph_ctx = nullptr;
+  GraphContext* graph_ctx = nullptr;
   // ctx->SetExecuteOptions(&_exec_opt);
   return ctx->Execute(graph, graph_done, graph_ctx);
 }

@@ -11,6 +11,7 @@
 #include "folly/Singleton.h"
 #include "folly/synchronization/HazptrThreadPoolExecutor.h"
 
+#include "didagle_background.h"
 #include "didagle_log.h"
 #include "expr.h"
 #include "graph.h"
@@ -40,6 +41,9 @@ int main(int argc, char** argv) {
   exec_opt.concurrent_executor = [&pool](AnyClosure&& r) {
     // boost::asio::post(pool, r);
     r();
+  };
+  exec_opt.event_reporter = [](DAGEvent event) {
+
   };
   {
     GraphManager graphs(exec_opt);
@@ -100,8 +104,7 @@ int main(int argc, char** argv) {
       std::unique_ptr<std::string> uuu(new std::string("hello, unique!"));
       root->Set("ustr", &uuu);
     }
-    graphs.Execute(root, cluster_name, graph, &paras,
-                   [](int c) { DIDAGLE_ERROR("Graph done with {}", c); });
+    graphs.Execute(root, cluster_name, graph, &paras, [](int c) { DIDAGLE_ERROR("Graph done with {}", c); });
 
     // for (int i = 0; i < 1; i++) {
     //   graphs.Execute(root, cluster_name, graph, &paras,
@@ -111,6 +114,7 @@ int main(int argc, char** argv) {
   }
   printf("###Graph Close\n");
   pool.join();
+
   sleep(2);
   return 0;
 }
