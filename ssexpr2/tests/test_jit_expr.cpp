@@ -161,3 +161,45 @@ TEST(ExprTest, NoExpr) {
   auto val = expr.Eval(item);
   EXPECT_EQ("world", val.Get<std::string_view>());
 }
+
+struct StringExprStruct {
+  std::string val = "jel";
+};
+static Value get_string_func(Value arg0) {
+  const void* p = (const void*)arg0.Get<const void*>();
+  const StringExprStruct* t = (const StringExprStruct*)p;
+  Value v;
+  std::string_view s = t->val;
+  v.Set(s);
+  return v;
+}
+DEFINE_JIT_STRUCT(Item3, (double)score, (StringExprStruct*)test)
+TEST(ExprTest, StringExpr) {
+  SpiritExpression expr;
+  ExprOptions opt;
+  opt.Init<Item3>();
+  opt.functions["get_str"] = (ExprFunction)get_string_func;
+  EXPECT_EQ(0, expr.Init(R"(get_str(test)=="world")", opt));
+  Item3 item;
+  item.test = new StringExprStruct;
+  item.test->val = "world";
+  auto val = expr.Eval(item);
+  // EXPECT_EQ("world", val.Get<std::string_view>());
+  EXPECT_EQ(true, val.Get<bool>());
+}
+
+TEST(ExprTest, VarExpr) {
+  SpiritExpression expr;
+  ExprOptions opt;
+  opt.Init<Item3>();
+  std::string_view s = "hello,world";
+  opt.vars["test_var"].Set(s);
+  opt.vars["PI"].Set<double>(3.14);
+  opt.vars["test_int"].Set<int64_t>(101);
+  EXPECT_EQ(0, expr.Init(R"($test_var=="hello,world" && $PI==3.14 && ($test_int%100==1))", opt));
+  // EXPECT_EQ(0, expr.Init(R"($PI==3.14 && $test_var == "hello,world")", opt));
+  Item3 item;
+  auto val = expr.Eval(item);
+  // EXPECT_EQ("world", val.Get<std::string_view>());
+  EXPECT_EQ(true, val.Get<bool>());
+}

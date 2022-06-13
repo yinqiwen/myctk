@@ -38,12 +38,12 @@ struct Variable : x3::position_tagged {
 };
 
 struct DynamicVariable : x3::position_tagged {
-  std::vector<std::string> v;
-  ValueAccessor accessor_;
+  std::vector<std::string> name;
+  std::string full_name;
 };
 
 struct Operand
-    : x3::variant<Nil, int64_t, double, bool, std::string, Variable, x3::forward_ast<CondExpr>,
+    : x3::variant<Nil, int64_t, double, bool, std::string, Variable, DynamicVariable, x3::forward_ast<CondExpr>,
                   x3::forward_ast<FuncCall>, x3::forward_ast<Unary>, x3::forward_ast<Expression> > {
   using base_type::base_type;
   using base_type::operator=;
@@ -64,7 +64,8 @@ enum Optoken {
   op_greater,
   op_greater_equal,
   op_and,
-  op_or
+  op_or,
+  op_modulus,
 };
 
 struct CondExpr {
@@ -100,6 +101,7 @@ BOOST_FUSION_ADAPT_STRUCT(ssexpr2::ast::Unary, operator_, operand_)
 BOOST_FUSION_ADAPT_STRUCT(ssexpr2::ast::Operation, operator_, operand_)
 BOOST_FUSION_ADAPT_STRUCT(ssexpr2::ast::Expression, first, rest)
 BOOST_FUSION_ADAPT_STRUCT(ssexpr2::ast::Variable, v)
+BOOST_FUSION_ADAPT_STRUCT(ssexpr2::ast::DynamicVariable, name)
 BOOST_FUSION_ADAPT_STRUCT(ssexpr2::ast::FuncCall, func, args)
 BOOST_FUSION_ADAPT_STRUCT(ssexpr2::ast::CondExpr, lhs, rhs_true, rhs_false)
 
@@ -128,8 +130,7 @@ using error_handler_tag = x3::error_handler_tag;
 
 struct error_handler_base {
   template <typename Iterator, typename Exception, typename Context>
-  x3::error_handler_result on_error(Iterator& first, Iterator const& last, Exception const& x,
-                                    Context const& context) {
+  x3::error_handler_result on_error(Iterator& first, Iterator const& last, Exception const& x, Context const& context) {
     std::string message = "Error! Expecting: " + x.which() + " here:";
     auto& error_handler = x3::get<error_handler_tag>(context).get();
     error_handler(x.where(), message);
@@ -141,9 +142,7 @@ typedef std::string::const_iterator iterator_type;
 typedef x3::phrase_parse_context<x3::ascii::space_type>::type phrase_context_type;
 typedef error_handler<iterator_type> error_handler_type;
 
-typedef x3::context<error_handler_tag, std::reference_wrapper<error_handler_type>,
-                    phrase_context_type>
-    context_type;
+typedef x3::context<error_handler_tag, std::reference_wrapper<error_handler_type>, phrase_context_type> context_type;
 
 ////////////////////////////////////////////////////////////////////////////
 // Tokens
@@ -166,10 +165,9 @@ void add_keywords() {
 
   equality_op.add("==", ast::op_equal)("!=", ast::op_not_equal);
 
-  relational_op.add("<", ast::op_less)("<=", ast::op_less_equal)(">", ast::op_greater)(
-      ">=", ast::op_greater_equal);
+  relational_op.add("<", ast::op_less)("<=", ast::op_less_equal)(">", ast::op_greater)(">=", ast::op_greater_equal);
 
-  additive_op.add("+", ast::op_plus)("-", ast::op_minus);
+  additive_op.add("+", ast::op_plus)("-", ast::op_minus)("%", ast::op_modulus);
 
   multiplicative_op.add("*", ast::op_times)("/", ast::op_divide);
 
@@ -193,6 +191,7 @@ struct multiplicative_expr_class;
 struct unary_expr_class;
 struct primary_expr_class;
 struct var_class;
+struct dynamic_var_class;
 struct func_class;
 struct cond_expr_class;
 
@@ -205,21 +204,22 @@ typedef x3::rule<multiplicative_expr_class, ast::Expression> multiplicative_expr
 typedef x3::rule<unary_expr_class, ast::Operand> unary_expr_type;
 typedef x3::rule<primary_expr_class, ast::Operand> primary_expr_type;
 typedef x3::rule<var_class, ast::Variable> var_type;
+typedef x3::rule<dynamic_var_class, ast::DynamicVariable> dynamic_var_type;
 typedef x3::rule<func_class, ast::FuncCall> func_type;
 
 x3::rule<class identifier_rule_, std::string> const identifier_rule = "identifier_rule";
-auto const identifier_rule_def =
-    x3::lexeme[(x3::alpha | x3::char_('_')) >> *(x3::alnum | x3::char_('_'))];
+auto const identifier_rule_def = x3::lexeme[(x3::alpha | x3::char_('_')) >> *(x3::alnum | x3::char_('_'))];
 BOOST_SPIRIT_DEFINE(identifier_rule)
 
 // struct var_class;
 // typedef x3::rule<var_class, std::string> var_type;
 var_type const var = "var";
-// auto const var_def = raw['$' >> lexeme[(alpha | '_') >> *(alnum | '_')]];
-// auto const var_unit = lexeme[(alpha | '_') >> *(alnum | '_' | '.')];
-// auto const var_def = raw['$' >> var_unit];
 auto const var_def = identifier_rule_def % '.';
 BOOST_SPIRIT_DEFINE(var);
+
+dynamic_var_type const dynamic_var = "dynamic_var";
+auto const dynamic_var_def = '$' >> identifier_rule_def % '.';
+BOOST_SPIRIT_DEFINE(dynamic_var);
 
 cond_expr_type const cond_expr = "cond_expr";
 expression_type const expression = "expression";
@@ -259,16 +259,14 @@ auto const quoted_string = lexeme['"' >> *(char_ - '"') >> '"'];
 
 auto const func_def = identifier_rule >> '(' >> -(expression % ',') >> ')';
 
-boost::spirit::x3::real_parser<double, boost::spirit::x3::strict_real_policies<double> > const
-    strict_double_ = {};
+boost::spirit::x3::real_parser<double, boost::spirit::x3::strict_real_policies<double> > const strict_double_ = {};
 const auto int_or_double = strict_double_ | boost::spirit::x3::int64;
-auto const primary_expr_def =
-    int_or_double | bool_ | quoted_string | func | var | '(' > expression > ')';
+auto const primary_expr_def = int_or_double | bool_ | quoted_string | func | dynamic_var | var | '(' > expression > ')';
 
 auto const expression_def = cond_expr;
 
-BOOST_SPIRIT_DEFINE(expression, cond_expr, logical_expr, equality_expr, relational_expr,
-                    additive_expr, multiplicative_expr, unary_expr, func, primary_expr);
+BOOST_SPIRIT_DEFINE(expression, cond_expr, logical_expr, equality_expr, relational_expr, additive_expr,
+                    multiplicative_expr, unary_expr, func, primary_expr);
 
 struct unary_expr_class : x3::annotate_on_success {};
 struct primary_expr_class : x3::annotate_on_success {};
@@ -316,6 +314,15 @@ struct Initializer {
     n.accessor_ = opt_.get_member_access(n.v, nullptr);
     if (!n.accessor_.Valid()) {
       return ERR_INVALID_STRUCT_MEMBER;
+    }
+    return 0;
+  }
+  int operator()(DynamicVariable& n) const {
+    for (const std::string& v : n.name) {
+      if (!n.full_name.empty()) {
+        n.full_name.append('.', 1);
+      }
+      n.full_name.append(v);
     }
     return 0;
   }
@@ -659,6 +666,33 @@ static inline Value doDivide(Value left, Value right) {
         case V_INT64_VALUE: {
           int64_t rd = right.Get<int64_t>();
           left.Set<int64_t>(ld / rd);
+          return left;
+        }
+        default: {
+          Value err;
+          err.type = 0;
+          err.val = ERR_INVALID_OPERAND_TYPE;
+          return err;
+        }
+      }
+    }
+    default: {
+      Value err;
+      err.type = 0;
+      err.val = ERR_INVALID_OPERAND_TYPE;
+      return err;
+    }
+  }
+}
+
+static inline Value doModulus(Value left, Value right) {
+  switch (left.type) {
+    case V_INT64_VALUE: {
+      int64_t ld = left.Get<int64_t>();
+      switch (right.type) {
+        case V_INT64_VALUE: {
+          int64_t rd = right.Get<int64_t>();
+          left.Set<int64_t>(ld % rd);
           return left;
         }
         default: {
@@ -1213,6 +1247,9 @@ static Value calcPairValue(Value left, Value right, size_t op) {
     case op_divide: {
       return doDivide(left, right);
     }
+    case op_modulus: {
+      return doModulus(left, right);
+    }
     case op_equal: {
       Value rv = doEq(left, right);
       // printf("####Exit eq calcPairValue  %d %d\n", rv.type, rv.val);
@@ -1324,6 +1361,17 @@ struct CodeGenerator {
     // jit_.push(jit_.rbp);
     opt_.get_member_access(n.v, _jit_ptr);
     // jit_.pop(jit_.rbp);
+  }
+  void operator()(DynamicVariable const& n) {
+    auto found = opt_.vars.find(n.full_name);
+    if (found != opt_.vars.end()) {
+      SaveRegisterValue(found->second);
+    } else {
+      Value v;
+      v.type = 0;
+      v.val = ERR_NIL_VAR;
+      SaveRegisterValue(v);
+    }
   }
   void operator()(CondExpr const& n) {
     size_t current_cursor = cursor;
@@ -1492,8 +1540,7 @@ int SpiritExpression::Init(const std::string& expr, const ExprOptions& options) 
   auto const parser =
       // we pass our error handler to the parser so we can access
       // it later in our on_error and on_sucess handlers
-      with<boost::spirit::x3::error_handler_tag>(
-          std::ref(error_handler))[ssexpr2::parser::get_expression()];
+      with<boost::spirit::x3::error_handler_tag>(std::ref(error_handler))[ssexpr2::parser::get_expression()];
   bool r = phrase_parse(iter, end, parser, space, ast->first);
   if (!r) {
     delete ast;
