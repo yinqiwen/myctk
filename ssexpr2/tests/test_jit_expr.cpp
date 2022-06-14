@@ -193,10 +193,131 @@ TEST(ExprTest, VarExpr) {
   ExprOptions opt;
   opt.Init<Item3>();
   std::string_view s = "hello,world";
-  opt.vars["test_var"].Set(s);
-  opt.vars["PI"].Set<double>(3.14);
-  opt.vars["test_int"].Set<int64_t>(101);
   EXPECT_EQ(0, expr.Init(R"($test_var=="hello,world" && $PI==3.14 && ($test_int%100==1))", opt));
+  // EXPECT_EQ(0, expr.Init(R"($PI==3.14 && $test_var == "hello,world")", opt));
+  Item3 item;
+  JITEvalContext ctx;
+  ctx.vars["test_var"].Set(s);
+  ctx.vars["PI"].Set<double>(3.14);
+  ctx.vars["test_int"].Set<int64_t>(101);
+  auto val = expr.Eval(item, ctx);
+  // EXPECT_EQ("world", val.Get<std::string_view>());
+  EXPECT_EQ(true, val.Get<bool>());
+}
+
+static Value func1(Value arg0) {
+  printf("args0:%d\n", arg0.Get<int64_t>());
+  Value v;
+  v.Set<bool>(true);
+  return v;
+}
+TEST(ExprTest, Func1) {
+  SpiritExpression expr;
+  ExprOptions opt;
+  opt.Init<Item3>();
+  opt.functions["func1"] = (ExprFunction)func1;
+  EXPECT_EQ(0, expr.Init(R"(func1(1))", opt));
+  // EXPECT_EQ(0, expr.Init(R"($PI==3.14 && $test_var == "hello,world")", opt));
+  Item3 item;
+  auto val = expr.Eval(item);
+  // EXPECT_EQ("world", val.Get<std::string_view>());
+  EXPECT_EQ(true, val.Get<bool>());
+}
+
+static Value func2(Value arg0, Value arg1) {
+  printf("args0:%d, args1:%d  \n", arg0.Get<int64_t>(), arg1.Get<int64_t>());
+  Value v;
+  v.Set<bool>(true);
+  return v;
+}
+TEST(ExprTest, Func2) {
+  SpiritExpression expr;
+  ExprOptions opt;
+  opt.Init<Item3>();
+  opt.functions["func2"] = (ExprFunction)func2;
+  EXPECT_EQ(0, expr.Init(R"(func2(1,2))", opt));
+  // EXPECT_EQ(0, expr.Init(R"($PI==3.14 && $test_var == "hello,world")", opt));
+  Item3 item;
+  auto val = expr.Eval(item);
+  // EXPECT_EQ("world", val.Get<std::string_view>());
+  EXPECT_EQ(true, val.Get<bool>());
+}
+
+static Value func3(Value arg0, Value arg1, Value arg2) {
+  printf("args0:%d,args1:%d,args2:%d \n", arg0.Get<int64_t>(), arg1.Get<int64_t>(), arg2.Get<int64_t>());
+  Value v;
+  v.Set<bool>(true);
+  return v;
+}
+TEST(ExprTest, Func3) {
+  SpiritExpression expr;
+  ExprOptions opt;
+  opt.Init<Item3>();
+  opt.functions["func3"] = (ExprFunction)func3;
+  EXPECT_EQ(0, expr.Init(R"(func3(1,2,3))", opt));
+  // EXPECT_EQ(0, expr.Init(R"($PI==3.14 && $test_var == "hello,world")", opt));
+  Item3 item;
+  auto val = expr.Eval(item);
+  // EXPECT_EQ("world", val.Get<std::string_view>());
+  EXPECT_EQ(true, val.Get<bool>());
+}
+
+static Value func4(Value arg0, Value arg1, Value arg2, Value arg3) {
+  printf("args0:%d,args1:%d,args2:%d,args3:%d\n", arg0.Get<int64_t>(), arg1.Get<int64_t>(), arg2.Get<int64_t>(),
+         arg3.Get<int64_t>());
+  Value v;
+  v.Set<bool>(true);
+  return v;
+}
+
+TEST(ExprTest, Func4) {
+  SpiritExpression expr;
+  ExprOptions opt;
+  opt.Init<Item3>();
+  opt.functions["func4"] = (ExprFunction)func4;
+  EXPECT_EQ(0, expr.Init(R"(func4(1,2,3,4))", opt));
+  // EXPECT_EQ(0, expr.Init(R"($PI==3.14 && $test_var == "hello,world")", opt));
+  Item3 item;
+  auto val = expr.Eval(item);
+  // EXPECT_EQ("world", val.Get<std::string_view>());
+  EXPECT_EQ(true, val.Get<bool>());
+}
+
+static Value func5(Value arg0, Value arg1, Value arg2, Value arg3, Value arg4) {
+  printf("args0:%d,args1:%d,args2:%d,args3:%d,args4:%d\n", arg0.Get<int64_t>(), arg1.Get<int64_t>(),
+         arg2.Get<int64_t>(), arg3.Get<int64_t>(), arg4.Get<int64_t>());
+  Value v;
+  v.Set<bool>(true);
+  return v;
+}
+
+TEST(ExprTest, Func5) {
+  SpiritExpression expr;
+  ExprOptions opt;
+  opt.Init<Item3>();
+  opt.functions["func5"] = (ExprFunction)func5;
+  EXPECT_EQ(0, expr.Init(R"(func5(1,2,3,4,5))", opt));
+  // EXPECT_EQ(0, expr.Init(R"($PI==3.14 && $test_var == "hello,world")", opt));
+  Item3 item;
+  auto val = expr.Eval(item);
+  // EXPECT_EQ("world", val.Get<std::string_view>());
+  EXPECT_EQ(true, val.Get<bool>());
+}
+
+static Value func6(Value arg0, Value arg1, Value arg2, Value arg3, Value arg4, Value arg5) {
+  printf("args0:%d,args1:%d,args2:%d,args3:%d,args4:%d,args5:%d\n", arg0.Get<int64_t>(), arg1.Get<int64_t>(),
+         arg2.Get<int64_t>(), arg3.Get<int64_t>(), arg4.Get<int64_t>(), arg5.Get<int64_t>());
+  Value v;
+  v.Set<bool>(true);
+  return v;
+}
+
+TEST(ExprTest, Func6) {
+  SpiritExpression expr;
+  ExprOptions opt;
+  opt.Init<Item3>();
+  opt.functions["func6"] = (ExprFunction)func6;
+  EXPECT_EQ(0, expr.Init(R"(func6(1,2,3,4,5,6))", opt));
   // EXPECT_EQ(0, expr.Init(R"($PI==3.14 && $test_var == "hello,world")", opt));
   Item3 item;
   auto val = expr.Eval(item);

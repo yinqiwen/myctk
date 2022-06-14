@@ -332,7 +332,7 @@ struct Initializer {
       return ERR_INVALID_FUNCTION;
     }
     n.functor_ = found->second;
-    if (n.args.size() > 3) {
+    if (n.args.size() > 10) {
       return ERR_TOO_MANY_ARGS;
     }
     for (auto& operand : n.args) {
@@ -1293,10 +1293,19 @@ static Value calcPairValue(Value left, Value right, size_t op) {
   err.val = ERR_INVALID_OPERATOR;
   return err;
 }
-// static Value printValue(Value v) {
-//   printf("##print value: %llu %llu\n", v.type, v.val);
-//   return v;
-// }
+static Value find_var_value(const JITEvalContext* ctx, const std::string* name) {
+  Value err;
+  err.type = 0;
+  err.val = ERR_NIL_VAR;
+  if (nullptr == ctx) {
+    return err;
+  }
+  auto found = ctx->vars.find(*name);
+  if (found == ctx->vars.end()) {
+    return err;
+  }
+  return found->second;
+}
 
 struct CodeGenerator {
   const ExprOptions& opt_;
@@ -1318,8 +1327,8 @@ struct CodeGenerator {
   //   pushed_registers_num_++;
   // }
   void PushRegisters() {
-    DEBUG_ASM_OP((jit_.push(jit_.rax)));
-    DEBUG_ASM_OP((jit_.push(jit_.rdx)));
+    DEBUG_ASM_OP((jit_.push(Xbyak::Reg64(jit_.rax))));
+    DEBUG_ASM_OP((jit_.push(Xbyak::Reg64(jit_.rdx))));
     jit_.inc(jit_.r13);
   }
   void SaveRegisterValue(const Value& v) {
@@ -1327,8 +1336,8 @@ struct CodeGenerator {
     DEBUG_ASM_OP((jit_.mov(jit_.rax, v.val)));
   }
   void PopValue() {
-    DEBUG_ASM_OP((jit_.pop(jit_.rdx)));
-    DEBUG_ASM_OP((jit_.pop(jit_.rax)));
+    DEBUG_ASM_OP((jit_.pop(Xbyak::Reg64(jit_.rdx))));
+    DEBUG_ASM_OP((jit_.pop(Xbyak::Reg64(jit_.rax))));
     jit_.dec(jit_.r13);
   }
 
@@ -1355,23 +1364,23 @@ struct CodeGenerator {
   }
   void operator()(Variable const& n) {
     DEBUG_ASM_OP((jit_.mov(jit_.rdi, jit_.r12)));
-    // const GetValue* func = n.accessor_.GetFunc();
-    // DEBUG_ASM_OP((jit_.mov(jit_.rax, (size_t)func)));
-    // DEBUG_ASM_OP((jit_.call(jit_.rax)));
-    // jit_.push(jit_.rbp);
+    // jit_.mov(jit_.rdi, jit_.ptr[jit_.r12]);
     opt_.get_member_access(n.v, _jit_ptr);
-    // jit_.pop(jit_.rbp);
   }
   void operator()(DynamicVariable const& n) {
-    auto found = opt_.vars.find(n.full_name);
-    if (found != opt_.vars.end()) {
-      SaveRegisterValue(found->second);
-    } else {
-      Value v;
-      v.type = 0;
-      v.val = ERR_NIL_VAR;
-      SaveRegisterValue(v);
-    }
+    jit_.mov(jit_.rdi, jit_.r14);
+    jit_.mov(jit_.rsi, (size_t)(&n.full_name));
+    jit_.mov(jit_.rax, (size_t)(find_var_value));
+    jit_.call(jit_.rax);
+    // auto found = opt_.vars.find(n.full_name);
+    // if (found != opt_.vars.end()) {
+    //   SaveRegisterValue(found->second);
+    // } else {
+    //   Value v;
+    //   v.type = 0;
+    //   v.val = ERR_NIL_VAR;
+    //   SaveRegisterValue(v);
+    // }
   }
   void operator()(CondExpr const& n) {
     size_t current_cursor = cursor;
@@ -1397,43 +1406,67 @@ struct CodeGenerator {
     jit_.jmp(".cond_test_exit" + std::to_string(current_cursor));
     jit_.L(".cond_test_exit" + std::to_string(current_cursor));
   }
+
   void operator()(FuncCall const& n) {
-    for (size_t i = 0; i < n.args.size(); i++) {
-      boost::apply_visitor(*this, n.args[i]);
-      if (i != (n.args.size() - 1)) {
-        PushRegisters();
+    if (n.args.size() > 3) {
+      for (size_t i = 0; i < (n.args.size() - 3); i++) {
+        size_t idx = n.args.size() - 1 - i;
+        boost::apply_visitor(*this, n.args[idx]);
+        jit_.push(jit_.rdx);
+        jit_.push(jit_.rax);
       }
     }
-    if (3 == n.args.size()) {
-      DEBUG_ASM_OP((jit_.mov(jit_.r8, jit_.rax)));
-      DEBUG_ASM_OP((jit_.mov(jit_.r9, jit_.rdx)));
-      PopValue();
-      DEBUG_ASM_OP((jit_.mov(jit_.r10, jit_.rax)));
-      DEBUG_ASM_OP((jit_.mov(jit_.r11, jit_.rdx)));
-      // DEBUG_ASM_OP((jit_.mov(jit_.rdx, jit_.rax)));
-      // DEBUG_ASM_OP((jit_.mov(jit_.rcx, jit_.r11)));
-      PopValue();
-      DEBUG_ASM_OP((jit_.mov(jit_.rdi, jit_.rax)));
-      DEBUG_ASM_OP((jit_.mov(jit_.rsi, jit_.rdx)));
-      DEBUG_ASM_OP((jit_.mov(jit_.rdx, jit_.r10)));
-      DEBUG_ASM_OP((jit_.mov(jit_.rcx, jit_.r11)));
-    } else if (2 == n.args.size()) {
-      DEBUG_ASM_OP((jit_.mov(jit_.r10, jit_.rax)));
-      DEBUG_ASM_OP((jit_.mov(jit_.r11, jit_.rdx)));
-      PopValue();
-      DEBUG_ASM_OP((jit_.mov(jit_.rdi, jit_.rax)));
-      DEBUG_ASM_OP((jit_.mov(jit_.rsi, jit_.rdx)));
-      DEBUG_ASM_OP((jit_.mov(jit_.rdx, jit_.r10)));
-      DEBUG_ASM_OP((jit_.mov(jit_.rcx, jit_.r11)));
-    } else if (1 == n.args.size()) {
-      DEBUG_ASM_OP((jit_.mov(jit_.rdi, jit_.rax)));
-      DEBUG_ASM_OP((jit_.mov(jit_.rsi, jit_.rdx)));
+    for (size_t i = 0; i < 3 && i < n.args.size(); i++) {
+      boost::apply_visitor(*this, n.args[i]);
+      PushRegisters();
     }
+
+    switch (n.args.size()) {
+      case 2: {
+        jit_.pop(jit_.rcx);
+        jit_.pop(jit_.rdx);
+        jit_.dec(jit_.r13);
+
+        jit_.pop(jit_.rsi);
+        jit_.pop(jit_.rdi);
+        jit_.dec(jit_.r13);
+        break;
+      }
+      case 1: {
+        jit_.pop(jit_.rsi);
+        jit_.pop(jit_.rdi);
+        jit_.dec(jit_.r13);
+        break;
+      }
+      case 0: {
+        break;
+      }
+      default: {
+        jit_.pop(Xbyak::Reg64(jit_.r9));
+        jit_.pop(Xbyak::Reg64(jit_.r8));
+        jit_.dec(jit_.r13);
+
+        jit_.pop(Xbyak::Reg64(jit_.rcx));
+        jit_.pop(Xbyak::Reg64(jit_.rdx));
+        jit_.dec(jit_.r13);
+
+        jit_.pop(Xbyak::Reg64(jit_.rsi));
+        jit_.pop(Xbyak::Reg64(jit_.rdi));
+        jit_.dec(jit_.r13);
+
+        break;
+      }
+    }
+
     DEBUG_ASM_OP((jit_.mov(jit_.rax, (size_t)(n.functor_))));
     // jit_.push(jit_.rbp);
     DEBUG_ASM_OP((jit_.call(jit_.rax)));
     // jit_.pop(jit_.rbp);
+    if (n.args.size() > 3) {
+      jit_.add(jit_.rsp, (n.args.size() - 3) * 16);
+    }
   }
+
   void operator()(Unary const& n) {
     boost::apply_visitor(*this, n.operand_);
     if (n.operator_ == op_positive) {
@@ -1555,7 +1588,8 @@ int SpiritExpression::Init(const std::string& expr, const ExprOptions& options) 
   jit_.reset(new Xbyak::CodeGenerator(options.jit_code_size));
   ssexpr2::ast::CodeGenerator gen(options, jit_);
   jit_->inLocalLabel();
-  // jit_->push(jit_->rbx);
+  jit_->push(jit_->rbx);
+  jit_->mov(jit_->rsp, jit_->rbp);
   jit_->push(jit_->rbp);
   jit_->push(jit_->r12);
   jit_->push(jit_->r13);
@@ -1563,6 +1597,7 @@ int SpiritExpression::Init(const std::string& expr, const ExprOptions& options) 
   jit_->push(jit_->r15);
   jit_->mov(jit_->r13, 0);
   jit_->mov(jit_->r12, jit_->rdi);
+  jit_->mov(jit_->r14, jit_->rsi);
   gen(*ast);
   DEBUG_ASM_OP((jit_->jmp(".ok_exit")));
   DEBUG_ASM_OP((jit_->L(".err_exit")));
@@ -1580,16 +1615,17 @@ int SpiritExpression::Init(const std::string& expr, const ExprOptions& options) 
   jit_->pop(jit_->r13);
   jit_->pop(jit_->r12);
   jit_->pop(jit_->rbp);
-  // jit_->pop(jit_->rbx);
+  jit_->pop(jit_->rbx);
   DEBUG_ASM_OP((jit_->ret()));
   DEBUG_ASM_OP((jit_->outLocalLabel()));
   _eval = jit_->getCode<EvalFunc>();
   expr_.reset(ast);
   return 0;
 }
-Value SpiritExpression::doEval(const void* obj) {
+
+Value SpiritExpression::doEval(const void* obj, const JITEvalContext* ctx) {
   if (_eval) {
-    return _eval(obj);
+    return _eval(obj, ctx);
   }
   Value err;
   err.type = 0;

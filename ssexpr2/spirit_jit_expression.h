@@ -23,8 +23,8 @@ typedef Value (*ExprFunction)(...);
 typedef std::function<ValueAccessor(const std::vector<std::string>&, std::shared_ptr<Xbyak::CodeGenerator>)>
     GetStructMemberAccessFunction;
 
+using VarMap = std::unordered_map<std::string, Value>;
 struct ExprOptions {
-  std::unordered_map<std::string, Value> vars;
   std::map<std::string, ExprFunction> functions;
   GetStructMemberAccessFunction get_member_access;
   int jit_code_size = 8192;
@@ -38,22 +38,27 @@ struct ExprOptions {
   }
 };
 
+struct JITEvalContext {
+  VarMap vars;
+  JITEvalContext() {}
+};
+
 class SpiritExpression {
  private:
   std::shared_ptr<Xbyak::CodeGenerator> jit_;
   std::shared_ptr<Expr> expr_;
 
-  typedef Value (*EvalFunc)(const void* obj);
+  typedef Value (*EvalFunc)(const void*, const JITEvalContext*);
   EvalFunc _eval = nullptr;
-  Value doEval(const void* obj);
+  Value doEval(const void* obj, const JITEvalContext* ctx);
 
  public:
   int Init(const std::string& expr, const ExprOptions& options);
   int DumpAsmCode(const std::string& file);
-  Value Eval() { return doEval(nullptr); }
+  Value Eval() { return doEval(nullptr, nullptr); }
   template <typename T>
-  Value Eval(const T& root_obj) {
-    return doEval(&root_obj);
+  Value Eval(const T& root_obj, const JITEvalContext& ctx = {}) {
+    return doEval(&root_obj, &ctx);
   }
 };
 }  // namespace ssexpr2
