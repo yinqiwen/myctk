@@ -1,15 +1,17 @@
 // Copyright (c) 2020, Tencent Inc.
 // All rights reserved.
 #include "graph.h"
+
 #include <sys/time.h>
+
 #include <iostream>
 #include <regex>
 #include <set>
 #include <string>
 #include <utility>
 
-#include "didagle_background.h"
-#include "didagle_log.h"
+#include "didagle/didagle_background.h"
+#include "didagle/didagle_log.h"
 
 namespace didagle {
 static inline uint64_t ustime() {
@@ -96,7 +98,15 @@ int Graph::Build() {
     }
     if (!n.expect.empty()) {
       if (generated_cond_nodes.find(n.expect) == generated_cond_nodes.end()) {
-        generated_cond_nodes[n.expect] = geneatedCondVertex(n.expect);
+        Vertex* cond_vertex = geneatedCondVertex(n.expect);
+        generated_cond_nodes[n.expect] = cond_vertex;
+        if (!n.expect_deps.empty()) {
+          cond_vertex->deps = n.expect_deps;
+        } else {
+          cond_vertex->deps = n.deps;
+          cond_vertex->deps_on_err = n.deps_on_err;
+          cond_vertex->deps_on_ok = n.deps_on_ok;
+        }
       }
       Vertex* cond_vertex = generated_cond_nodes[n.expect];
       n.deps_on_ok.insert(cond_vertex->id);
@@ -143,7 +153,8 @@ int Graph::Build() {
         data.id = data.field;
       }
       // if (!data.cond.empty()) {
-      //   if (generated_cond_nodes.find(data.cond) == generated_cond_nodes.end()) {
+      //   if (generated_cond_nodes.find(data.cond) ==
+      //   generated_cond_nodes.end()) {
       //     generated_cond_nodes[data.cond] = geneatedCondVertex(data.cond);
       //   }
       //   Vertex* cond_vertex = generated_cond_nodes[data.cond];
@@ -191,10 +202,14 @@ int Graph::DumpDot(std::string& s) {
   s.append("    label = \"").append(name).append("\";\n");
   s.append("    ")
       .append(name + "__START__")
-      .append("[color=black fillcolor=deepskyblue style=filled shape=Msquare label=\"START\"];\n");
+      .append(
+          "[color=black fillcolor=deepskyblue style=filled shape=Msquare "
+          "label=\"START\"];\n");
   s.append("    ")
       .append(name + "__STOP__")
-      .append("[color=black fillcolor=deepskyblue style=filled shape=Msquare label=\"STOP\"];\n");
+      .append(
+          "[color=black fillcolor=deepskyblue style=filled shape=Msquare "
+          "label=\"STOP\"];\n");
   for (auto& pair : _nodes) {
     Vertex* v = pair.second;
     v->DumpDotDefine(s);
@@ -239,6 +254,11 @@ int GraphCluster::Build() {
     return 0;
   }
   for (auto& f : graph) {
+    if (!GetGraphManager()->GetGraphExecuteOptions().check_version(f.expect_version)) continue;
+    auto found = _graphs.find(f.name);
+    if (found != _graphs.end() && f.priority <= found->second->priority) {
+      continue;
+    }
     f._cluster = this;
     _graphs[f.name] = &f;
     if (0 != f.Build()) {
@@ -263,7 +283,8 @@ int GraphCluster::Build() {
     ctx.Reset();
   }
   for (int i = 0; i < default_context_pool_size; i++) {
-    GraphClusterContext* ctx = GetContext();
+    GraphClusterContext* ctx = new GraphClusterContext;
+    ctx->Setup(this);
     _graph_cluster_context_pool.enqueue(ctx);
   }
   _builded = true;
@@ -411,7 +432,6 @@ int GraphManager::Execute(GraphDataContextPtr& data_ctx, const std::string& clus
         event.end_ustime = ustime();
         event.phase = PhaseType::DAG_PHASE_GRAPH_ASYNC_RESET;
         _exec_options.event_reporter(std::move(event));
-        DIDAGLE_DEBUG("Graph reset cost {}us", event.end_ustime - start_exec_ustime);
       }
     });
   };

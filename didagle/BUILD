@@ -32,7 +32,6 @@ cc_library(
         "graph_processor_di.h",
         "graph_vertex.h",
     ],
-    includes = ["./"],
     linkopts = ["-lpthread -lglog -lfolly"],
     deps = [
         "//config:kcfg",

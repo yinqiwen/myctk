@@ -1,15 +1,14 @@
 // Copyright (c) 2021, Tencent Inc.
 // All rights reserved.
-#include "graph_processor_di.h"
+#include "didagle/graph_processor_di.h"
 #include <string>
 #include <utility>
 #include <vector>
-#include "didagle_log.h"
+#include "didagle/didagle_log.h"
 
 namespace didagle {
 ProcessorDI::ProcessorDI(Processor* proc, bool strict_dsl) : _proc(proc), _strict_dsl(strict_dsl) {}
-int ProcessorDI::SetupInputOutputIds(const std::vector<FieldInfo>& fields,
-                                     const std::vector<GraphData>& config_fields,
+int ProcessorDI::SetupInputOutputIds(const std::vector<FieldInfo>& fields, const std::vector<GraphData>& config_fields,
                                      FieldDataTable& ids) {
   for (const FieldInfo& id : fields) {
     ids[id.name] = std::make_pair(id, (const GraphData*)nullptr);
@@ -61,10 +60,14 @@ int ProcessorDI::InjectInputs(GraphDataContext& ctx, const Params* params) {
             rc = _proc->InjectInputField(ctx, field, data_name, graph_data->move);
           } else {
             rc = -1;
-            DIDAGLE_ERROR("[{}]inject {} failed with var aggregate_id:{}", _proc->Name(), field,
-                          aggregate_id);
+            // 需要的时候，打印error日志； 不需要的时候，打印info日志;
+            if (required)
+              DIDAGLE_ERROR("[{}]inject {} failed with var aggregate_id:{}", _proc->Name(), field, aggregate_id);
+            else
+              DIDAGLE_DEBUG("[{}]inject {} failed with var aggregate_id:{}", _proc->Name(), field, aggregate_id);
           }
         }
+
         rc = _proc->InjectInputField(ctx, field, aggregate_id, graph_data->move);
         if (0 != rc && required) {
           break;
@@ -86,16 +89,15 @@ int ProcessorDI::InjectInputs(GraphDataContext& ctx, const Params* params) {
           rc = _proc->InjectInputField(ctx, field, data_name, move_data);
         } else {
           rc = -1;
-          DIDAGLE_ERROR("[{}]inject {} failed with var data name:{}", _proc->Name(), field,
-                        data.name);
+          DIDAGLE_ERROR("[{}]inject {} failed with var data name:{}", _proc->Name(), field, data.name);
         }
       } else {
         rc = _proc->InjectInputField(ctx, field, data.name, move_data);
       }
 
       if (0 != rc) {
-        DIDAGLE_ERROR("[{}]inject {}:{} failed with move:{}, null data:{}", _proc->Name(), field,
-                      data.name, move_data, nullptr == graph_data);
+        DIDAGLE_ERROR("[{}]inject {}:{} failed with move:{}, null data:{}", _proc->Name(), field, data.name, move_data,
+                      nullptr == graph_data);
       }
     }
     if (0 != rc && required) {
@@ -117,16 +119,16 @@ int ProcessorDI::CollectOutputs(GraphDataContext& ctx, const Params* params) {
       DIDAGLE_DEBUG("Get Var value:{} for {}", var_value.String(), data.name);
       if (!var_value.String().empty()) {
         std::string_view data_name(var_value.String().data(), var_value.String().size());
-        DIDAGLE_DEBUG("[{}]Collect output for field {}:{} with actual name:{}", _proc->Name(),
-                      field, data.name, data_name);
+        DIDAGLE_DEBUG("[{}]Collect output for field {}:{} with actual name:{}", _proc->Name(), field, data.name,
+                      data_name);
         int rc = _proc->EmitOutputField(ctx, field, data_name);
         if (0 != rc) {
-          DIDAGLE_ERROR("[{}]Collect output for field {}:{} failed with actual name:{}",
-                        _proc->Name(), field, data.name, data_name);
+          DIDAGLE_ERROR("[{}]Collect output for field {}:{} failed with actual name:{}", _proc->Name(), field,
+                        data.name, data_name);
         }
       } else {
-        DIDAGLE_ERROR("[{}]Collect output for field {}:{} failed with var name:{}", _proc->Name(),
-                      field, data.name, var_name);
+        DIDAGLE_ERROR("[{}]Collect output for field {}:{} failed with var name:{}", _proc->Name(), field, data.name,
+                      var_name);
       }
       continue;
     }

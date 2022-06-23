@@ -14,28 +14,30 @@ def myctk_workspace(path_prefix = "", tf_repo_name = "", **kwargs):
         sha256 = "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
     )
     http_archive(
-        name = "rules_proto",
-        sha256 = "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
-        strip_prefix = "rules_proto-97d8af4dc474595af3900dd85cb3a29ad28cc313",
+        name = "rules_cc",
+        sha256 = "35f2fb4ea0b3e61ad64a369de284e4fbbdcdba71836a5555abb5e194cf119509",
+        strip_prefix = "rules_cc-624b5d59dfb45672d4239422fa1e3de1822ee110",
         urls = [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
-            "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/624b5d59dfb45672d4239422fa1e3de1822ee110.tar.gz",
+            "https://github.com/bazelbuild/rules_cc/archive/624b5d59dfb45672d4239422fa1e3de1822ee110.tar.gz",
         ],
     )
+
+    # rules_proto defines abstract rules for building Protocol Buffers.
     http_archive(
-        name = "rules_python",
-        url = "https://github.com/bazelbuild/rules_python/releases/download/0.2.0/rules_python-0.2.0.tar.gz",
-        sha256 = "778197e26c5fbeb07ac2a2c5ae405b30f6cb7ad1f5510ea6fdac03bded96cc6f",
+        name = "rules_proto",
+        sha256 = "2490dca4f249b8a9a3ab07bd1ba6eca085aaf8e45a734af92aad0c42d9dc7aaf",
+        strip_prefix = "rules_proto-218ffa7dfa5408492dc86c01ee637614f8695c45",
+        urls = [
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/218ffa7dfa5408492dc86c01ee637614f8695c45.tar.gz",
+            "https://github.com/bazelbuild/rules_proto/archive/218ffa7dfa5408492dc86c01ee637614f8695c45.tar.gz",
+        ],
     )
+
     http_archive(
         name = "rules_foreign_cc",
-        strip_prefix = "rules_foreign_cc-0.6.0",
-        url = "https://github.com/bazelbuild/rules_foreign_cc/archive/0.6.0.zip",
-    )
-    git_repository(
-        name = "rules_cc",
-        commit = "40548a2974f1aea06215272d9c2b47a14a24e556",
-        remote = "https://github.com/bazelbuild/rules_cc.git",
+        strip_prefix = "rules_foreign_cc-0.7.0",
+        url = "https://github.com/bazelbuild/rules_foreign_cc/archive/0.7.0.zip",
     )
 
     _TOML11_BUILD_FILE = """
@@ -80,29 +82,18 @@ cc_library(
         build_file_content = _RAPIDJSON_BUILD_FILE,
     )
 
-    _FMT_BUILD_FILE = """
+    _CPP_LINENOISE_BUILD_FILE = """
 cc_library(
-    name = "fmtlib",
-    hdrs = glob([
-        "include/fmt/*.h",
-    ]),
-    srcs = glob([
-        "src/*.cc",
-    ]),
-    includes=["./include"],
+    name = "cpp_linenoise",
+    hdrs = ["linenoise.hpp"],
     visibility = [ "//visibility:public" ],
 )
 """
-    fmtlib_ver = kwargs.get("fmtlib_ver", "7.1.3")
-    fmtlib_name = "fmt-{ver}".format(ver = fmtlib_ver)
-    http_archive(
-        name = "com_github_fmtlib_fmt",
-        strip_prefix = fmtlib_name,
-        urls = [
-            "https://mirrors.tencent.com/github.com/fmtlib/fmt/archive/{ver}.tar.gz".format(ver = fmtlib_ver),
-            "https://github.com/fmtlib/fmt/archive/{ver}.tar.gz".format(ver = fmtlib_ver),
-        ],
-        build_file_content = _FMT_BUILD_FILE,
+    new_git_repository(
+        name = "com_github_cpp_linenoise",
+        commit = "4cd89adfbc07cedada1aa32be12991828919d91b",
+        remote = "https://github.com/yhirose/cpp-linenoise.git",
+        build_file_content = _CPP_LINENOISE_BUILD_FILE,
     )
 
     _SPDLOG_BUILD_FILE = """
@@ -117,10 +108,9 @@ cc_library(
     defines = ["SPDLOG_FMT_EXTERNAL", "SPDLOG_COMPILED_LIB"],
     includes = ["include"],
     visibility = ["//visibility:public"],
-    deps = ["@com_github_fmtlib_fmt//:fmtlib"],
 )
 """
-    spdlog_ver = kwargs.get("spdlog_ver", "1.8.5")
+    spdlog_ver = kwargs.get("spdlog_ver", "1.10.0")
     spdlog_name = "spdlog-{ver}".format(ver = spdlog_ver)
     http_archive(
         name = "com_github_spdlog",
@@ -165,7 +155,7 @@ cc_library(
         ],
     )
 
-    bench_ver = kwargs.get("fbs_ver", "1.5.3")
+    bench_ver = kwargs.get("bench_ver", "1.5.3")
     bench_name = "benchmark-{ver}".format(ver = bench_ver)
     http_archive(
         name = "com_github_google_benchmark",
@@ -176,7 +166,7 @@ cc_library(
         ],
     )
 
-    protobuf_ver = kwargs.get("protobuf_ver", "3.17.0")
+    protobuf_ver = kwargs.get("protobuf_ver", "3.19.2")
     protobuf_name = "protobuf-{ver}".format(ver = protobuf_ver)
     http_archive(
         name = "com_google_protobuf",
@@ -266,4 +256,70 @@ cc_library(
             "https://mirrors.tencent.com/github.com/google/googletest/archive/release-{ver}.tar.gz".format(ver = gtest_ver),
             "https://github.com/google/googletest/archive/release-{ver}.tar.gz".format(ver = gtest_ver),
         ],
+    )
+
+    _RAFT_BUILD_FILE = """
+cc_library(
+    name = "libraft",
+    hdrs = ["include/raft_log.h", "include/raft_private.h", "include/raft_types.h", "include/raft.h"],
+    srcs= ["src/raft_server.c", "src/raft_log.c", "src/raft_node.c", "src/raft_server_properties.c"],
+    includes = ["include"],
+    alwayslink = True,
+    visibility = ["//visibility:public"],
+)
+"""
+    new_git_repository(
+        name = "com_github_redislabs_raft",
+        commit = "39f24a0525d41bdf9ef0ac0fb4ee9b05771faec7",
+        remote = "https://github.com/RedisLabs/raft.git",
+        build_file_content = _RAFT_BUILD_FILE,
+    )
+
+    _JUNGLE_BUILD_FILE = """
+load("@rules_foreign_cc//foreign_cc:defs.bzl", "cmake")
+
+filegroup(
+    name = "all_srcs",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)
+
+cmake(
+    name = "libjungle",
+    lib_source = ":all_srcs",
+    out_lib_dir = "lib64",
+    out_static_libs = ["libjungle.a"],
+    deps = ["@com_github_kvstore_forestdb//:libforestdb"],
+    visibility = ["//visibility:public"],
+)
+"""
+    new_git_repository(
+        name = "com_github_ebay_jungle",
+        commit = "190de2fb06e17134ef82b00a46b33d0a512d5ca5",
+        remote = "https://github.com/eBay/Jungle.git",
+        build_file_content = _JUNGLE_BUILD_FILE,
+    )
+
+    _FORESTDB_BUILD_FILE = """
+load("@rules_foreign_cc//foreign_cc:defs.bzl", "cmake")
+
+filegroup(
+    name = "all_srcs",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)
+
+cmake(
+    name = "libforestdb",
+    lib_source = ":all_srcs",
+    out_lib_dir = "lib",
+    out_shared_libs = ["libforestdb.so"],
+    visibility = ["//visibility:public"],
+)
+"""
+    new_git_repository(
+        name = "com_github_kvstore_forestdb",
+        commit = "d41cc84934c355890337a37e615d99c0ce20a07f",
+        remote = "https://github.com/ForestDB-KVStore/forestdb.git",
+        build_file_content = _FORESTDB_BUILD_FILE,
     )

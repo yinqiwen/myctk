@@ -5,7 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
-#include "graph.h"
+#include "didagle/graph.h"
 using namespace didagle;
 int main(int argc, char** argv) {
   GraphExecuteOptions exec_opt;

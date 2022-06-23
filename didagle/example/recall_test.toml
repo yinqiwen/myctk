@@ -8,18 +8,24 @@ cond = '$expid==1000'
 name = "with_exp_1001"
 cond = '$expid==1001'
 
-# [[graph]]
-# # 若processor的member名能自动关联，则配置无需定义input/output, 能自动关联
-# name = "recall_main"
-# [[graph.vertex]]
-# expect="$x==1"
-# id = "recall_1"
-# cluster = "recall_test.toml"
-# graph = "recall_1"
-# [[graph.vertex]]
-# id = "recall_2"
-# cluster = "recall_test.toml"
-# graph = "recall_2"
+[[graph]]
+# 若processor的member名能自动关联，则配置无需定义input/output, 能自动关联
+name = "recall_main"
+[[graph.vertex]]
+id = "start_node"
+processor = "recall_1"
+[[graph.vertex]]
+expect = "$test_flag"
+id = "recall_1"
+cluster = "recall_test.toml"
+graph = "recall_1"
+deps = ["start_node"]
+[[graph.vertex]]
+expect = "$test_flag"
+id = "recall_2"
+cluster = "recall_test.toml"
+graph = "recall_2"
+deps = ["start_node"]
 # [[graph.vertex]]
 # id = "recall_merge"
 # cluster = "recall_test.toml"
@@ -42,7 +48,6 @@ args= {vec1=[101,223, 334], vec2=[100.1, 200.3, 300.4], vec3=["test1", "test2", 
 name = "recall_2"
 [[graph.vertex]]
 start = true
-# expect = "$A==true"
 processor = "recall_2"
 select_args = [
     { match = "with_exp_1000", args = { abc = "hello1", xyz = "aaa" } },

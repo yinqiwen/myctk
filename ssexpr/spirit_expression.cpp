@@ -38,9 +38,8 @@ struct DynamicVariable : x3::position_tagged {
 };
 
 struct Operand
-    : public x3::variant<Nil, int64_t, double, bool, std::string, Variable, DynamicVariable,
-                         x3::forward_ast<FuncCall>, x3::forward_ast<Unary>,
-                         x3::forward_ast<CondExpr>, x3::forward_ast<Expression> > {
+    : public x3::variant<Nil, int64_t, double, bool, std::string, Variable, DynamicVariable, x3::forward_ast<FuncCall>,
+                         x3::forward_ast<Unary>, x3::forward_ast<CondExpr>, x3::forward_ast<Expression> > {
   using base_type::base_type;
   using base_type::operator=;
 };
@@ -125,8 +124,7 @@ using error_handler_tag = x3::error_handler_tag;
 
 struct error_handler_base {
   template <typename Iterator, typename Exception, typename Context>
-  x3::error_handler_result on_error(Iterator& first, Iterator const& last, Exception const& x,
-                                    Context const& context) {
+  x3::error_handler_result on_error(Iterator& first, Iterator const& last, Exception const& x, Context const& context) {
     std::string message = "Error! Expecting: " + x.which() + " here:";
     auto& error_handler = x3::get<error_handler_tag>(context).get();
     error_handler(x.where(), message);
@@ -138,9 +136,7 @@ typedef std::string::const_iterator iterator_type;
 typedef x3::phrase_parse_context<x3::ascii::space_type>::type phrase_context_type;
 typedef error_handler<iterator_type> error_handler_type;
 
-typedef x3::context<error_handler_tag, std::reference_wrapper<error_handler_type>,
-                    phrase_context_type>
-    context_type;
+typedef x3::context<error_handler_tag, std::reference_wrapper<error_handler_type>, phrase_context_type> context_type;
 
 ////////////////////////////////////////////////////////////////////////////
 // Tokens
@@ -163,8 +159,7 @@ void add_keywords() {
 
   equality_op.add("==", ast::op_equal)("!=", ast::op_not_equal);
 
-  relational_op.add("<", ast::op_less)("<=", ast::op_less_equal)(">", ast::op_greater)(
-      ">=", ast::op_greater_equal);
+  relational_op.add("<", ast::op_less)("<=", ast::op_less_equal)(">", ast::op_greater)(">=", ast::op_greater_equal);
 
   additive_op.add("+", ast::op_plus)("-", ast::op_minus);
 
@@ -207,8 +202,7 @@ typedef x3::rule<func_class, ast::FuncCall> func_type;
 typedef x3::rule<cond_expr_class, ast::Operand> cond_expr_type;
 
 x3::rule<class identifier_rule_, std::string> const identifier_rule = "identifier_rule";
-auto const identifier_rule_def =
-    x3::lexeme[(x3::alpha | x3::char_('_')) >> *(x3::alnum | x3::char_('_'))];
+auto const identifier_rule_def = x3::lexeme[(x3::alpha | x3::char_('_')) >> *(x3::alnum | x3::char_('_'))];
 BOOST_SPIRIT_DEFINE(identifier_rule)
 
 // struct var_class;
@@ -261,16 +255,14 @@ auto const quoted_string = lexeme['"' >> *(char_ - '"') >> '"'];
 
 auto const func_def = identifier_rule >> '(' >> -(expression % ',') >> ')';
 
-boost::spirit::x3::real_parser<double, boost::spirit::x3::strict_real_policies<double> > const
-    strict_double_ = {};
+boost::spirit::x3::real_parser<double, boost::spirit::x3::strict_real_policies<double> > const strict_double_ = {};
 const auto int_or_double = strict_double_ | boost::spirit::x3::int64;
-auto const primary_expr_def =
-    int_or_double | bool_ | quoted_string | func | dynamic_var | var | '(' > expression > ')';
+auto const primary_expr_def = int_or_double | bool_ | quoted_string | func | dynamic_var | var | '(' > expression > ')';
 
 auto const expression_def = cond_expr;
 
-BOOST_SPIRIT_DEFINE(expression, cond_expr, logical_expr, equality_expr, relational_expr,
-                    additive_expr, multiplicative_expr, unary_expr, func, primary_expr);
+BOOST_SPIRIT_DEFINE(expression, cond_expr, logical_expr, equality_expr, relational_expr, additive_expr,
+                    multiplicative_expr, unary_expr, func, primary_expr);
 
 struct unary_expr_class : x3::annotate_on_success {};
 struct primary_expr_class : x3::annotate_on_success {};
@@ -355,7 +347,9 @@ struct CalcVisitor {
                        (std::is_same<decltype(right), const double&>::value ||
                         std::is_same<decltype(right), const int64_t&>::value)) ||
                       (std::is_same<decltype(left), const std::string_view&>::value &&
-                       std::is_same<decltype(right), const std::string_view&>::value)) {
+                       std::is_same<decltype(right), const std::string_view&>::value) ||
+                      (std::is_same<decltype(left), const bool&>::value &&
+                       std::is_same<decltype(right), const bool&>::value)) {
           result = (left == right);
         }
         break;
@@ -368,7 +362,9 @@ struct CalcVisitor {
                        (std::is_same<decltype(right), const double&>::value ||
                         std::is_same<decltype(right), const int64_t&>::value)) ||
                       (std::is_same<decltype(left), const std::string_view&>::value &&
-                       std::is_same<decltype(right), const std::string_view&>::value)) {
+                       std::is_same<decltype(right), const std::string_view&>::value) ||
+                      (std::is_same<decltype(left), const bool&>::value &&
+                       std::is_same<decltype(right), const bool&>::value)) {
           result = (left != right);
         }
         break;
@@ -694,8 +690,7 @@ int SpiritExpression::Init(const std::string& expr, const ExprOptions& options) 
   auto const parser =
       // we pass our error handler to the parser so we can access
       // it later in our on_error and on_sucess handlers
-      with<boost::spirit::x3::error_handler_tag>(
-          std::ref(error_handler))[ssexpr::parser::get_expression()];
+      with<boost::spirit::x3::error_handler_tag>(std::ref(error_handler))[ssexpr::parser::get_expression()];
   bool r = phrase_parse(iter, end, parser, space, ast->first);
   if (!r) {
     delete ast;

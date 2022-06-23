@@ -28,7 +28,7 @@
  */
 #include <boost/algorithm/string.hpp>
 
-#include "graph_params.h"
+#include "didagle/graph_params.h"
 #include "kcfg_toml.h"
 
 namespace didagle {

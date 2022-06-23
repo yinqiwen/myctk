@@ -1,11 +1,11 @@
 // Copyright (c) 2021, Tencent Inc.
 // All rights reserved.
 
-#include <graph_processor_api.h>
 #include <gtest/gtest.h>
 #include <stdint.h>
 #include <string>
-#include "graph_processor.h"
+#include "didagle/graph_processor.h"
+#include "didagle/graph_processor_api.h"
 using namespace didagle;
 
 GRAPH_OP_BEGIN(test_phase)

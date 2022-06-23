@@ -26,7 +26,7 @@
  *ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  *THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "didagle_event.h"
+#include "didagle/didagle_event.h"
 #include <array>
 namespace didagle {
 template <size_t N>
@@ -40,7 +40,7 @@ static constexpr std::array<std::string_view, sizeof...(N)> sva(const char (&...
 }
 
 constexpr auto kPhases =
-    sva("unknown", "concurrency_sched", "prepare_execute", "post_execute", "graph_reset");
+    sva("unknown", "concurrency_sched", "prepare_execute", "post_execute", "graph_reset", "graph_prepare_execute");
 
 std::string_view get_dag_phase_name(PhaseType phase) { return kPhases[static_cast<int>(phase)]; }
 

@@ -1,9 +1,9 @@
 // Copyright (c) 2020, Tencent Inc.
 // All rights reserved.
 
-#include "di_container.h"
-#include "didagle_log.h"
-#include "graph_processor_api.h"
+#include "didagle/di_container.h"
+#include "didagle/didagle_log.h"
+#include "didagle/graph_processor_api.h"
 
 GRAPH_OP_BEGIN(phase0, "this is test phase")
 GRAPH_OP_INPUT(int, v0)

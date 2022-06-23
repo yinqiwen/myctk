@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-#include "graph_processor.h"
+#include "didagle/graph_processor.h"
 namespace didagle {
 class ProcessorDI {
  private:
@@ -19,8 +19,8 @@ class ProcessorDI {
   typedef std::map<std::string, FieldData> FieldDataTable;
   FieldDataTable _input_ids;
   FieldDataTable _output_ids;
-  int SetupInputOutputIds(const std::vector<FieldInfo>& fields,
-                          const std::vector<GraphData>& config_fields, FieldDataTable& field_ids);
+  int SetupInputOutputIds(const std::vector<FieldInfo>& fields, const std::vector<GraphData>& config_fields,
+                          FieldDataTable& field_ids);
 
  public:
   explicit ProcessorDI(Processor* proc, bool strict_dsl = false);

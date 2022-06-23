@@ -14,8 +14,8 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include "graph_data.h"
-#include "graph_processor_api.h"
+#include "didagle/graph_data.h"
+#include "didagle/graph_processor_api.h"
 #include "kcfg_toml.h"
 namespace didagle {
 enum VertexResult {
@@ -36,6 +36,16 @@ struct CondParams {
   std::string match;
   GraphParams args;
   KCFG_TOML_DEFINE_FIELDS(match, args)
+  // 是否是条件表达式 包含有$符号算条件表达式
+  bool IsCondExpr() const {
+    if (match.empty()) return false;
+    for (const auto& ch : match) {
+      if (!isalpha(ch) && !isdigit(ch) && ch != '_') {
+        return true;
+      }
+    }
+    return false;
+  }
 };
 
 struct Graph;
@@ -48,6 +58,7 @@ struct Vertex {
   std::vector<CondParams> select_args;
   std::string cond;
   std::string expect;
+  std::set<std::string> expect_deps;  // expect可能有独立的依赖
   std::string expect_config;
   bool is_start = false;
 
@@ -78,13 +89,11 @@ struct Vertex {
   bool _is_id_generated = false;
   bool _is_cond_processor = false;
 
-  KCFG_TOML_DEFINE_FIELD_MAPPING(({"consequent", "if"}, {"alternative", "else"},
-                                  {"is_start", "start"}))
+  KCFG_TOML_DEFINE_FIELD_MAPPING(({"consequent", "if"}, {"alternative", "else"}, {"is_start", "start"}))
 
-  KCFG_TOML_DEFINE_FIELDS(id, processor, args, cond, expect, expect_config, is_start, select_args,
-                          cluster, graph, successor, successor_on_ok, successor_on_err, consequent,
-                          alternative, deps, deps_on_ok, deps_on_err, input, output,
-                          ignore_processor_execute_error)
+  KCFG_TOML_DEFINE_FIELDS(id, processor, args, cond, expect, expect_deps, expect_config, is_start, select_args, cluster,
+                          graph, successor, successor_on_ok, successor_on_err, consequent, alternative, deps,
+                          deps_on_ok, deps_on_err, input, output, ignore_processor_execute_error)
   Vertex();
   bool IsCondVertex() const;
   void MergeSuccessor();

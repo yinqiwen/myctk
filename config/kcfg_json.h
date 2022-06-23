@@ -599,9 +599,9 @@ inline int WriteToJsonString(const T &v, std::string &content, bool pretty = fal
 }
 
 template <typename T>
-inline int WriteToJsonFile(const T &v, const std::string &file, bool pretty = false) {
+inline int WriteToJsonFile(const T &v, const std::string &file, bool pretty = false, bool ignore_default = true) {
   std::string content;
-  int ret = WriteToJsonString(v, content, pretty);
+  int ret = WriteToJsonString(v, content, pretty,ignore_default);
   if (0 != ret) {
     return ret;
   }

@@ -4,7 +4,7 @@
 #include <gtest/gtest.h>
 #include <stdint.h>
 #include <string>
-#include "di_container.h"
+#include "didagle/di_container.h"
 using namespace didagle;
 struct TestPOD {
   int a = 101;
@@ -24,8 +24,7 @@ TEST(DIContainer, POD) {
 
 TEST(DIContainer, SharedPtr) {
   typedef std::shared_ptr<std::string> StringPtr;
-  DIContainer::RegisterBuilder<StringPtr>("test_id",
-                                          std::make_unique<DIObjectBuilder<StringPtr>>([]() {
+  DIContainer::RegisterBuilder<StringPtr>("test_id", std::make_unique<DIObjectBuilder<StringPtr>>([]() {
                                             StringPtr id(new std::string("hello"));
                                             return id;
                                           }));
@@ -37,8 +36,7 @@ TEST(DIContainer, SharedPtr) {
 
 TEST(DIContainer, UniquePtr) {
   typedef std::unique_ptr<std::string> StringPtr;
-  DIContainer::RegisterBuilder<StringPtr>("test_uniq_id",
-                                          std::make_unique<DIObjectBuilder<StringPtr>>([]() {
+  DIContainer::RegisterBuilder<StringPtr>("test_uniq_id", std::make_unique<DIObjectBuilder<StringPtr>>([]() {
                                             StringPtr id(new std::string("world"));
                                             return std::move(id);
                                           }));

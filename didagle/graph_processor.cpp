@@ -6,23 +6,23 @@
 #include <utility>
 #include <vector>
 
-#include "didagle_log.h"
-#include "graph_processor_api.h"
-#include "graph_processor_di.h"
+#include "didagle/didagle_log.h"
+#include "didagle/graph_processor_api.h"
+#include "didagle/graph_processor_di.h"
 
 namespace didagle {
 typedef std::unordered_map<std::string, ProcessorCreator> CreatorTable;
-static CreatorTable *g_creator_table = nullptr;
+static CreatorTable* g_creator_table = nullptr;
 
 void deleteCreatorTable() { delete g_creator_table; }
-CreatorTable &GetCreatorTable() {
+CreatorTable& GetCreatorTable() {
   if (nullptr == g_creator_table) {
     g_creator_table = new CreatorTable;
     atexit(deleteCreatorTable);
   }
   return *g_creator_table;
 }
-DAGEventTracker *GraphDataContext::GetEventTracker() const {
+DAGEventTracker* GraphDataContext::GetEventTracker() const {
   if (_event_tracker) {
     return _event_tracker.get();
   }
@@ -47,19 +47,18 @@ void GraphDataContext::Reset() {
   _disable_entry_creation = false;
 }
 
-DataValue *GraphDataContext::GetValue(const DIObjectKeyView &key, GraphDataGetOptions opt,
-                                      ExcludeGraphDataContextSet *excludes) {
+DataValue* GraphDataContext::GetValue(const DIObjectKeyView& key, GraphDataGetOptions opt,
+                                      ExcludeGraphDataContextSet* excludes) {
   auto found = _data_table.find(key);
   if (found != _data_table.end()) {
     return &(found->second);
   }
-  std::unique_ptr<ExcludeGraphDataContextSet> empty_execludes =
-      std::make_unique<ExcludeGraphDataContextSet>();
-  ExcludeGraphDataContextSet *new_excludes = excludes;
+  std::unique_ptr<ExcludeGraphDataContextSet> empty_execludes = std::make_unique<ExcludeGraphDataContextSet>();
+  ExcludeGraphDataContextSet* new_excludes = excludes;
   if (nullptr == new_excludes) {
     new_excludes = empty_execludes.get();
   }
-  DataValue *r = nullptr;
+  DataValue* r = nullptr;
   new_excludes->insert(this);
   if (opt.with_parent && _parent) {
     GraphDataGetOptions parent_opt;
@@ -67,7 +66,7 @@ DataValue *GraphDataContext::GetValue(const DIObjectKeyView &key, GraphDataGetOp
     parent_opt.with_children = opt.with_children;
     parent_opt.with_di_container = 0;
     if (new_excludes->count(_parent) == 0) {
-      r = const_cast<GraphDataContext *>(_parent)->GetValue(key, parent_opt, new_excludes);
+      r = const_cast<GraphDataContext*>(_parent)->GetValue(key, parent_opt, new_excludes);
     }
     if (r) {
       return r;
@@ -78,9 +77,9 @@ DataValue *GraphDataContext::GetValue(const DIObjectKeyView &key, GraphDataGetOp
     child_opt.with_children = 1;
     opt.with_parent = 0;
     opt.with_di_container = 0;
-    for (const GraphDataContext *child_ctx : _executed_childrens) {
+    for (const GraphDataContext* child_ctx : _executed_childrens) {
       if (nullptr != child_ctx && new_excludes->count(child_ctx) == 0) {
-        r = const_cast<GraphDataContext *>(child_ctx)->GetValue(key, child_opt, new_excludes);
+        r = const_cast<GraphDataContext*>(child_ctx)->GetValue(key, child_opt, new_excludes);
         if (r) {
           return r;
         }
@@ -90,11 +89,11 @@ DataValue *GraphDataContext::GetValue(const DIObjectKeyView &key, GraphDataGetOp
   return nullptr;
 }
 
-int GraphDataContext::Move(const DIObjectKey &from, const DIObjectKey &to) {
+int GraphDataContext::Move(const DIObjectKey& from, const DIObjectKey& to) {
   DIObjectKeyView from_key{from.name, from.id};
   DIObjectKeyView to_key{to.name, to.id};
-  DataValue *from_value = GetValue(from_key);
-  DataValue *to_value = GetValue(to_key);
+  DataValue* from_value = GetValue(from_key);
+  DataValue* to_value = GetValue(to_key);
   if (nullptr == from_value || nullptr == to_value) {
     return -1;
   }
@@ -106,13 +105,13 @@ int GraphDataContext::Move(const DIObjectKey &from, const DIObjectKey &to) {
 }
 
 void GraphDataContext::ReserveChildCapacity(size_t n) { _executed_childrens.resize(n); }
-void GraphDataContext::SetChild(const GraphDataContext *c, size_t idx) {
+void GraphDataContext::SetChild(const GraphDataContext* c, size_t idx) {
   if (idx >= _executed_childrens.size()) {
     return;
   }
   _executed_childrens[idx] = c;
 }
-void GraphDataContext::RegisterData(const DIObjectKey &id) {
+void GraphDataContext::RegisterData(const DIObjectKey& id) {
   DataValue dv;
   dv.name.reset(new std::string(id.name));
   DIObjectKeyView key = {*dv.name, id.id};
@@ -123,31 +122,30 @@ void GraphDataContext::RegisterData(const DIObjectKey &id) {
 }
 ProcessorFactory g_processor_factory;
 Processor::~Processor() {}
-int Processor::Setup(const Params &args) { return OnSetup(args); }
+int Processor::Setup(const Params& args) { return OnSetup(args); }
 void Processor::Reset() {
   // _data_ctx.reset();
   _data_ctx = nullptr;
   OnReset();
-  for (auto &reset : _reset_funcs) {
+  for (auto& reset : _reset_funcs) {
     reset();
   }
 }
-int Processor::Execute(const Params &args) {
-  for (auto &f : _params_settings) {
+int Processor::Execute(const Params& args) {
+  for (auto& f : _params_settings) {
     f(args);
   }
   return OnExecute(args);
 }
-void Processor::AsyncExecute(const Params &args, DoneClosure &&done) {
-  for (auto &f : _params_settings) {
+void Processor::AsyncExecute(const Params& args, DoneClosure&& done) {
+  for (auto& f : _params_settings) {
     f(args);
   }
   OnAsyncExecute(args, std::move(done));
 }
 
-size_t Processor::RegisterParam(const std::string &name, const std::string &type,
-                                const std::string &deafult_value, const std::string &desc,
-                                ParamSetFunc &&f) {
+size_t Processor::RegisterParam(const std::string& name, const std::string& type, const std::string& deafult_value,
+                                const std::string& desc, ParamSetFunc&& f) {
   ParamInfo info;
   info.name = name;
   info.type = type;
@@ -158,12 +156,12 @@ size_t Processor::RegisterParam(const std::string &name, const std::string &type
   return _params.size();
 }
 
-size_t Processor::AddResetFunc(ResetFunc &&f) {
+size_t Processor::AddResetFunc(ResetFunc&& f) {
   _reset_funcs.emplace_back(f);
   return _reset_funcs.size();
 }
-int Processor::InjectInputField(GraphDataContext &ctx, const std::string &field_name,
-                                const std::string_view &data_name, bool move) {
+int Processor::InjectInputField(GraphDataContext& ctx, const std::string& field_name, const std::string_view& data_name,
+                                bool move) {
   auto found = _field_inject_table.find(field_name);
   if (found == _field_inject_table.end()) {
     DIDAGLE_DEBUG("[{}]InjectInputField field:{} not found", Name(), field_name);
@@ -174,8 +172,8 @@ int Processor::InjectInputField(GraphDataContext &ctx, const std::string &field_
   // field_name, data_name, rc);
   return rc;
 }
-int Processor::EmitOutputField(GraphDataContext &ctx, const std::string &field_name,
-                               const std::string_view &data_name) {
+int Processor::EmitOutputField(GraphDataContext& ctx, const std::string& field_name,
+                               const std::string_view& data_name) {
   auto found = _field_emit_table.find(field_name);
   if (found == _field_emit_table.end()) {
     DIDAGLE_DEBUG("[{}]EmitOutputField field:{} not found", Name(), field_name);
@@ -187,22 +185,22 @@ int Processor::EmitOutputField(GraphDataContext &ctx, const std::string &field_n
   return rc;
 }
 
-void ProcessorFactory::Register(std::string_view name, const ProcessorCreator &creator) {
+void ProcessorFactory::Register(std::string_view name, const ProcessorCreator& creator) {
   std::string name_str(name.data(), name.size());
   GetCreatorTable().emplace(std::make_pair(name_str, creator));
 }
-Processor *ProcessorFactory::GetProcessor(const std::string &name) {
+Processor* ProcessorFactory::GetProcessor(const std::string& name) {
   auto found = GetCreatorTable().find(name);
   if (found != GetCreatorTable().end()) {
     return found->second();
   }
   return nullptr;
 }
-void ProcessorFactory::GetAllMetas(std::vector<ProcessorMeta> &all_metas) {
-  for (auto &pair : GetCreatorTable()) {
+void ProcessorFactory::GetAllMetas(std::vector<ProcessorMeta>& all_metas) {
+  for (auto& pair : GetCreatorTable()) {
     ProcessorMeta meta;
     meta.name = pair.first;
-    Processor *p = pair.second();
+    Processor* p = pair.second();
     meta.input = p->GetInputIds();
     meta.output = p->GetOutputIds();
     meta.params = p->GetParams();
@@ -212,20 +210,19 @@ void ProcessorFactory::GetAllMetas(std::vector<ProcessorMeta> &all_metas) {
     all_metas.push_back(meta);
   }
 }
-int ProcessorFactory::DumpAllMetas(const std::string &file) {
+int ProcessorFactory::DumpAllMetas(const std::string& file) {
   std::vector<ProcessorMeta> all_metas;
   GetAllMetas(all_metas);
   return kcfg::WriteToJsonFile(all_metas, file, true, false);
 }
 
-ProcessorRegister::ProcessorRegister(std::string_view name, const ProcessorCreator &creator) {
+ProcessorRegister::ProcessorRegister(std::string_view name, const ProcessorCreator& creator) {
   ProcessorFactory::Register(name, creator);
 }
 
-ProcessorRunResult run_processor(GraphDataContext &ctx, const std::string &proc,
-                                 const ProcessorRunOptions &opts) {
+ProcessorRunResult run_processor(GraphDataContext& ctx, const std::string& proc, const ProcessorRunOptions& opts) {
   ProcessorRunResult result;
-  Processor *p = ProcessorFactory::GetProcessor(proc);
+  Processor* p = ProcessorFactory::GetProcessor(proc);
   if (nullptr == p) {
     DIDAGLE_ERROR("No processor:{} found", proc);
     result.rc = -1;
@@ -235,7 +232,7 @@ ProcessorRunResult run_processor(GraphDataContext &ctx, const std::string &proc,
   ProcessorDI di(p);
   std::vector<GraphData> config_inputs;
   if (!opts.map_aggregate_ids.empty()) {
-    for (const auto &[field, aggregate_ids] : opts.map_aggregate_ids) {
+    for (const auto& [field, aggregate_ids] : opts.map_aggregate_ids) {
       GraphData data;
       data.id = field;
       data.field = field;

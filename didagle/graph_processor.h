@@ -10,8 +10,7 @@
 #include <string_view>
 #include <unordered_map>
 #include <vector>
-#include "graph_processor_api.h"
-#include "tbb/concurrent_hash_map.h"
+#include "didagle/graph_processor_api.h"
 
 namespace didagle {
 
@@ -27,10 +26,10 @@ struct ProcessorMeta {
 
 class ProcessorFactory {
  public:
-  static void Register(std::string_view name, const ProcessorCreator &creator);
-  static Processor *GetProcessor(const std::string &name);
-  static void GetAllMetas(std::vector<ProcessorMeta> &metas);
-  static int DumpAllMetas(const std::string &file = "all_processors.json");
+  static void Register(std::string_view name, const ProcessorCreator& creator);
+  static Processor* GetProcessor(const std::string& name);
+  static void GetAllMetas(std::vector<ProcessorMeta>& metas);
+  static int DumpAllMetas(const std::string& file = "all_processors.json");
 };
 
 struct ProcessorRunResult {
@@ -40,11 +39,10 @@ struct ProcessorRunResult {
 };
 
 struct ProcessorRunOptions {
-  const Params *params = nullptr;
+  const Params* params = nullptr;
   std::map<std::string, std::vector<std::string>> map_aggregate_ids;
 };
 
-ProcessorRunResult run_processor(GraphDataContext &ctx, const std::string &proc,
-                                 const ProcessorRunOptions &opts = {});
+ProcessorRunResult run_processor(GraphDataContext& ctx, const std::string& proc, const ProcessorRunOptions& opts = {});
 
 }  // namespace didagle

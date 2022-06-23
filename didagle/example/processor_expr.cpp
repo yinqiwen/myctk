@@ -1,19 +1,18 @@
 // Copyright (c) 2020, Tencent Inc.
 // All rights reserved.
 
-#include "didagle_log.h"
+#include "didagle/didagle_log.h"
+#include "didagle/graph_processor_api.h"
 #include "expr.h"
 #include "folly/String.h"
-#include "graph_processor_api.h"
 #include "spirit_expression.h"
 
 GRAPH_OP_BEGIN(expr_phase)
-std::string _cond;
+std::string _cond;  // NOLINT
 ssexpr::SpiritExpression _expr;
 int OnSetup(const didagle::Params& args) override {
   ssexpr::ExprOptions opt;
-  opt.dynamic_var_access = [this](const void* root,
-                                  const std::vector<std::string>& args) -> ssexpr::Value {
+  opt.dynamic_var_access = [this](const void* root, const std::vector<std::string>& args) -> ssexpr::Value {
     if (args.size() == 1) {
       if (args[0].empty()) {
         return root;
@@ -86,8 +85,7 @@ int OnExecute(const didagle::Params& args) override {
     return r ? 0 : -1;
   } catch (std::exception& e) {
     auto err = std::get<ssexpr::Error>(eval_val);
-    DIDAGLE_DEBUG("cond:{} eval exception:{} with index:{}/{}", _cond, e.what(), err.code,
-                  err.reason);
+    DIDAGLE_DEBUG("cond:{} eval exception:{} with index:{}/{}", _cond, e.what(), err.code, err.reason);
     return -1;
   }
 }

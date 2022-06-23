@@ -14,7 +14,7 @@
 #include <boost/preprocessor/library.hpp>
 #include "google/protobuf/service.h"
 
-#include "didagle_log.h"
+#include "didagle/didagle_log.h"
 #include "kcfg_json.h"
 
 namespace didagle {
@@ -39,8 +39,8 @@ struct ServiceTag {
 };
 
 class DIObject;
-template <typename T, bool = std::is_base_of<::google::protobuf::Service, T>::value ||
-                             std::is_base_of<ServiceTag, T>::value>
+template <typename T,
+          bool = std::is_base_of<::google::protobuf::Service, T>::value || std::is_base_of<ServiceTag, T>::value>
 struct DIObjectTypeHelper {
   typedef const T* read_type;
   typedef T write_type;
@@ -98,9 +98,7 @@ struct DIObjectKeyViewHash {
   }
 };
 struct DIObjectKeyViewEqual {
-  bool operator()(const DIObjectKeyView& x, const DIObjectKeyView& y) const {
-    return x.name == y.name && x.id == y.id;
-  }
+  bool operator()(const DIObjectKeyView& x, const DIObjectKeyView& y) const { return x.name == y.name && x.id == y.id; }
 };
 
 struct DIObjectBuilderBase {
@@ -113,8 +111,7 @@ struct DIObjectBuilder : public DIObjectBuilderBase {
 
   std::function<DIObjectType()> _functor;
   std::function<int()> _init;
-  explicit DIObjectBuilder(const std::function<DIObjectType()>& f = {},
-                           const std::function<int()> init = {})
+  explicit DIObjectBuilder(const std::function<DIObjectType()>& f = {}, const std::function<int()> init = {})
       : _functor(f), _init(init) {}
   virtual int Init() {
     if (_init) {
@@ -137,8 +134,7 @@ struct DIObjectBuilderValue {
   std::shared_ptr<std::string> id;
   bool inited = false;
 };
-typedef std::unordered_map<DIObjectKeyView, DIObjectBuilderValue, DIObjectKeyViewHash,
-                           DIObjectKeyViewEqual>
+typedef std::unordered_map<DIObjectKeyView, DIObjectBuilderValue, DIObjectKeyViewHash, DIObjectKeyViewEqual>
     DIObjectBuilderTable;
 class DIContainer {
  private:
@@ -217,10 +213,9 @@ class DIObject {
 };
 
 }  // namespace didagle
-#define DI_DEP(TYPE, NAME)                                                                 \
-  typename didagle::DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_type NAME = {}; \
-  size_t __input_##NAME##_code =                                                           \
-      RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>(#NAME, [this]() {               \
-        NAME = didagle::DIContainer::Get<BOOST_PP_REMOVE_PARENS(TYPE)>(#NAME);             \
-        return NAME ? 0 : -1;                                                              \
-      });
+#define DI_DEP(TYPE, NAME)                                                                     \
+  typename didagle::DIObjectTypeHelper<BOOST_PP_REMOVE_PARENS(TYPE)>::read_type NAME = {};     \
+  size_t __input_##NAME##_code = RegisterInput<BOOST_PP_REMOVE_PARENS(TYPE)>(#NAME, [this]() { \
+    NAME = didagle::DIContainer::Get<BOOST_PP_REMOVE_PARENS(TYPE)>(#NAME);                     \
+    return NAME ? 0 : -1;                                                                      \
+  });

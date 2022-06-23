@@ -23,6 +23,18 @@ TEST(ExprTest, IntNeq) {
   EXPECT_EQ(true, std::get<bool>(val));
 }
 
+TEST(ExprTest, Bool) {
+  SpiritExpression expr;
+  ExprOptions opt;
+  EXPECT_EQ(0, expr.Init(R"(true)", opt));
+  auto val = expr.Eval();
+  EXPECT_EQ(true, std::get<bool>(val));
+
+  EXPECT_EQ(0, expr.Init(R"(false)", opt));
+  val = expr.Eval();
+  EXPECT_EQ(false, std::get<bool>(val));
+}
+
 TEST(ExprTest, Logic) {
   SpiritExpression expr;
   ExprOptions opt;

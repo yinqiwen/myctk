@@ -26,7 +26,7 @@
  *ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  *THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "didagle_background.h"
+#include "didagle/didagle_background.h"
 
 #include <utility>
 #include "folly/Singleton.h"

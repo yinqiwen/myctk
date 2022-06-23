@@ -12,7 +12,7 @@
 #include <unordered_set>
 #include <variant>
 #include <vector>
-#include "graph_params.h"
+#include "didagle/graph_params.h"
 #include "kcfg_toml.h"
 
 namespace didagle {

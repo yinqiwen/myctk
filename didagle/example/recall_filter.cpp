@@ -26,8 +26,8 @@
  *ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  *THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "didagle_log.h"
-#include "graph_processor_api.h"
+#include "didagle/didagle_log.h"
+#include "didagle/graph_processor_api.h"
 
 GRAPH_OP_BEGIN(recall_filter)
 GRAPH_OP_INPUT((std::string), merge_out)

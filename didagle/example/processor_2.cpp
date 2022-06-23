@@ -1,8 +1,8 @@
 // Copyright (c) 2020, Tencent Inc.
 // All rights reserved.
 
-#include "didagle_log.h"
-#include "graph_processor_api.h"
+#include "didagle/didagle_log.h"
+#include "didagle/graph_processor_api.h"
 
 GRAPH_OP_BEGIN(phase2)
 GRAPH_OP_INPUT(std::string, v1)

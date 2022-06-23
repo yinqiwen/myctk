@@ -11,11 +11,11 @@
 #include "folly/Singleton.h"
 #include "folly/synchronization/HazptrThreadPoolExecutor.h"
 
-#include "didagle_background.h"
-#include "didagle_log.h"
+#include "didagle/didagle_background.h"
+#include "didagle/didagle_log.h"
+#include "didagle/graph.h"
+#include "didagle/graph_processor.h"
 #include "expr.h"
-#include "graph.h"
-#include "graph_processor.h"
 using namespace didagle;
 static std::string get_basename(const std::string& filename) {
 #if defined(_WIN32)
