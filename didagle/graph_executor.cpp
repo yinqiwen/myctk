@@ -9,6 +9,8 @@
 #include <set>
 #include <utility>
 
+#include "folly/executors/InlineExecutor.h"
+
 #include "didagle/didagle_event.h"
 #include "didagle/didagle_log.h"
 #include "didagle/graph.h"
@@ -243,32 +245,47 @@ int VertexContext::ExecuteProcessor() {
     event->phase = PhaseType::DAG_PHASE_OP_PREPARE_EXECUTE;
     tracker->events.enqueue(std::move(event));
   }
-  if (_processor->IsAsync()) {
-    try {
-      _processor->AsyncExecute(*_exec_params, [this](int code) {
-        _exec_rc = code;
-        FinishVertexProcess((_vertex->ignore_processor_execute_error && !_vertex->IsCondVertex()) ? 0 : code);
-      });
-    } catch (std::exception& ex) {
-      DIDAGLE_ERROR("Vertex:{} execute with caught excetion:{} ", _vertex->GetDotLable(), ex.what());
-      _exec_rc = V_CODE_ERR;
-      FinishVertexProcess((_vertex->ignore_processor_execute_error && !_vertex->IsCondVertex()) ? 0 : _exec_rc);
-    } catch (...) {
-      DIDAGLE_ERROR("Vertex:{} execute with caught unknown excetion.", _vertex->GetDotLable());
-      _exec_rc = V_CODE_ERR;
-      FinishVertexProcess((_vertex->ignore_processor_execute_error && !_vertex->IsCondVertex()) ? 0 : _exec_rc);
+  switch (_processor->GetExecMode()) {
+    case Processor::ExecMode::EXEC_ASYNC: {
+      try {
+        _processor->AsyncExecute(*_exec_params, [this](int code) {
+          _exec_rc = code;
+          FinishVertexProcess((_vertex->ignore_processor_execute_error && !_vertex->IsCondVertex()) ? 0 : code);
+        });
+      } catch (std::exception& ex) {
+        DIDAGLE_ERROR("Vertex:{} execute with caught excetion:{} ", _vertex->GetDotLable(), ex.what());
+        _exec_rc = V_CODE_ERR;
+        FinishVertexProcess((_vertex->ignore_processor_execute_error && !_vertex->IsCondVertex()) ? 0 : _exec_rc);
+      } catch (...) {
+        DIDAGLE_ERROR("Vertex:{} execute with caught unknown excetion.", _vertex->GetDotLable());
+        _exec_rc = V_CODE_ERR;
+        FinishVertexProcess((_vertex->ignore_processor_execute_error && !_vertex->IsCondVertex()) ? 0 : _exec_rc);
+      }
+      break;
     }
-  } else {
-    try {
-      _exec_rc = _processor->Execute(*_exec_params);
-    } catch (std::exception& ex) {
-      DIDAGLE_ERROR("Vertex:{} execute with caught excetion:{} ", _vertex->GetDotLable(), ex.what());
-      _exec_rc = V_CODE_ERR;
-    } catch (...) {
-      DIDAGLE_ERROR("Vertex:{} execute with caught unknown excetion.", _vertex->GetDotLable());
-      _exec_rc = V_CODE_ERR;
+#if ISPINE_HAS_COROUTINES
+    case Processor::ExecMode::EXEC_STD_COROUTINE: {
+      ispine::coro_spawn(&(folly::InlineExecutor::instance()), _processor->CoroExecute(*_exec_params))
+          .thenValue([this](int rc) {
+            _exec_rc = rc;
+            FinishVertexProcess((_vertex->ignore_processor_execute_error && !_vertex->IsCondVertex()) ? 0 : _exec_rc);
+          });
+      break;
     }
-    FinishVertexProcess((_vertex->ignore_processor_execute_error && !_vertex->IsCondVertex()) ? 0 : _exec_rc);
+#endif
+    default: {
+      try {
+        _exec_rc = _processor->Execute(*_exec_params);
+      } catch (std::exception& ex) {
+        DIDAGLE_ERROR("Vertex:{} execute with caught excetion:{} ", _vertex->GetDotLable(), ex.what());
+        _exec_rc = V_CODE_ERR;
+      } catch (...) {
+        DIDAGLE_ERROR("Vertex:{} execute with caught unknown excetion.", _vertex->GetDotLable());
+        _exec_rc = V_CODE_ERR;
+      }
+      FinishVertexProcess((_vertex->ignore_processor_execute_error && !_vertex->IsCondVertex()) ? 0 : _exec_rc);
+      break;
+    }
   }
   return 0;
 }
@@ -482,12 +499,6 @@ void GraphContext::OnVertexDone(VertexContext* vertex) {
   if (1 == _join_vertex_num.fetch_sub(1)) {  // last vertex
     if (_done) {
       _done(0);
-      // _done = 0;
-      // DIDAGLE_DEBUG("#####1{}", (uintptr_t)_cluster);
-      // if (!_cluster->IsSubgraph()) {
-      //   DIDAGLE_DEBUG("#####1  {}", (uintptr_t)_cluster);
-      //   _cluster->GetCluster()->ReleaseContext(_cluster);
-      // }
     }
     return;
   }

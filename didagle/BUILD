@@ -32,9 +32,9 @@ cc_library(
         "graph_processor_di.h",
         "graph_vertex.h",
     ],
-    linkopts = ["-lpthread -lglog -lfolly"],
     deps = [
         "//config:kcfg",
+        "//ispine/coro:coroutine",
         "@com_github_cameron314_concurrentqueue//:concurrentqueue",
         "@com_github_spdlog//:spdlog",
         "@com_google_protobuf//:protobuf",

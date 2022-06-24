@@ -10,6 +10,8 @@
 #include <string_view>
 #include "spdlog/logger.h"
 
+#include "fmt/ostream.h"  // do NOT put this line before spdlog
+
 namespace didagle {
 
 class Logger {
@@ -31,28 +33,28 @@ class Spdlogger : public Logger {
 
 }  // namespace didagle
 
-#define DIDAGLE_ERROR(...)                                                                 \
-  do {                                                                                     \
-    if (didagle::Logger::GetDidagleLogger().ShouldLog(spdlog::level::err)) {               \
-      std::string s = fmt::format(__VA_ARGS__);                                            \
-      didagle::Logger::GetDidagleLogger().Log(                                             \
-          spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::err, s); \
-    }                                                                                      \
+#define DIDAGLE_ERROR(...)                                                                             \
+  do {                                                                                                 \
+    if (didagle::Logger::GetDidagleLogger().ShouldLog(spdlog::level::err)) {                           \
+      std::string s = fmt::format(__VA_ARGS__);                                                        \
+      didagle::Logger::GetDidagleLogger().Log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, \
+                                              spdlog::level::err, s);                                  \
+    }                                                                                                  \
   } while (0)
 
-#define DIDAGLE_INFO(...)                                                                   \
-  do {                                                                                      \
-    if (didagle::Logger::GetDidagleLogger().ShouldLog(spdlog::level::info)) {               \
-      std::string s = fmt::format(__VA_ARGS__);                                             \
-      didagle::Logger::GetDidagleLogger().Log(                                              \
-          spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::info, s); \
-    }                                                                                       \
+#define DIDAGLE_INFO(...)                                                                              \
+  do {                                                                                                 \
+    if (didagle::Logger::GetDidagleLogger().ShouldLog(spdlog::level::info)) {                          \
+      std::string s = fmt::format(__VA_ARGS__);                                                        \
+      didagle::Logger::GetDidagleLogger().Log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, \
+                                              spdlog::level::info, s);                                 \
+    }                                                                                                  \
   } while (0)
-#define DIDAGLE_DEBUG(...)                                                                   \
-  do {                                                                                       \
-    if (didagle::Logger::GetDidagleLogger().ShouldLog(spdlog::level::debug)) {               \
-      std::string s = fmt::format(__VA_ARGS__);                                              \
-      didagle::Logger::GetDidagleLogger().Log(                                               \
-          spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, spdlog::level::debug, s); \
-    }                                                                                        \
+#define DIDAGLE_DEBUG(...)                                                                             \
+  do {                                                                                                 \
+    if (didagle::Logger::GetDidagleLogger().ShouldLog(spdlog::level::debug)) {                         \
+      std::string s = fmt::format(__VA_ARGS__);                                                        \
+      didagle::Logger::GetDidagleLogger().Log(spdlog::source_loc{__FILE__, __LINE__, SPDLOG_FUNCTION}, \
+                                              spdlog::level::debug, s);                                \
+    }                                                                                                  \
   } while (0)

@@ -254,7 +254,11 @@ int GraphCluster::Build() {
     return 0;
   }
   for (auto& f : graph) {
-    if (!GetGraphManager()->GetGraphExecuteOptions().check_version(f.expect_version)) continue;
+    if (GetGraphManager()->GetGraphExecuteOptions().check_version &&
+        !GetGraphManager()->GetGraphExecuteOptions().check_version(f.expect_version)) {
+      continue;
+    }
+
     auto found = _graphs.find(f.name);
     if (found != _graphs.end() && f.priority <= found->second->priority) {
       continue;

@@ -38,17 +38,14 @@ int main(int argc, char** argv) {
 
   boost::asio::thread_pool pool(8);
   GraphExecuteOptions exec_opt;
-  exec_opt.concurrent_executor = [&pool](AnyClosure&& r) {
-    // boost::asio::post(pool, r);
-    r();
-  };
+  exec_opt.concurrent_executor = [&pool](AnyClosure&& r) { boost::asio::post(pool, r); };
   exec_opt.event_reporter = [](DAGEvent event) {
 
   };
   {
     GraphManager graphs(exec_opt);
-    std::string config = "./graph.toml";
-    std::string graph = "sub_graph0";
+    std::string config = "./coro_example1.toml";
+    std::string graph = "coro_graph1";
     if (argc > 1) {
       config = argv[1];
     }
@@ -73,14 +70,6 @@ int main(int argc, char** argv) {
     paras["myid0"].SetString("output");
     paras["expid"].SetInt(1000);
     paras["EXP"]["field1"].SetInt(1221);
-    // graphs.Load(config);
-    // boost::asio::post(pool, [&] {
-    //   GraphDataContextPtr root1(new GraphDataContext);
-    //   graphs.Execute(root1, cluster_name, graph, &paras,
-    //                  [](int c) { DIDAGLE_ERROR("Graph done with {}", c); });
-    // });
-    // sleep(2);
-    // graphs.Load(config);
     GraphDataContextPtr root(new GraphDataContext);
 
     // set extern data value for dsl
@@ -112,9 +101,10 @@ int main(int argc, char** argv) {
     //   sleep(1);
     // }
   }
-  printf("###Graph Close\n");
+
   pool.join();
 
   sleep(5);
+  printf("###Graph Close\n");
   return 0;
 }

@@ -32,6 +32,7 @@
 #include "ispine/coro/coroutine.h"
 
 #define ERR_UNIMPLEMENTED -7890
+#define ERR_COROUTINE_EXCEPTION -7891
 
 namespace didagle {
 
@@ -292,6 +293,13 @@ typedef std::unique_ptr<GraphDataContext> GraphDataContextPtr;
 class VertexContext;
 class GraphClusterContext;
 class Processor {
+ public:
+  enum class ExecMode : uint8_t {
+    EXEC_SYNC = 0,
+    EXEC_ASYNC,
+    EXEC_STD_COROUTINE,
+  };
+
  protected:
   typedef std::function<int(GraphDataContext&, const std::string_view&, bool)> InjectFunc;
   typedef std::function<int(GraphDataContext&, const std::string_view&)> EmitFunc;
@@ -339,6 +347,10 @@ class Processor {
   virtual int OnSetup(const Params& args) { return 0; }
   virtual int OnReset() { return 0; }
   virtual int OnExecute(const Params& args) { return ERR_UNIMPLEMENTED; }
+#if ISPINE_HAS_COROUTINES
+  virtual ispine::Awaitable<int> OnCoroExecute(const Params& args) { co_return ERR_UNIMPLEMENTED; }
+#endif
+
   virtual void OnAsyncExecute(const Params& args, DoneClosure&& done) { done(ERR_UNIMPLEMENTED); }
 
   friend class VertexContext;
@@ -348,7 +360,7 @@ class Processor {
   void SetDataContext(GraphDataContext* p) { _data_ctx = p; }
   virtual std::string_view Desc() const { return ""; }
   virtual std::string_view Name() const = 0;
-  virtual bool IsAsync() const { return false; }
+  virtual ExecMode GetExecMode() const { return ExecMode::EXEC_SYNC; }
   // io bound processor
   virtual bool isIOProcessor() const { return false; }
   const std::vector<FieldInfo>& GetInputIds() { return _input_ids; }
@@ -357,6 +369,9 @@ class Processor {
   int Setup(const Params& args);
   void Reset();
   int Execute(const Params& args);
+#if ISPINE_HAS_COROUTINES
+  ispine::Awaitable<int> CoroExecute(const Params& args);
+#endif
   void AsyncExecute(const Params& args, DoneClosure&& done);
   int InjectInputField(GraphDataContext& ctx, const std::string& field_name, const std::string_view& data_name,
                        bool move);
@@ -385,6 +400,10 @@ struct ProcessorRegister {
                       ("Empty Description"));                                                                         \
       std::string_view Name() const { return _local_processor_name; }                                                 \
       std::string_view Desc() const { return _local_processor_desc; }
+
+#define GRAPH_CORO_OP_BEGIN(...) \
+  GRAPH_OP_BEGIN(__VA_ARGS__)    \
+  ExecMode GetExecMode() const override { return ExecMode::EXEC_STD_COROUTINE; }
 
 #define GRAPH_OP_END                                                                                                \
   }                                                                                                                 \

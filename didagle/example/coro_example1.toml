@@ -1,0 +1,28 @@
+name = "Example1"
+strict_dsl = false
+default_expr_processor = "expr_phase"
+[[config_setting]]
+name = "with_exp_1000"
+cond = 'expid==1000'
+[[config_setting]]
+name = "with_exp_1001"
+cond = "expid==1001"
+[[config_setting]]
+name = "with_exp_1002"
+cond = "expid==1002"
+
+[[graph]]
+name = "coro_graph1"
+[[graph.vertex]]
+processor = "coro_phase0"
+[[graph.vertex]]
+processor = "coro_phase1"
+[[graph.vertex]]
+processor = "coro_phase2"
+deps = ["coro_phase0", "coro_phase1"]
+
+
+
+
+
+

@@ -137,6 +137,16 @@ int Processor::Execute(const Params& args) {
   }
   return OnExecute(args);
 }
+
+#if ISPINE_HAS_COROUTINES
+ispine::Awaitable<int> Processor::CoroExecute(const Params& args) {
+  for (auto& f : _params_settings) {
+    f(args);
+  }
+  co_return co_await OnCoroExecute(args);
+}
+#endif
+
 void Processor::AsyncExecute(const Params& args, DoneClosure&& done) {
   for (auto& f : _params_settings) {
     f(args);

@@ -1,5 +1,23 @@
 package(default_visibility = ["//visibility:public"])
 
+LINKOPTS = [
+    "-lfolly",
+    "-lfmt",
+    "-lgflags",
+    "-lglog",
+    "-ldouble-conversion",
+    "-liberty",
+    "-levent",
+    "-lunwind",
+    "-lcrypto",
+    "-lssl",
+    "-ldl",
+    "-lrt",
+    "-lstdc++fs",
+    "-lboost_context",
+    "-lboost_filesystem",
+]
+
 cc_library(
     name = "processor_lib",
     srcs = [
@@ -27,7 +45,7 @@ cc_library(
 
 cc_binary(
     name = "graph_processor_dump",
-    linkopts = ["-lrt -ltbb"],
+    linkopts = LINKOPTS,
     deps = [
         ":processor_lib",
         "//didagle:didagle_processor_dump",
@@ -37,7 +55,7 @@ cc_binary(
 cc_binary(
     name = "dot_graph",
     srcs = ["dot_example.cpp"],
-    linkopts = ["-lrt -ltbb"],
+    linkopts = LINKOPTS,
     deps = [
         ":processor_lib",
         "//didagle:didagle_core",
@@ -47,9 +65,33 @@ cc_binary(
 cc_binary(
     name = "run_dsl",
     srcs = ["run_dsl.cpp"],
-    linkopts = ["-lrt -ltbb -lpthread"],
+    linkopts = LINKOPTS,
     deps = [
         ":processor_lib",
         "//didagle:didagle_core",
+    ],
+)
+
+cc_library(
+    name = "coro_processor_lib",
+    srcs = [
+        "coro_processor_0.cpp",
+        "coro_processor_1.cpp",
+        "coro_processor_2.cpp",
+    ],
+    hdrs = ["expr.h"],
+    deps = [
+        "//didagle:didagle_core",
+        "//ssexpr",
+    ],
+    alwayslink = True,
+)
+
+cc_binary(
+    name = "coro_run_dsl",
+    srcs = ["coro_run_dsl.cpp"],
+    linkopts = LINKOPTS,
+    deps = [
+        ":coro_processor_lib",
     ],
 )
