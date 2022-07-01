@@ -646,9 +646,7 @@ int GraphClusterContext::Execute(const std::string& graph, DoneClosure&& done, G
       _config_settings[i].result = 1;
     }
     bool* v = reinterpret_cast<bool*>(&_config_settings[i].result);
-    if (*v) {
-      data_ctx.Set(_cluster->config_setting[i].name, v);
-    }
+    data_ctx.Set(_cluster->config_setting[i].name, v);
   }
 
   /**

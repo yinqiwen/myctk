@@ -61,10 +61,11 @@ int ProcessorDI::InjectInputs(GraphDataContext& ctx, const Params* params) {
           } else {
             rc = -1;
             // 需要的时候，打印error日志； 不需要的时候，打印info日志;
-            if (required)
+            if (required) {
               DIDAGLE_ERROR("[{}]inject {} failed with var aggregate_id:{}", _proc->Name(), field, aggregate_id);
-            else
+            } else {
               DIDAGLE_DEBUG("[{}]inject {} failed with var aggregate_id:{}", _proc->Name(), field, aggregate_id);
+            }
           }
         }
 
@@ -96,8 +97,13 @@ int ProcessorDI::InjectInputs(GraphDataContext& ctx, const Params* params) {
       }
 
       if (0 != rc) {
-        DIDAGLE_ERROR("[{}]inject {}:{} failed with move:{}, null data:{}", _proc->Name(), field, data.name, move_data,
-                      nullptr == graph_data);
+        if (required) {
+          DIDAGLE_ERROR("[{}]inject {}:{} failed with move:{}, null data:{}", _proc->Name(), field, data.name,
+                        move_data, nullptr == graph_data);
+        } else {
+          DIDAGLE_DEBUG("[{}]inject {}:{} failed with move:{}, null data:{}", _proc->Name(), field, data.name,
+                        move_data, nullptr == graph_data);
+        }
       }
     }
     if (0 != rc && required) {
