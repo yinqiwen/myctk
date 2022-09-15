@@ -1327,8 +1327,8 @@ struct CodeGenerator {
   //   pushed_registers_num_++;
   // }
   void PushRegisters() {
-    DEBUG_ASM_OP((jit_.push(Xbyak::Reg64(jit_.rax))));
-    DEBUG_ASM_OP((jit_.push(Xbyak::Reg64(jit_.rdx))));
+    DEBUG_ASM_OP((jit_.push(jit_.rax)));
+    DEBUG_ASM_OP((jit_.push(jit_.rdx)));
     jit_.inc(jit_.r13);
   }
   void SaveRegisterValue(const Value& v) {
@@ -1336,8 +1336,8 @@ struct CodeGenerator {
     DEBUG_ASM_OP((jit_.mov(jit_.rax, v.val)));
   }
   void PopValue() {
-    DEBUG_ASM_OP((jit_.pop(Xbyak::Reg64(jit_.rdx))));
-    DEBUG_ASM_OP((jit_.pop(Xbyak::Reg64(jit_.rax))));
+    DEBUG_ASM_OP((jit_.pop(jit_.rdx)));
+    DEBUG_ASM_OP((jit_.pop(jit_.rax)));
     jit_.dec(jit_.r13);
   }
 
@@ -1588,8 +1588,8 @@ int SpiritExpression::Init(const std::string& expr, const ExprOptions& options) 
   jit_.reset(new Xbyak::CodeGenerator(options.jit_code_size));
   ssexpr2::ast::CodeGenerator gen(options, jit_);
   jit_->inLocalLabel();
-  jit_->push(jit_->rbx);
-  jit_->mov(jit_->rsp, jit_->rbp);
+  // jit_->push(jit_->rbx);
+  // jit_->mov(jit_->rsp, jit_->rbp);
   jit_->push(jit_->rbp);
   jit_->push(jit_->r12);
   jit_->push(jit_->r13);
@@ -1615,7 +1615,7 @@ int SpiritExpression::Init(const std::string& expr, const ExprOptions& options) 
   jit_->pop(jit_->r13);
   jit_->pop(jit_->r12);
   jit_->pop(jit_->rbp);
-  jit_->pop(jit_->rbx);
+  // jit_->pop(jit_->rbx);
   DEBUG_ASM_OP((jit_->ret()));
   DEBUG_ASM_OP((jit_->outLocalLabel()));
   _eval = jit_->getCode<EvalFunc>();

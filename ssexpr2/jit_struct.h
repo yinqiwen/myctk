@@ -97,6 +97,7 @@ struct Value {
   // const void* val = nullptr;
   uint64_t val = 0;
   uint32_t type = V_UNKNOWN;
+  uint32_t len = 0;
 
   template <typename T>
   void Set(const T& v) {
@@ -112,8 +113,9 @@ struct Value {
     SET_VALUE(float, V_FLOAT_VALUE)
     SET_VALUE(double, V_DOUBLE_VALUE)
     if constexpr (std::is_same<T, std::string_view>::value) {
-      val = (uint64_t)(&v);
+      val = (uint64_t)(v.data());
       type = V_STD_STRING_VIEW;
+      len = v.size();
       return;
     }
     if constexpr (std::is_same<T, std::string>::value) {
@@ -154,12 +156,12 @@ struct Value {
           return v;
         }
         case V_STD_STRING_VIEW: {
-          const std::string_view* s = (const std::string_view*)val;
+          const char* s = (const char*)val;
           if (nullptr == s) {
             std::string_view empty;
             return empty;
           }
-          v = *s;
+          v = std::string_view(s, len);
           return v;
         }
         case V_FLATBUFFERS_STRING: {
@@ -233,10 +235,8 @@ struct Value {
 typedef std::function<void(Xbyak::CodeGenerator&)> FieldJitAccessBuilder;
 struct FieldJitAccessBuilderTable;
 struct FieldJitAccessBuilderTable
-    : public std::map<std::string,
-                      std::variant<FieldJitAccessBuilder,
-                                   std::pair<FieldJitAccessBuilder, FieldJitAccessBuilderTable>>> {
-};
+    : public std::map<std::string, std::variant<FieldJitAccessBuilder,
+                                                std::pair<FieldJitAccessBuilder, FieldJitAccessBuilderTable>>> {};
 typedef Value GetValue(const void*);
 class ValueAccessor {
  private:
@@ -245,8 +245,7 @@ class ValueAccessor {
   bool _own_jit;
 
  public:
-  ValueAccessor(std::shared_ptr<Xbyak::CodeGenerator> jit = nullptr)
-      : _jit(jit), _get(nullptr), _own_jit(false) {}
+  ValueAccessor(std::shared_ptr<Xbyak::CodeGenerator> jit = nullptr) : _jit(jit), _get(nullptr), _own_jit(false) {}
   bool Valid() const { return nullptr != _get; }
   const GetValue* GetFunc() const { return _get; }
   Xbyak::CodeGenerator& GetJit() { return *_jit; }
@@ -349,8 +348,7 @@ ValueAccessor GetFieldAccessors(const std::vector<std::string>& names,
       } else {
         try {
           std::pair<FieldJitAccessBuilder, FieldJitAccessBuilderTable>* builder =
-              std::get_if<std::pair<FieldJitAccessBuilder, FieldJitAccessBuilderTable>>(
-                  &found->second);
+              std::get_if<std::pair<FieldJitAccessBuilder, FieldJitAccessBuilderTable>>(&found->second);
           if (nullptr == builder) {
             return accessor;
           }
@@ -370,82 +368,78 @@ ValueAccessor GetFieldAccessors(const std::vector<std::string>& names,
 #define JIT_STRUCT_EAT(...)
 #define JIT_STRUCT_STRIP(x) JIT_STRUCT_EAT x  // STRIP((int) x) => EAT(int) x => x
 
-#define JIT_STRUCT_MEMBER_INIT(r, data, i, elem) \
-  static FieldInit<i, void> __init__##i(GetFieldJitAccessBuilderTable());
-#define DEFINE_JIT_STRUCT_MEMBER(r, data, i, elem)                                                 \
-  BOOST_PP_REMOVE_PARENS(elem) = {};                                                               \
-  template <typename fake>                                                                         \
-  struct FieldInit<i, fake> {                                                                      \
-    FieldInit(ssexpr2::FieldJitAccessBuilderTable& builders) {                                     \
-      __CurrentDataType* vv = nullptr;                                                             \
-      using FT = decltype(vv->JIT_STRUCT_STRIP(elem));                                             \
-      using FT2 = typename std::remove_const<typename std::remove_pointer<FT>::type>::type;        \
-      ssexpr2::FieldJitAccessBuilder builder;                                                      \
-      ssexpr2::ValueType vtype;                                                                    \
-      if constexpr (std::is_same<FT2, char>::value) {                                              \
-        vtype = ssexpr2::V_CHAR;                                                                   \
-      } else if constexpr (std::is_same<FT2, bool>::value) {                                       \
-        vtype = ssexpr2::V_BOOL;                                                                   \
-      } else if constexpr (std::is_same<FT2, uint8_t>::value) {                                    \
-        vtype = ssexpr2::V_UINT8;                                                                  \
-      } else if constexpr (std::is_same<FT2, int16_t>::value) {                                    \
-        vtype = ssexpr2::V_INT16;                                                                  \
-      } else if constexpr (std::is_same<FT2, uint16_t>::value) {                                   \
-        vtype = ssexpr2::V_UINT16;                                                                 \
-      } else if constexpr (std::is_same<FT2, int32_t>::value) {                                    \
-        vtype = ssexpr2::V_INT32;                                                                  \
-      } else if constexpr (std::is_same<FT2, uint32_t>::value) {                                   \
-        vtype = ssexpr2::V_UINT32;                                                                 \
-      } else if constexpr (std::is_same<FT2, int64_t>::value) {                                    \
-        vtype = ssexpr2::V_INT64;                                                                  \
-      } else if constexpr (std::is_same<FT2, uint64_t>::value) {                                   \
-        vtype = ssexpr2::V_UINT64;                                                                 \
-      } else if constexpr (std::is_same<FT2, float>::value) {                                      \
-        vtype = ssexpr2::V_FLOAT;                                                                  \
-      } else if constexpr (std::is_same<FT2, double>::value) {                                     \
-        vtype = ssexpr2::V_DOUBLE;                                                                 \
-      } else if constexpr (std::is_same<FT2, std::string>::value) {                                \
-        vtype = ssexpr2::V_STD_STRING;                                                             \
-      } else if constexpr (std::is_same<FT2, std::string_view>::value) {                           \
-        vtype = ssexpr2::V_STD_STRING_VIEW;                                                        \
-      } else if constexpr (std::is_same<FT, const char*>::value) {                                 \
-        vtype = ssexpr2::V_CSTRING;                                                                \
-      } else if constexpr (ssexpr2::HasInitJitBuilder<FT2>::value ||                               \
-                           ssexpr2::JitStructHelper<FT2>::_jit_struct) {                           \
-        vtype = ssexpr2::V_JIT_STRUCT;                                                             \
-      } else {                                                                                     \
-        vtype = ssexpr2::V_STRUCT;                                                                 \
-      }                                                                                            \
-      if constexpr (std::is_pointer<FT>::value) {                                                  \
-        builder = [=](Xbyak::CodeGenerator& jit) {                                                 \
-          jit.mov(jit.rdx, vtype);                                                                 \
-          jit.add(jit.rax, STRUCT_FILED_OFFSETOF(__CurrentDataType, JIT_STRUCT_STRIP(elem)));      \
-          jit.mov(jit.rax, jit.ptr[jit.rax]);                                                      \
-          jit.mov(jit.rdi, jit.rax);                                                               \
-        };                                                                                         \
-      } else {                                                                                     \
-        builder = [=](Xbyak::CodeGenerator& jit) {                                                 \
-          jit.mov(jit.rdx, vtype);                                                                 \
-          jit.add(jit.rax, STRUCT_FILED_OFFSETOF(__CurrentDataType, JIT_STRUCT_STRIP(elem)));      \
-          jit.mov(jit.rdi, jit.rax);                                                               \
-        };                                                                                         \
-      }                                                                                            \
-      if constexpr (ssexpr2::HasInitJitBuilder<FT2>::value) {                                      \
-        FT2::InitJitBuilder();                                                                     \
-        builders[BOOST_PP_STRINGIZE(JIT_STRUCT_STRIP(elem))] =                                     \
-                     std::pair<ssexpr2::FieldJitAccessBuilder,                                     \
-                               ssexpr2::FieldJitAccessBuilderTable>(                               \
-                         builder, FT2::GetFieldJitAccessBuilderTable());                           \
-      } else if constexpr (ssexpr2::JitStructHelper<FT2>::_jit_struct) {                           \
-        ssexpr2::JitStructHelper<FT2>::InitJitBuilder();                                           \
-        builders[BOOST_PP_STRINGIZE(JIT_STRUCT_STRIP(elem))] =                                     \
-                     std::pair<ssexpr2::FieldJitAccessBuilder,                                     \
-                               ssexpr2::FieldJitAccessBuilderTable>(                               \
-                         builder, ssexpr2::JitStructHelper<FT2>::GetFieldJitAccessBuilderTable()); \
-      } else {                                                                                     \
-        builders[BOOST_PP_STRINGIZE(JIT_STRUCT_STRIP(elem))] = builder;                            \
-      }                                                                                            \
-    }                                                                                              \
+#define JIT_STRUCT_MEMBER_INIT(r, data, i, elem) static FieldInit<i, void> __init__##i(GetFieldJitAccessBuilderTable());
+#define DEFINE_JIT_STRUCT_MEMBER(r, data, i, elem)                                                                 \
+  BOOST_PP_REMOVE_PARENS(elem) = {};                                                                               \
+  template <typename fake>                                                                                         \
+  struct FieldInit<i, fake> {                                                                                      \
+    FieldInit(ssexpr2::FieldJitAccessBuilderTable& builders) {                                                     \
+      __CurrentDataType* vv = nullptr;                                                                             \
+      using FT = decltype(vv->JIT_STRUCT_STRIP(elem));                                                             \
+      using FT2 = typename std::remove_const<typename std::remove_pointer<FT>::type>::type;                        \
+      ssexpr2::FieldJitAccessBuilder builder;                                                                      \
+      ssexpr2::ValueType vtype;                                                                                    \
+      if constexpr (std::is_same<FT2, char>::value) {                                                              \
+        vtype = ssexpr2::V_CHAR;                                                                                   \
+      } else if constexpr (std::is_same<FT2, bool>::value) {                                                       \
+        vtype = ssexpr2::V_BOOL;                                                                                   \
+      } else if constexpr (std::is_same<FT2, uint8_t>::value) {                                                    \
+        vtype = ssexpr2::V_UINT8;                                                                                  \
+      } else if constexpr (std::is_same<FT2, int16_t>::value) {                                                    \
+        vtype = ssexpr2::V_INT16;                                                                                  \
+      } else if constexpr (std::is_same<FT2, uint16_t>::value) {                                                   \
+        vtype = ssexpr2::V_UINT16;                                                                                 \
+      } else if constexpr (std::is_same<FT2, int32_t>::value) {                                                    \
+        vtype = ssexpr2::V_INT32;                                                                                  \
+      } else if constexpr (std::is_same<FT2, uint32_t>::value) {                                                   \
+        vtype = ssexpr2::V_UINT32;                                                                                 \
+      } else if constexpr (std::is_same<FT2, int64_t>::value) {                                                    \
+        vtype = ssexpr2::V_INT64;                                                                                  \
+      } else if constexpr (std::is_same<FT2, uint64_t>::value) {                                                   \
+        vtype = ssexpr2::V_UINT64;                                                                                 \
+      } else if constexpr (std::is_same<FT2, float>::value) {                                                      \
+        vtype = ssexpr2::V_FLOAT;                                                                                  \
+      } else if constexpr (std::is_same<FT2, double>::value) {                                                     \
+        vtype = ssexpr2::V_DOUBLE;                                                                                 \
+      } else if constexpr (std::is_same<FT2, std::string>::value) {                                                \
+        vtype = ssexpr2::V_STD_STRING;                                                                             \
+      } else if constexpr (std::is_same<FT2, std::string_view>::value) {                                           \
+        vtype = ssexpr2::V_STD_STRING_VIEW;                                                                        \
+      } else if constexpr (std::is_same<FT, const char*>::value) {                                                 \
+        vtype = ssexpr2::V_CSTRING;                                                                                \
+      } else if constexpr (ssexpr2::HasInitJitBuilder<FT2>::value || ssexpr2::JitStructHelper<FT2>::_jit_struct) { \
+        vtype = ssexpr2::V_JIT_STRUCT;                                                                             \
+      } else {                                                                                                     \
+        vtype = ssexpr2::V_STRUCT;                                                                                 \
+      }                                                                                                            \
+      if constexpr (std::is_pointer<FT>::value) {                                                                  \
+        builder = [=](Xbyak::CodeGenerator& jit) {                                                                 \
+          jit.mov(jit.rdx, vtype);                                                                                 \
+          jit.add(jit.rax, STRUCT_FILED_OFFSETOF(__CurrentDataType, JIT_STRUCT_STRIP(elem)));                      \
+          jit.mov(jit.rax, jit.ptr[jit.rax]);                                                                      \
+          jit.mov(jit.rdi, jit.rax);                                                                               \
+        };                                                                                                         \
+      } else {                                                                                                     \
+        builder = [=](Xbyak::CodeGenerator& jit) {                                                                 \
+          jit.mov(jit.rdx, vtype);                                                                                 \
+          jit.add(jit.rax, STRUCT_FILED_OFFSETOF(__CurrentDataType, JIT_STRUCT_STRIP(elem)));                      \
+          jit.mov(jit.rdi, jit.rax);                                                                               \
+        };                                                                                                         \
+      }                                                                                                            \
+      if constexpr (ssexpr2::HasInitJitBuilder<FT2>::value) {                                                      \
+        FT2::InitJitBuilder();                                                                                     \
+        builders[BOOST_PP_STRINGIZE(JIT_STRUCT_STRIP(elem))] =                                                     \
+                     std::pair<ssexpr2::FieldJitAccessBuilder, ssexpr2::FieldJitAccessBuilderTable>(               \
+                         builder, FT2::GetFieldJitAccessBuilderTable());                                           \
+      } else if constexpr (ssexpr2::JitStructHelper<FT2>::_jit_struct) {                                           \
+        ssexpr2::JitStructHelper<FT2>::InitJitBuilder();                                                           \
+        builders[BOOST_PP_STRINGIZE(JIT_STRUCT_STRIP(elem))] =                                                     \
+                     std::pair<ssexpr2::FieldJitAccessBuilder, ssexpr2::FieldJitAccessBuilderTable>(               \
+                         builder, ssexpr2::JitStructHelper<FT2>::GetFieldJitAccessBuilderTable());                 \
+      } else {                                                                                                     \
+        builders[BOOST_PP_STRINGIZE(JIT_STRUCT_STRIP(elem))] = builder;                                            \
+      }                                                                                                            \
+    }                                                                                                              \
   };
 
 #define DEFINE_JIT_STRUCT(st, ...)                                                              \

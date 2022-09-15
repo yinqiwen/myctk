@@ -6,6 +6,7 @@ TEST(ExprTest, StringEq) {
   SpiritExpression expr;
   ExprOptions opt;
   EXPECT_EQ(0, expr.Init(R"("hello"=="hello")", opt));
+
   auto val = expr.Eval();
   EXPECT_EQ(true, val.Get<bool>());
 }
@@ -171,6 +172,7 @@ static Value get_string_func(Value arg0) {
   Value v;
   std::string_view s = t->val;
   v.Set(s);
+  std::cout << "return string:" << s << std::endl;
   return v;
 }
 DEFINE_JIT_STRUCT(Item3, (double)score, (StringExprStruct*)test)
@@ -323,4 +325,35 @@ TEST(ExprTest, Func6) {
   auto val = expr.Eval(item);
   // EXPECT_EQ("world", val.Get<std::string_view>());
   EXPECT_EQ(true, val.Get<bool>());
+}
+
+struct TestStruct100 {
+  std::map<std::string, double> mp;
+};
+static Value test_func100(Value arg0) {
+  const void* p = (const void*)arg0.Get<const void*>();
+  const TestStruct100* t = (const TestStruct100*)p;
+  std::cout << t->mp.size() << std::endl;
+  auto iter = t->mp.find("2");
+  Value v;
+  v.Set<double>(iter->second);
+  return v;
+}
+DEFINE_JIT_STRUCT(TestItem100, (double)score, (TestStruct100*)test)
+
+TEST(ExprTest, TestFunc100) {
+  SpiritExpression expr;
+  ExprOptions opt;
+  opt.Init<TestItem100>();
+  opt.functions["custom_func"] = (ExprFunction)test_func100;
+  EXPECT_EQ(0, expr.Init("custom_func(test)", opt));
+  // EXPECT_EQ(0, expr.Init(R"($PI==3.14 && $test_var == "hello,world")", opt));
+  TestItem100 item;
+  item.test = new TestStruct100;
+  item.test->mp.insert(std::make_pair("123", 1.0));
+  item.test->mp.insert(std::make_pair("1", 2.0));
+  item.test->mp.insert(std::make_pair("2", 3.0));
+  auto val = expr.Eval(item);
+  // EXPECT_EQ("world", val.Get<std::string_view>());
+  EXPECT_DOUBLE_EQ(3.0, val.Get<double>());
 }
