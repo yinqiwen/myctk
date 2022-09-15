@@ -82,6 +82,16 @@ cc_library(
         build_file_content = _RAPIDJSON_BUILD_FILE,
     )
 
+    com_github_jbeder_yaml_cpp_ver = kwargs.get("com_github_jbeder_yaml_cpp_ver", "0.7.0")
+    com_github_jbeder_yaml_cpp_urls = [
+        "https://github.com/jbeder/yaml-cpp/archive/yaml-cpp-{ver}.tar.gz".format(ver = com_github_jbeder_yaml_cpp_ver),
+    ]
+    http_archive(
+        name = "com_github_jbeder_yaml_cpp",
+        strip_prefix = "yaml-cpp-yaml-cpp-{ver}".format(ver = com_github_jbeder_yaml_cpp_ver),
+        urls = com_github_jbeder_yaml_cpp_urls,
+    )
+
     _CPP_LINENOISE_BUILD_FILE = """
 cc_library(
     name = "cpp_linenoise",
