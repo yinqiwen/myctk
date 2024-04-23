@@ -1,6 +1,8 @@
 package(default_visibility = ["//visibility:public"])
 
 LINKOPTS = [
+    "-L/usr/local/lib",
+    "-L/usr/local/lib64",
     "-lfolly",
     "-lfmt",
     "-lgflags",

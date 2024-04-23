@@ -1,6 +1,8 @@
 load("@rules_cc//cc:defs.bzl", "cc_test")
 
 LINKOPTS = [
+    "-L/usr/local/lib",
+    "-L/usr/local/lib64",
     "-lfolly",
     "-lfmt",
     "-lgflags",

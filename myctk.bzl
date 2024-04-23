@@ -1,4 +1,4 @@
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository", "new_git_repository")
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 def clean_dep(dep):
@@ -246,7 +246,7 @@ cc_library(
         ],
     )
 
-    abseil_ver = kwargs.get("abseil_ver", "20210324.2")
+    abseil_ver = kwargs.get("abseil_ver", "20240116.2")
     abseil_name = "abseil-cpp-{ver}".format(ver = abseil_ver)
     http_archive(
         name = "com_google_absl",
@@ -257,14 +257,13 @@ cc_library(
         ],
     )
 
-    gtest_ver = kwargs.get("gtest_ver", "1.10.0")
-    gtest_name = "googletest-release-{ver}".format(ver = gtest_ver)
+    gtest_ver = kwargs.get("gtest_ver", "1.14.0")
+    gtest_name = "googletest-{ver}".format(ver = gtest_ver)
     http_archive(
         name = "com_google_googletest",
         strip_prefix = gtest_name,
         urls = [
-            "https://mirrors.tencent.com/github.com/google/googletest/archive/release-{ver}.tar.gz".format(ver = gtest_ver),
-            "https://github.com/google/googletest/archive/release-{ver}.tar.gz".format(ver = gtest_ver),
+            "https://github.com/google/googletest/archive/refs/tags/v{ver}.tar.gz".format(ver = gtest_ver),
         ],
     )
 
