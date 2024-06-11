@@ -1,5 +1,5 @@
 /*
- *Copyright (c) 2021, yinqiwen <yinqiwen@gmail.com>
+ *Copyright (c) 2021, qiyingwang <qiyingwang@tencent.com>
  *All rights reserved.
  *
  *Redistribution and use in source and binary forms, with or without
@@ -41,13 +41,26 @@ AsyncResetWorker::AsyncResetWorker() {
   executor_ =
       std::make_unique<folly::CPUThreadPoolExecutor>(2, std::make_shared<folly::NamedThreadFactory>("didagle_async"));
 }
+
+void AsyncResetWorker::SetCustomExecutor(std::function<void(folly::Func&&)>&& func) {
+  custom_executor_ = func;
+  executor_->stop();
+  executor_.reset();
+}
 void AsyncResetWorker::Post(folly::Func&& func) {
+  if (custom_executor_) {
+    custom_executor_(std::move(func));
+    return;
+  }
   executor_->add(std::move(func));
   // boost::asio::post(executor_.get_executor(), std::move(func));
 }
 
 AsyncResetWorker::~AsyncResetWorker() {
   // executor_.wait();
-  executor_->stop();
+  if (executor_ != nullptr) {
+    executor_->stop();
+    executor_.reset();
+  }
 }
 }  // namespace didagle

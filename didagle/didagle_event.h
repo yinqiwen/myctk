@@ -1,5 +1,5 @@
 /*
- *Copyright (c) 2021, yinqiwen <yinqiwen@gmail.com>
+ *Copyright (c) 2021, qiyingwang <qiyingwang@tencent.com>
  *All rights reserved.
  *
  *Redistribution and use in source and binary forms, with or without
@@ -30,12 +30,15 @@
 #pragma once
 #include <stdint.h>
 
+#include <atomic>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#include "concurrentqueue.h"
+#include "folly/FBVector.h"
+
+// #include "concurrentqueue.h"
 namespace didagle {
 enum class PhaseType {
   DAG_PHASE_UNKNOWN = 0,
@@ -51,6 +54,7 @@ struct DAGEvent {
   std::string_view cluster;
   std::string_view graph;
   std::string_view full_graph_name;
+  std::string_view matched_cond;
 
   PhaseType phase{PhaseType::DAG_PHASE_UNKNOWN};
   uint64_t start_ustime = 0;
@@ -59,7 +63,25 @@ struct DAGEvent {
 };
 
 struct DAGEventTracker {
-  moodycamel::ConcurrentQueue<std::unique_ptr<DAGEvent>> events;
+  // moodycamel::ConcurrentQueue<std::unique_ptr<DAGEvent>> events;
+  folly::fbvector<std::unique_ptr<DAGEvent>> events;
+  std::atomic<uint32_t> cursor;
+  DAGEventTracker(size_t cap = 2048) {
+    events.resize(cap);
+    cursor.store(0);
+  }
+  void Add(std::unique_ptr<DAGEvent>&& event) {
+    uint32_t idx = cursor.fetch_add(1);
+    if (idx < events.size()) {
+      events[idx] = std::move(event);
+    }
+  }
+  void Freeze() {
+    uint32_t idx = cursor.load();
+    if (idx < events.size()) {
+      events.resize(idx);
+    }
+  }
 };
 
 std::string_view get_dag_phase_name(PhaseType phase);

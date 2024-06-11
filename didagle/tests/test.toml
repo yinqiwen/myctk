@@ -1,0 +1,22 @@
+name = "Example1"
+strict_dsl = false
+default_expr_processor = "expr_phase"
+
+
+[[graph]]
+name = "test"
+[[graph.vertex]]
+processor = "test0"
+start=true
+[[graph.vertex]]
+processor = "test1"
+[[graph.vertex]]
+processor = "test2"
+[[graph.vertex]]
+processor = "test3"
+[[graph.vertex]]
+processor = "test4"
+
+
+
+

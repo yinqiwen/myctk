@@ -4,10 +4,11 @@
 #include <benchmark/benchmark.h>
 #include <sys/time.h>
 #include "didagle/graph_processor.h"
+#include "didagle/graph_processor_api.h"
 using namespace didagle;
 
 GRAPH_OP_BEGIN(test_phase)
-GRAPH_OP_INPUT(int, v0)
+GRAPH_OP_EXTERN_INPUT(int, v0)
 GRAPH_OP_OUTPUT(std::string, v1)
 GRAPH_OP_OUTPUT((std::map<std::string, std::string>), v2)
 int OnSetup(const Params& args) override { return 0; }
@@ -25,11 +26,11 @@ int OnExecute(const Params& args) override {
 GRAPH_OP_END
 
 static void BM_test_proc_run(benchmark::State& state) {
-  GraphDataContext ctx;
+  auto ctx = GraphDataContext::New();
   int tmp = 101;
-  ctx.Set("v0", &tmp);
+  ctx->Set("v0", &tmp);
   for (auto _ : state) {
-    run_processor(ctx, "test_phase");
+    run_processor(*ctx, "test_phase");
   }
 }
 // Register the function as a benchmark

@@ -39,9 +39,7 @@ int main(int argc, char** argv) {
   boost::asio::thread_pool pool(8);
   GraphExecuteOptions exec_opt;
   exec_opt.concurrent_executor = [&pool](AnyClosure&& r) { boost::asio::post(pool, r); };
-  exec_opt.event_reporter = [](DAGEvent event) {
-
-  };
+  exec_opt.event_reporter = [](DAGEvent event) {};
   {
     GraphManager graphs(exec_opt);
     std::string config = "./coro_example1.toml";
@@ -70,7 +68,7 @@ int main(int argc, char** argv) {
     paras["myid0"].SetString("output");
     paras["expid"].SetInt(1000);
     paras["EXP"]["field1"].SetInt(1221);
-    GraphDataContextPtr root(new GraphDataContext);
+    auto root = GraphDataContext::New();
 
     // set extern data value for dsl
     int v = 101;

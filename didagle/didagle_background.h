@@ -1,5 +1,5 @@
 /*
- *Copyright (c) 2021, yinqiwen <yinqiwen@gmail.com>
+ *Copyright (c) 2021, qiyingwang <qiyingwang@tencent.com>
  *All rights reserved.
  *
  *Redistribution and use in source and binary forms, with or without
@@ -36,9 +36,11 @@ namespace didagle {
 class AsyncResetWorker {
  private:
   std::unique_ptr<folly::CPUThreadPoolExecutor> executor_;
+  std::function<void(folly::Func&& func)> custom_executor_;
   // boost::asio::static_thread_pool executor_;
 
  public:
+  void SetCustomExecutor(std::function<void(folly::Func&&)>&& func);
   static std::shared_ptr<AsyncResetWorker> GetInstance();
   AsyncResetWorker();
   void Post(folly::Func&& func);

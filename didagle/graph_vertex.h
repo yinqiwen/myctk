@@ -1,31 +1,7 @@
-/*
- *Copyright (c) 2021, yinqiwen <yinqiwen@gmail.com>
- *All rights reserved.
- *
- *Redistribution and use in source and binary forms, with or without
- *modification, are permitted provided that the following conditions are met:
- *
- *  * Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *  * Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *  * Neither the name of rimos nor the names of its contributors may be used
- *    to endorse or promote products derived from this software without
- *    specific prior written permission.
- *
- *THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- *AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- *IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- *ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
- *BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- *CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- *SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- *INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- *CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- *ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
- *THE POSSIBILITY OF SUCH DAMAGE.
- */
+// Copyright (c) 2021, Tencent Inc.
+// All rights reserved.
+// Created on 2021/04/16
+// Authors: qiyingwang (qiyingwang@tencent.com)
 #pragma once
 
 #include <stdint.h>
@@ -90,6 +66,10 @@ struct Vertex {
   std::string cluster;
   std::string graph;
 
+  // while sub graph node
+  std::string while_cluster;
+  bool while_async = true;
+
   // dependents or successors
   std::set<std::string> successor;
   std::set<std::string> successor_on_ok;
@@ -103,7 +83,7 @@ struct Vertex {
   std::vector<GraphData> input;
   std::vector<GraphData> output;
 
-  bool ignore_processor_execute_error = true;
+  bool ignore_processor_execute_error = false;
 
   std::unordered_set<Vertex*> _successor_vertex;
   std::vector<VertexResult> _deps_expected_results;
@@ -113,11 +93,13 @@ struct Vertex {
   bool _is_id_generated = false;
   bool _is_cond_processor = false;
 
-  KCFG_TOML_DEFINE_FIELD_MAPPING(({"consequent", "if"}, {"alternative", "else"}, {"is_start", "start"}))
+  KCFG_TOML_DEFINE_FIELD_MAPPING(({"consequent", "if"}, {"alternative", "else"}, {"is_start", "start"},
+                                  {"while_cluster", "while"}, {"while_async", "async"}))
 
   KCFG_TOML_DEFINE_FIELDS(id, processor, args, cond, expect, expect_deps, expect_config, is_start, select_args, cluster,
-                          graph, successor, successor_on_ok, successor_on_err, consequent, alternative, deps,
-                          deps_on_ok, deps_on_err, input, output, ignore_processor_execute_error)
+                          graph, while_cluster, while_async, successor, successor_on_ok, successor_on_err,
+                          consequent, alternative, deps, deps_on_ok, deps_on_err, input, output,
+                          ignore_processor_execute_error)
   Vertex();
   bool IsCondVertex() const;
   void MergeSuccessor();

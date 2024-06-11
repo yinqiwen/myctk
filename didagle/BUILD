@@ -37,6 +37,8 @@ cc_library(
         "//ispine/coro:coroutine",
         "@com_github_cameron314_concurrentqueue//:concurrentqueue",
         "@com_github_spdlog//:spdlog",
+        # "@com_google_absl//absl/container:flat_hash_map",
+        # "@com_google_absl//absl/hash",
         "@com_google_protobuf//:protobuf",
     ],
 )

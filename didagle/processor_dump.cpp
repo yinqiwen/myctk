@@ -1,5 +1,5 @@
 /*
- *Copyright (c) 2021, yinqiwen <yinqiwen@gmail.com>
+ *Copyright (c) 2021, qiyingwang <qiyingwang@tencent.com>
  *All rights reserved.
  *
  *Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,9 @@
 #include "graph_processor.h"
 
 using namespace didagle;
+
+DEFINE_bool(reuse_didagle_proto_object, false, "reuse didagle proto objects");
+
 int main(int argc, char** argv) {
   std::string json_file = "all_processors.json";
   if (argc > 1) {

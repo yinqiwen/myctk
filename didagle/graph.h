@@ -1,31 +1,7 @@
-/*
- *Copyright (c) 2021, yinqiwen <yinqiwen@gmail.com>
- *All rights reserved.
- *
- *Redistribution and use in source and binary forms, with or without
- *modification, are permitted provided that the following conditions are met:
- *
- *  * Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *  * Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *  * Neither the name of rimos nor the names of its contributors may be used
- *    to endorse or promote products derived from this software without
- *    specific prior written permission.
- *
- *THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- *AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- *IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- *ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
- *BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- *CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- *SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- *INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- *CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- *ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
- *THE POSSIBILITY OF SUCH DAMAGE.
- */
+// Copyright (c) 2021, Tencent Inc.
+// All rights reserved.
+// Created on 2021/04/16
+// Authors: qiyingwang (qiyingwang@tencent.com)
 #pragma once
 
 #include <stdint.h>
@@ -102,7 +78,7 @@ struct GraphCluster {
   Graph* FindGraphByName(const std::string& name);
   GraphClusterContext* GetContext();
   void ReleaseContext(GraphClusterContext* p);
-  const GraphManager* GetGraphManager() const { return _graph_manager; }
+  inline const GraphManager* GetGraphManager() const { return _graph_manager; }
   bool Exists(const std::string& graph);
   ~GraphCluster();
 };
@@ -120,7 +96,7 @@ class GraphManager {
 
  public:
   explicit GraphManager(const GraphExecuteOptions& options);
-  const GraphExecuteOptions& GetGraphExecuteOptions() const { return _exec_options; }
+  inline const GraphExecuteOptions& GetGraphExecuteOptions() const { return _exec_options; }
   std::shared_ptr<GraphCluster> Load(const std::string& file);
   std::shared_ptr<GraphCluster> FindGraphClusterByName(const std::string& name);
   GraphClusterContext* GetGraphClusterContext(const std::string& cluster);

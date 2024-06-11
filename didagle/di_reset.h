@@ -1,5 +1,5 @@
 /*
- *Copyright (c) 2021, yinqiwen <yinqiwen@gmail.com>
+ *Copyright (c) 2021, qiyingwang <qiyingwang@tencent.com>
  *All rights reserved.
  *
  *Redistribution and use in source and binary forms, with or without
@@ -29,17 +29,66 @@
 
 #pragma once
 #include <map>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
+
+#include "google/protobuf/message.h"
+#include "google/protobuf/repeated_field.h"
+
+// #include "ispine/flags.h"
+// #include "ispine/pool/obj_pool/obj_pool.h"
+
+// DECLARE_bool(didagle_reuse_proto_obj);
+
 namespace didagle {
+template <typename>
+struct is_pb_repeated_ptr : std::false_type {};
+
+template <typename T>
+struct is_pb_repeated_ptr<::google::protobuf::RepeatedPtrField<T>> : std::true_type {};
+
+template <typename>
+struct is_pb_repeated : std::false_type {};
+
+template <typename T>
+struct is_pb_repeated<::google::protobuf::RepeatedField<T>> : std::true_type {};
+
 template <typename T>
 struct Reset {
-  void operator()(T& t) { t = {}; }
+  inline void operator()(T& t) {
+    if constexpr (std::is_base_of_v<::google::protobuf::Message, T> || is_pb_repeated_ptr<T>::value ||
+                  is_pb_repeated<T>::value) {
+      // if (FLAGS_didagle_reuse_proto_obj) {
+      //   t.Clear();
+      //   T* empty = new T;
+      //   t.Swap(empty);
+      //   ispine::ObjPool<T>::GetInstance()->RecycleRaw(empty);
+      //   return;
+      // }
+    }
+    t = {};
+  }
 };
 
 template <typename T>
 struct Reset<std::vector<T>> {
-  void operator()(std::vector<T>& t) { t.clear(); }
+  inline void operator()(std::vector<T>& t) { t.clear(); }
+};
+
+template <typename T>
+struct Prepare {
+  inline void operator()(T& t) {
+    if constexpr (std::is_base_of_v<::google::protobuf::Message, T> || is_pb_repeated_ptr<T>::value ||
+                  is_pb_repeated<T>::value) {
+      // if (FLAGS_didagle_reuse_proto_obj) {
+      //   T* obj = ispine::ObjPool<T>::GetInstance()->GetRaw();
+      //   t.Swap(obj);
+      //   delete obj;
+      //   return;
+      // }
+    }
+  }
 };
 
 }  // namespace didagle

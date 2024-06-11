@@ -1,33 +1,8 @@
-/*
- *Copyright (c) 2021, yinqiwen <yinqiwen@gmail.com>
- *All rights reserved.
- *
- *Redistribution and use in source and binary forms, with or without
- *modification, are permitted provided that the following conditions are met:
- *
- *  * Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *  * Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *  * Neither the name of rimos nor the names of its contributors may be used
- *    to endorse or promote products derived from this software without
- *    specific prior written permission.
- *
- *THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- *AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- *IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- *ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
- *BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- *CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- *SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- *INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- *CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- *ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
- *THE POSSIBILITY OF SUCH DAMAGE.
- */
+// Copyright (c) 2020, Tencent Inc.
+// All rights reserved.
 #include "graph_processor.h"
 #include <stdlib.h>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -37,6 +12,7 @@
 #include "didagle/graph_processor_di.h"
 
 namespace didagle {
+
 typedef std::unordered_map<std::string, ProcessorCreator> CreatorTable;
 static CreatorTable* g_creator_table = nullptr;
 
@@ -48,23 +24,38 @@ CreatorTable& GetCreatorTable() {
   }
   return *g_creator_table;
 }
-DAGEventTracker* GraphDataContext::GetEventTracker() const {
-  if (_event_tracker) {
-    return _event_tracker.get();
-  }
-  if (_parent) {
-    return _parent->GetEventTracker();
-  }
-  return nullptr;
-}
+
 bool GraphDataContext::EnableEventTracker() {
   if (!_event_tracker) {
     _event_tracker.reset(new DAGEventTracker);
   }
   return true;
 }
+
+void GraphDataContext::SetArena(google::protobuf::Arena* arena) {
+  arena_ = arena;
+  own_arena_.reset();
+}
+void GraphDataContext::SetArena(std::unique_ptr<google::protobuf::Arena>&& arena) {
+  own_arena_ = std::move(arena);
+  arena_ = own_arena_.get();
+}
+google::protobuf::Arena* GraphDataContext::GetArena() const {
+  if (arena_) {
+    return arena_;
+  }
+  if (_parent) {
+    return _parent->GetArena();
+  }
+  return nullptr;
+}
+
 void GraphDataContext::Reset() {
-  _data_table.clear();
+  //_data_table.clear();
+  for (auto data : _data_array) {
+    data->Reset();
+  }
+  _event_tracker.reset();
   // _parent.reset();
   _parent = nullptr;
   for (size_t i = 0; i < _executed_childrens.size(); i++) {
@@ -77,7 +68,7 @@ DataValue* GraphDataContext::GetValue(const DIObjectKeyView& key, GraphDataGetOp
                                       ExcludeGraphDataContextSet* excludes) {
   auto found = _data_table.find(key);
   if (found != _data_table.end()) {
-    return &(found->second);
+    return found->second.get();
   }
   std::unique_ptr<ExcludeGraphDataContextSet> empty_execludes = std::make_unique<ExcludeGraphDataContextSet>();
   ExcludeGraphDataContextSet* new_excludes = excludes;
@@ -137,25 +128,36 @@ void GraphDataContext::SetChild(const GraphDataContext* c, size_t idx) {
   }
   _executed_childrens[idx] = c;
 }
-void GraphDataContext::RegisterData(const DIObjectKey& id) {
-  DataValue dv;
-  dv.name.reset(new std::string(id.name));
-  DIObjectKeyView key = {*dv.name, id.id};
+uint32_t GraphDataContext::RegisterData(const DIObjectKey& id) {
+  auto dv = std::make_unique<DataValue>();
+  dv->name.reset(new std::string(id.name));
+  DIObjectKeyView key = {*dv->name, id.id};
   auto found = _data_table.find(key);
   if (found == _data_table.end()) {
-    _data_table[key] = dv;
+    uint32_t idx = _data_array.size();
+    dv->_idx = idx;
+    _data_array.emplace_back(dv.get());
+    _data_table[key] = std::move(dv);
+    return idx;
+  } else {
+    return found->second->_idx;
   }
 }
 ProcessorFactory g_processor_factory;
 Processor::~Processor() {}
 int Processor::Setup(const Params& args) { return OnSetup(args); }
+int Processor::Prepare(const Params& args) {
+  for (auto& prepare : _prepare_funcs) {
+    prepare();
+  }
+  return OnPrepare(args);
+}
 void Processor::Reset() {
-  // _data_ctx.reset();
-  _data_ctx = nullptr;
   OnReset();
   for (auto& reset : _reset_funcs) {
     reset();
   }
+  _data_ctx = nullptr;
 }
 int Processor::Execute(const Params& args) {
   for (auto& f : _params_settings) {
@@ -173,11 +175,18 @@ ispine::Awaitable<int> Processor::CoroExecute(const Params& args) {
 }
 #endif
 
-void Processor::AsyncExecute(const Params& args, DoneClosure&& done) {
+folly::Future<int> Processor::FutureExecute(const Params& args) {
   for (auto& f : _params_settings) {
     f(args);
   }
-  OnAsyncExecute(args, std::move(done));
+  return OnFutureExecute(args);
+}
+
+ispine::AdaptiveWait<int> Processor::AExecute(const Params& args) {
+  for (auto& f : _params_settings) {
+    f(args);
+  }
+  co_return co_await OnAExecute(args);
 }
 
 size_t Processor::RegisterParam(const std::string& name, const std::string& type, const std::string& deafult_value,
@@ -196,30 +205,31 @@ size_t Processor::AddResetFunc(ResetFunc&& f) {
   _reset_funcs.emplace_back(f);
   return _reset_funcs.size();
 }
-int Processor::InjectInputField(GraphDataContext& ctx, const std::string& field_name, const std::string_view& data_name,
-                                bool move) {
-  auto found = _field_inject_table.find(field_name);
-  if (found == _field_inject_table.end()) {
-    DIDAGLE_DEBUG("[{}]InjectInputField field:{} not found", Name(), field_name);
-    return -1;
-  }
-  int rc = found->second(ctx, data_name, move);
-  // DIDAGLE_DEBUG("[{}]InjectInputField field:{}, id:{}, rc:{}", Name(),
-  // field_name, data_name, rc);
-  return rc;
+size_t Processor::AddPrepareFunc(PrepareFunc&& f) {
+  _prepare_funcs.emplace_back(f);
+  return _prepare_funcs.size();
 }
-int Processor::EmitOutputField(GraphDataContext& ctx, const std::string& field_name,
-                               const std::string_view& data_name) {
-  auto found = _field_emit_table.find(field_name);
-  if (found == _field_emit_table.end()) {
-    DIDAGLE_DEBUG("[{}]EmitOutputField field:{} not found", Name(), field_name);
-    return -1;
-  }
-  int rc = found->second(ctx, data_name);
-  // DIDAGLE_DEBUG("[{}]EmitOutputField field:{}, id:{}, rc:{}", Name(),
-  // field_name, data_name, rc);
-  return rc;
-}
+// int Processor::InjectInputField(GraphDataContext& ctx, const std::string& field_name, const std::string_view&
+// data_name,
+//                                 bool move) {
+//   auto found = _field_inject_table.find(field_name);
+//   if (found == _field_inject_table.end()) {
+//     DIDAGLE_DEBUG("[{}]InjectInputField field:{} not found", Name(), field_name);
+//     return -1;
+//   }
+//   int rc = found->second(ctx, data_name, move);
+//   return rc;
+// }
+// int Processor::EmitOutputField(GraphDataContext& ctx, const std::string& field_name,
+//                                const std::string_view& data_name) {
+//   auto found = _field_emit_table.find(field_name);
+//   if (found == _field_emit_table.end()) {
+//     DIDAGLE_DEBUG("[{}]EmitOutputField field:{} not found", Name(), field_name);
+//     return -1;
+//   }
+//   int rc = found->second(ctx, data_name);
+//   return rc;
+// }
 
 void ProcessorFactory::Register(std::string_view name, const ProcessorCreator& creator) {
   std::string name_str(name.data(), name.size());

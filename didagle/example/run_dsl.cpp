@@ -10,12 +10,16 @@
 #include "boost/asio/thread_pool.hpp"
 #include "folly/Singleton.h"
 #include "folly/synchronization/HazptrThreadPoolExecutor.h"
+#include "folly/synchronization/Latch.h"
 
 #include "didagle/didagle_background.h"
 #include "didagle/didagle_log.h"
 #include "didagle/graph.h"
 #include "didagle/graph_processor.h"
 #include "expr.h"
+
+DEFINE_bool(reuse_didagle_proto_object, false, "reuse didagle proto objects");
+
 using namespace didagle;
 static std::string get_basename(const std::string& filename) {
 #if defined(_WIN32)
@@ -39,12 +43,10 @@ int main(int argc, char** argv) {
   boost::asio::thread_pool pool(8);
   GraphExecuteOptions exec_opt;
   exec_opt.concurrent_executor = [&pool](AnyClosure&& r) {
-    // boost::asio::post(pool, r);
-    r();
+    boost::asio::post(pool, r);
+    // r();
   };
-  exec_opt.event_reporter = [](DAGEvent event) {
-
-  };
+  exec_opt.event_reporter = [](DAGEvent event) {};
   {
     GraphManager graphs(exec_opt);
     std::string config = "./graph.toml";
@@ -55,7 +57,7 @@ int main(int argc, char** argv) {
     if (argc > 2) {
       graph = argv[2];
     }
-    std::string png_file = config + ".png";
+    // std::string png_file = config + ".png";
     auto cluster = graphs.Load(config);
     if (!cluster) {
       printf("Failed to parse toml\n");
@@ -73,15 +75,8 @@ int main(int argc, char** argv) {
     paras["myid0"].SetString("output");
     paras["expid"].SetInt(1000);
     paras["EXP"]["field1"].SetInt(1221);
-    // graphs.Load(config);
-    // boost::asio::post(pool, [&] {
-    //   GraphDataContextPtr root1(new GraphDataContext);
-    //   graphs.Execute(root1, cluster_name, graph, &paras,
-    //                  [](int c) { DIDAGLE_ERROR("Graph done with {}", c); });
-    // });
-    // sleep(2);
-    // graphs.Load(config);
-    GraphDataContextPtr root(new GraphDataContext);
+
+    auto root = GraphDataContext::New();
 
     // set extern data value for dsl
     int v = 101;
@@ -104,7 +99,15 @@ int main(int argc, char** argv) {
       std::unique_ptr<std::string> uuu(new std::string("hello, unique!"));
       root->Set("ustr", &uuu);
     }
-    graphs.Execute(root, cluster_name, graph, &paras, [](int c) { DIDAGLE_ERROR("Graph done with {}", c); });
+    int test_count = 100;
+    for (int i = 0; i < test_count; i++) {
+      folly::Latch latch(1);
+      graphs.Execute(root, cluster_name, graph, &paras, [&](int c) {
+        DIDAGLE_ERROR("Graph done with {}", c);
+        latch.count_down();
+      });
+      latch.wait();
+    }
 
     // for (int i = 0; i < 1; i++) {
     //   graphs.Execute(root, cluster_name, graph, &paras,
@@ -112,7 +115,6 @@ int main(int argc, char** argv) {
     //   sleep(1);
     // }
   }
-  printf("###Graph Close\n");
   pool.join();
 
   sleep(5);

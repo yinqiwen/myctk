@@ -51,3 +51,15 @@ cc_binary(
         "@com_github_google_benchmark//:benchmark",
     ],
 )
+
+cc_binary(
+    name = "test_dsl",
+    srcs = [
+        "test_dsl.cpp",
+        "test_dsl_processors.cpp",
+    ],
+    linkopts = LINKOPTS,
+    deps = [
+        "//didagle:didagle_core",
+    ],
+)

@@ -1,5 +1,5 @@
 /*
- *Copyright (c) 2021, qiyingwang <qiyingwang@tencent.com>
+ *Copyright (c) 2022, qiyingwang <qiyingwang@tencent.com>
  *All rights reserved.
  *
  *Redistribution and use in source and binary forms, with or without
@@ -26,22 +26,6 @@
  *ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  *THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "didagle/didagle_event.h"
-#include <array>
-namespace didagle {
-template <size_t N>
-static constexpr std::string_view sv(const char (&literal)[N]) {
-  return std::string_view(literal, N - 1);
-}
+#include "didagle/di_reset.h"
 
-template <size_t... N>
-static constexpr std::array<std::string_view, sizeof...(N)> sva(const char (&... literals)[N]) {
-  return {{sv(literals)...}};
-}
-
-constexpr auto kPhases =
-    sva("unknown", "concurrency_sched", "prepare_execute", "post_execute", "graph_reset", "graph_prepare_execute");
-
-std::string_view get_dag_phase_name(PhaseType phase) { return kPhases[static_cast<int>(phase)]; }
-
-}  // namespace didagle
+// DEFINE_bool(didagle_reuse_proto_obj, false, "Reuse protobuf objs for didagle.");

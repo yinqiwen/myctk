@@ -1,5 +1,5 @@
 /*
- *Copyright (c) 2021, yinqiwen <yinqiwen@gmail.com>
+ *Copyright (c) 2021, qiyingwang <qiyingwang@tencent.com>
  *All rights reserved.
  *
  *Redistribution and use in source and binary forms, with or without
@@ -44,7 +44,7 @@ void Logger::SetLogger(std::shared_ptr<Logger> logger) { g_logger = logger; }
 Spdlogger::Spdlogger() {
   auto logger = spdlog::default_logger_raw();
   if (nullptr != logger) {
-    logger->set_level(spdlog::level::debug);
+    // logger->set_level(spdlog::level::debug);
   }
 }
 bool Spdlogger::ShouldLog(spdlog::level::level_enum log_level) {
