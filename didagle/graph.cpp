@@ -376,7 +376,6 @@ std::shared_ptr<GraphCluster> GraphManager::Load(const std::string& file) {
   return g;
 }
 std::shared_ptr<GraphCluster> GraphManager::FindGraphClusterByName(const std::string& name) {
-  // std::shared_ptr<GraphCluster> ret;
   std::lock_guard<std::mutex> guard(_graphs_mutex);
   auto found = _graphs.find(name);
   if (found != _graphs.end()) {

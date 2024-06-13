@@ -143,16 +143,7 @@ void VertexContext::Reset() {
   _exec_params = nullptr;
   _exec_mathced_cond = "";
 }
-uint32_t VertexContext::SetDependencyResult(int idx, VertexResult r) {
-  // int idx = _vertex->GetDependencyIndex(v);
-  VertexResult last_result_val = _deps_results[idx];
-  _deps_results[idx] = r;
-  if (last_result_val == V_RESULT_INVALID) {
-    return _waiting_num.fetch_sub(1);
-  } else {
-    return _waiting_num.load();
-  }
-}
+
 VertexContext::VertexContext() { _waiting_num = 0; }
 
 void VertexContext::SetupSuccessors() {
@@ -169,7 +160,6 @@ void VertexContext::SetupSuccessors() {
   }
 }
 
-bool VertexContext::Ready() { return 0 == _waiting_num.load(); }
 void VertexContext::FinishVertexProcess(int code) {
   _code = (VertexErrCode)code;
   DAGEventTracker* tracker = _graph_ctx->GetGraphDataContextRef().GetEventTracker();
@@ -503,6 +493,14 @@ int GraphContext::Setup(GraphClusterContext* c, Graph* g) {
       }
     }
   }
+
+  for (auto& pair : _vertex_context_table) {
+    std::shared_ptr<VertexContext>& ctx = pair.second;
+    if (ctx->Ready()) {
+      _start_ctxs.emplace_back(ctx.get());
+    }
+  }
+
   Reset();
   return 0;
 }
@@ -558,7 +556,7 @@ void GraphContext::ExecuteReadyVertexs(std::vector<VertexContext*>& ready_vertex
       VertexContext* next = ctx;
       exec_opts.concurrent_executor([tracker, next, sched_start_ustime]() {
         if (nullptr != tracker) {
-          std::unique_ptr<DAGEvent> event(new DAGEvent);
+          auto event = std::make_unique<DAGEvent>();
           event->start_ustime = sched_start_ustime;
           event->end_ustime = ustime();
           event->phase = PhaseType::DAG_PHASE_CONCURRENT_SCHED;
@@ -627,26 +625,31 @@ int GraphContext::Execute(DoneClosure&& done) {
   //     _data_ctx->RegisterData(id);
   //   }
   // }
-  std::vector<VertexContext*> ready_successors;
-  for (auto& pair : _vertex_context_table) {
-    std::shared_ptr<VertexContext>& ctx = pair.second;
-    if (ctx->Ready()) {
-      ready_successors.emplace_back(ctx.get());
-    }
-  }
-  ExecuteReadyVertexs(ready_successors);
+  // std::vector<VertexContext*> ready_successors;
+  // for (auto& pair : _vertex_context_table) {
+  //   std::shared_ptr<VertexContext>& ctx = pair.second;
+  //   if (ctx->Ready()) {
+  //     ready_successors.emplace_back(ctx.get());
+  //   }
+  // }
+  ExecuteReadyVertexs(_start_ctxs);
   return 0;
 }
 GraphContext* GraphClusterContext::GetRunGraph(const std::string& name) {
   if (nullptr != _running_graph) {
     return _running_graph;
   }
-  auto found = _graph_context_table.find(name);
-  if (found == _graph_context_table.end()) {
-    DIDAGLE_ERROR("No graph:{} found in cluster:{}", name, _cluster->_name);
-    return nullptr;
+  if (nullptr != _last_runnin_graph && _last_runnin_graph->GetGraph()->name == name) {
+    _running_graph = _last_runnin_graph;
+  } else {
+    auto found = _graph_context_table.find(name);
+    if (found == _graph_context_table.end()) {
+      DIDAGLE_ERROR("No graph:{} found in cluster:{}", name, _cluster->_name);
+      return nullptr;
+    }
+    _running_graph = found->second.get();
+    _last_runnin_graph = _running_graph;
   }
-  _running_graph = found->second.get();
   _running_graph->SetGraphDataContext(_extern_data_ctx);
   return _running_graph;
 }
@@ -738,7 +741,7 @@ int GraphClusterContext::Execute(const std::string& graph, DoneClosure&& done, G
   data_ctx.DisableEntryCreation();
   DAGEventTracker* tracker = data_ctx.GetEventTracker();
   if (nullptr != tracker) {
-    std::unique_ptr<DAGEvent> event(new DAGEvent);
+    auto event = std::make_unique<DAGEvent>();
     event->start_ustime = start_exec_ustime;
     event->end_ustime = ustime();
     event->phase = PhaseType::DAG_GRAPH_GRAPH_PREPARE_EXECUTE;

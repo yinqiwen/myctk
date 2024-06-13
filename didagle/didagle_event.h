@@ -31,14 +31,14 @@
 #include <stdint.h>
 
 #include <atomic>
+#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#include "folly/FBVector.h"
+#include "folly/AtomicIntrusiveLinkedList.h"
 
-// #include "concurrentqueue.h"
 namespace didagle {
 enum class PhaseType {
   DAG_PHASE_UNKNOWN = 0,
@@ -60,27 +60,24 @@ struct DAGEvent {
   uint64_t start_ustime = 0;
   uint64_t end_ustime = 0;
   int rc = -1;
+
+  folly::AtomicIntrusiveLinkedListHook<DAGEvent> _hook;
+  using List = folly::AtomicIntrusiveLinkedList<DAGEvent, &DAGEvent::_hook>;
 };
 
 struct DAGEventTracker {
-  // moodycamel::ConcurrentQueue<std::unique_ptr<DAGEvent>> events;
-  folly::fbvector<std::unique_ptr<DAGEvent>> events;
-  std::atomic<uint32_t> cursor;
-  DAGEventTracker(size_t cap = 2048) {
-    events.resize(cap);
-    cursor.store(0);
+  using SweepFunc = std::function<void(const DAGEvent*)>;
+  DAGEvent::List events;
+  DAGEventTracker() {}
+  void Add(std::unique_ptr<DAGEvent>&& event) { events.insertHead(event.release()); }
+  void Sweep(SweepFunc&& f) {
+    events.sweep([f = std::move(f)](DAGEvent* event) {
+      f(event);
+      delete event;
+    });
   }
-  void Add(std::unique_ptr<DAGEvent>&& event) {
-    uint32_t idx = cursor.fetch_add(1);
-    if (idx < events.size()) {
-      events[idx] = std::move(event);
-    }
-  }
-  void Freeze() {
-    uint32_t idx = cursor.load();
-    if (idx < events.size()) {
-      events.resize(idx);
-    }
+  ~DAGEventTracker() {
+    events.sweep([](DAGEvent* event) { delete event; });
   }
 };
 

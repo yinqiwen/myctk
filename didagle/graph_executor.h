@@ -81,8 +81,17 @@ class VertexContext {
   void FinishVertexProcess(int code);
   int ExecuteProcessor();
   int ExecuteSubGraph();
-  uint32_t SetDependencyResult(int idx, VertexResult r);
-  bool Ready();
+  inline uint32_t SetDependencyResult(int idx, VertexResult r) {
+    // int idx = _vertex->GetDependencyIndex(v);
+    VertexResult last_result_val = _deps_results[idx];
+    _deps_results[idx] = r;
+    if (last_result_val == V_RESULT_INVALID) {
+      return _waiting_num.fetch_sub(1);
+    } else {
+      return _waiting_num.load();
+    }
+  }
+  inline bool Ready() { return 0 == _waiting_num.load(); }
   int Setup(GraphContext* g, Vertex* v);
   void Reset();
   int Execute();
@@ -100,16 +109,16 @@ class GraphContext {
   GraphDataContextPtr _data_ctx;
   DoneClosure _done;
   std::vector<uint8_t> _config_setting_result;
-  // std::set<DIObjectKey> _all_input_ids;
-  // std::set<DIObjectKey> _all_output_ids;
   size_t _children_count;
+
+  std::vector<VertexContext*> _start_ctxs;
 
  public:
   GraphContext();
 
-  Graph* GetGraph() { return _graph; }
+  inline Graph* GetGraph() { return _graph; }
   GraphCluster* GetGraphCluster();
-  GraphClusterContext* GetGraphClusterContext() { return _cluster; }
+  inline GraphClusterContext* GetGraphClusterContext() { return _cluster; }
 
   VertexContext* FindVertexContext(Vertex* v);
   void OnVertexDone(VertexContext* vertex);
@@ -134,9 +143,10 @@ class GraphClusterContext {
   const Params* _exec_params = nullptr;
   std::shared_ptr<GraphCluster> _running_cluster;
   GraphContext* _running_graph = nullptr;
+  GraphContext* _last_runnin_graph = nullptr;
   GraphCluster* _cluster = nullptr;
   std::vector<ConfigSettingContext> _config_settings;
-  std::unordered_map<std::string, std::shared_ptr<GraphContext>> _graph_context_table;
+  folly::F14FastMap<std::string, std::shared_ptr<GraphContext>> _graph_context_table;
   DoneClosure _done;
   GraphDataContext* _extern_data_ctx = nullptr;
   uint64_t _end_ustime = 0;

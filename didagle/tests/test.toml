@@ -1,7 +1,5 @@
 name = "Example1"
-strict_dsl = false
-default_expr_processor = "expr_phase"
-
+strict_dsl = true
 
 [[graph]]
 name = "test"

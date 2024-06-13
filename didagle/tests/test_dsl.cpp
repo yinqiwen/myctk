@@ -131,12 +131,7 @@ int main(int argc, char** argv) {
         graph_run_us += (gettimeofday_us() - exec_start_us);
 
         auto event_tracker = root->GetEventTracker();
-        // event_tracker->Freeze();
-        std::unique_ptr<didagle::DAGEvent> event;
-        for (auto& event : event_tracker->events) {
-          if (!event) {
-            continue;
-          }
+        event_tracker->Sweep([&](const DAGEvent* event) {
           if (!event->processor.empty()) {
             proc_run_total_us += (event->end_ustime - event->start_ustime);
           } else {
@@ -162,7 +157,8 @@ int main(int argc, char** argv) {
               }
             }
           }
-        }
+        });
+
         root->Reset();
         latch.count_down();
       });

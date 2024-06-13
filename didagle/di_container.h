@@ -89,10 +89,6 @@ struct DIObjectKey {
 struct DIObjectKeyView {
   std::string_view name;
   uint32_t id = 0;
-  template <typename H>
-  friend H AbslHashValue(H h, const DIObjectKeyView& c) {
-    return H::combine(std::move(h), c.name, c.id);
-  }
 };
 struct DIObjectKeyViewHash {
   size_t operator()(const DIObjectKeyView& id) const noexcept {

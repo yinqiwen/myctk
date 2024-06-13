@@ -83,7 +83,7 @@ struct Vertex {
   std::vector<GraphData> input;
   std::vector<GraphData> output;
 
-  bool ignore_processor_execute_error = false;
+  bool ignore_processor_execute_error = true;
 
   std::unordered_set<Vertex*> _successor_vertex;
   std::vector<VertexResult> _deps_expected_results;
@@ -97,9 +97,8 @@ struct Vertex {
                                   {"while_cluster", "while"}, {"while_async", "async"}))
 
   KCFG_TOML_DEFINE_FIELDS(id, processor, args, cond, expect, expect_deps, expect_config, is_start, select_args, cluster,
-                          graph, while_cluster, while_async, successor, successor_on_ok, successor_on_err,
-                          consequent, alternative, deps, deps_on_ok, deps_on_err, input, output,
-                          ignore_processor_execute_error)
+                          graph, while_cluster, while_async, successor, successor_on_ok, successor_on_err, consequent,
+                          alternative, deps, deps_on_ok, deps_on_err, input, output, ignore_processor_execute_error)
   Vertex();
   bool IsCondVertex() const;
   void MergeSuccessor();

@@ -204,8 +204,7 @@ class GraphDataContext {
         }
       }
     }
-
-    std::unique_ptr<ExcludeGraphDataContextSet> empty_execludes(new ExcludeGraphDataContextSet);
+    auto empty_execludes = std::make_unique<ExcludeGraphDataContextSet>();
     ExcludeGraphDataContextSet* new_excludes = excludes;
     if (nullptr == new_excludes) {
       new_excludes = empty_execludes.get();
@@ -265,7 +264,7 @@ class GraphDataContext {
         }
       }
     }
-    std::unique_ptr<ExcludeGraphDataContextSet> empty_execludes(new ExcludeGraphDataContextSet);
+    auto empty_execludes = std::make_unique<ExcludeGraphDataContextSet>();
     ExcludeGraphDataContextSet* new_excludes = excludes;
     if (nullptr == new_excludes) {
       new_excludes = empty_execludes.get();

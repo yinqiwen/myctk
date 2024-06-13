@@ -27,7 +27,7 @@ CreatorTable& GetCreatorTable() {
 
 bool GraphDataContext::EnableEventTracker() {
   if (!_event_tracker) {
-    _event_tracker.reset(new DAGEventTracker);
+    _event_tracker = std::make_unique<DAGEventTracker>();
   }
   return true;
 }
@@ -130,7 +130,7 @@ void GraphDataContext::SetChild(const GraphDataContext* c, size_t idx) {
 }
 uint32_t GraphDataContext::RegisterData(const DIObjectKey& id) {
   auto dv = std::make_unique<DataValue>();
-  dv->name.reset(new std::string(id.name));
+  dv->name = std::make_shared<std::string>(id.name);
   DIObjectKeyView key = {*dv->name, id.id};
   auto found = _data_table.find(key);
   if (found == _data_table.end()) {
